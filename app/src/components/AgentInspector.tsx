@@ -5,6 +5,7 @@ import { PROV, type ProviderId } from '../lib/providers';
 import { useStore } from '../store';
 
 const DOCTRINE: Record<AgentId, { stage: string; action: string }> = {
+  copilot: { stage: 'Code Review · Suggestions', action: 'Explains supplied code and suggests focused improvements' },
   gemini: { stage: 'First Check · Target Recon', action: 'Inspects requirements, context, and documents' },
   muse: { stage: 'Second Check · Threat Audit', action: 'Audits for gaps, hidden risks, and missing evidence' },
   chatgpt: {
@@ -92,14 +93,14 @@ export default function AgentInspector({ id, onClose }: { id?: AgentId; onClose?
             <span className="lbl">Status & Model</span>
             <div className="row">
               {isInactive ? (
-                <span className="badge-nocredit">No Credits / Inactive</span>
+                <span className="badge-nocredit">Role disabled</span>
               ) : (
-                <span className="badge-active">● Active in Pipeline</span>
+                <span className="badge-active">● Role enabled</span>
               )}
             </div>
             <small>
               {prov && directKey
-                ? `Direct ${PROV[prov].label} Key Connected`
+                ? `${PROV[prov].label} API key configured`
                 : activeFallback
                   ? `Powered via ${PROV[live.provider].label} fallback`
                   : 'Needs API key in Admin'}
@@ -108,6 +109,11 @@ export default function AgentInspector({ id, onClose }: { id?: AgentId; onClose?
         </div>
 
         <div className="ai-section">
+          <p className="desc">
+            Tool roster and model roles. This page does not connect to the installed apps or change their projects. Grok
+            Bot is the coordinating role. Copilot is available for huddles; the default task chain keeps its nine-call
+            limit.
+          </p>
           <span className="lbl">Specialty</span>
           <p className="ai-specialty">{a.specialty}</p>
         </div>
@@ -174,7 +180,7 @@ export default function AgentInspector({ id, onClose }: { id?: AgentId; onClose?
             + Task for {a.name}
           </button>
           <button type="button" className={isInactive ? 'primary' : 'danger'} onClick={() => toggleBotActive(botId)}>
-            {isInactive ? 'Enable Bot' : 'Mark No Credits'}
+            {isInactive ? 'Enable role' : 'Disable role'}
           </button>
         </footer>
       </div>

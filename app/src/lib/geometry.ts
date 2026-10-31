@@ -199,7 +199,8 @@ export const stationKey = (id: string) => (id === 'owner' || id === 'brain' || i
 export function station(id: string): P3 | null {
   const k = stationKey(id);
   if (k === 'hub') return [HUB.x, HUB.y, 0];
-  const s = OUTLINE.stations[k];
+  // Copilot's designed station stays separate from Cursor without changing MRI outline data.
+  const s = k === 'copilot' ? { x: 390, y: 170, side: -1 } : OUTLINE.stations[k];
   if (!s) return null;
   return [s.x, s.y, s.side * (fissure(s.x, s.y) + halfWidth(s.x, s.y) * 0.3)];
 }

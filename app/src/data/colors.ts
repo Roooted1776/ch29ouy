@@ -17,6 +17,7 @@ export const AGENT_COLOR = {
   xcode: '#60a5fa',
   gemini: '#a78bfa',
   cursor: '#94a3b8',
+  copilot: '#fb923c',
   chatgpt: '#34d399',
   perplexity: '#22d3ee',
   muse: '#f472b6',

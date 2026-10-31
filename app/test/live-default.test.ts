@@ -52,4 +52,25 @@ describe('Live AI default', () => {
     expect(useStore.getState().live.on).toBe(true);
     delete (globalThis as any).localStorage;
   });
+  it('moves a retired provider setting to a supported default without sending a request', async () => {
+    const d = new Map<string, string>([
+      ['brain.live.v1', JSON.stringify({ provider: 'freebuff', models: { freebuff: 'old-model' } })],
+    ]);
+    (globalThis as any).localStorage = {
+      getItem: (k: string) => d.get(k) ?? null,
+      setItem: (k: string, v: string) => void d.set(k, v),
+      removeItem: (k: string) => void d.delete(k),
+    };
+    const fetchSpy = vi.fn();
+    (globalThis as any).fetch = fetchSpy;
+    vi.resetModules();
+    const { useStore } = await import('../src/store');
+    const state = useStore.getState();
+    expect(state.live.provider).toBe('openai');
+    expect(state.live.models).not.toHaveProperty('freebuff');
+    expect(state.live.callCap).toBe(9);
+    expect(state.keys).not.toHaveProperty('freebuff');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    delete (globalThis as any).localStorage;
+  });
 });

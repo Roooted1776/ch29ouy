@@ -5,6 +5,7 @@ import {
   ensureProjectNode,
   findMostWorkedNode,
   loadMem,
+  mkEntry,
   sanitizeMem,
   saveImportedListAsTask,
   saveMem,
@@ -26,6 +27,65 @@ const store = () => {
 };
 
 describe('memory storage', () => {
+  it('keeps historical replies after a provider retires and retains the new Copilot speaker', () => {
+    const m = blankMem();
+    const s = session();
+    s.msgs = [
+      { from: 'copilot', text: 'Recorded historical review.', tag: 'live · Freebuff (free) · glm-4.6 · unverified' },
+    ];
+    m.sessions.push(s);
+    const back = sanitizeMem(JSON.parse(JSON.stringify(m)))!;
+    expect(back.sessions).toHaveLength(1);
+    expect(back.sessions[0].msgs).toEqual(s.msgs);
+  });
+
+  it('preserves explicit project attribution and source paths on constructed memory', () => {
+    const m = blankMem();
+    const source = { kind: 'tool' as const, label: 'Read-only project sync', ref: 'file:///Projects/Alpha/README.md' };
+    const e = mkEntry(
+      m,
+      {
+        key: 'note:alpha',
+        type: 'concept',
+        title: 'Alpha build',
+        note: 'Ready.',
+        manual: true,
+        project: 'Alpha',
+        sources: [source],
+      },
+      1000,
+    );
+    m.entries.push(e);
+    const back = sanitizeMem(JSON.parse(JSON.stringify(m)))!;
+    expect(back.entries[0].project).toBe('Alpha');
+    expect(back.entries[0].sources).toEqual([source]);
+  });
+
+  it('recovers older long file imports and their project instead of discarding them', () => {
+    const m = blankMem();
+    const project = ensureProjectNode(m, 'Alpha', undefined, 1000);
+    const note = 'Stored evidence. '.repeat(65);
+    const e = mkEntry(
+      m,
+      {
+        key: 'import:concept:legacy report',
+        type: 'concept',
+        title: 'Legacy report',
+        note,
+        manual: true,
+      },
+      1000,
+    );
+    e.links.push(project.id);
+    m.entries.push(e);
+    const back = sanitizeMem(JSON.parse(JSON.stringify(m)))!;
+    const pages = back.entries.filter(x => x.key.startsWith('import:'));
+    expect(pages).toHaveLength(2);
+    expect(pages.map(x => x.note).join('')).toBe(note);
+    expect(pages.every(x => x.project === 'Alpha')).toBe(true);
+    expect(sanitizeMem(JSON.parse(JSON.stringify(back)))!.entries).toHaveLength(back.entries.length);
+  });
+
   it('round-trips through brain.mem.v2', () => {
     const m = blankMem(),
       s = session();

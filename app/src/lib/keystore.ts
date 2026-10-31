@@ -1,7 +1,7 @@
 // AI provider keys an admin chose to remember, and the GitHub token. They stay on this device only, sealed
 // (AES-256-GCM) with a key made from that admin's passcode at sign-in. They are never sent to Brain's database
 // and never go into the shared vault.
-import type { ProviderId } from './providers';
+import { PROVIDERS, type ProviderId } from './providers';
 
 export const KEYS_KEY = 'brain.keys.v1';
 /** The GitHub token is kept as one more entry next to the provider keys. */
@@ -32,7 +32,9 @@ const write = (s: Store, all: Record<string, Sealed>) => {
 const clean = (d: unknown): Keys => {
   const out: Keys = {};
   if (d && typeof d === 'object')
-    for (const [p, k] of Object.entries(d)) if (typeof k === 'string' && k) out[p as keyof Keys] = k.slice(0, 300);
+    for (const [p, k] of Object.entries(d))
+      if ((p === GITHUB_ENTRY || PROVIDERS.includes(p as ProviderId)) && typeof k === 'string' && k)
+        out[p as keyof Keys] = k.slice(0, 300);
   return out;
 };
 

@@ -25,7 +25,7 @@ Every bot, agent, and tool on this team must follow this exact 5-step workflow o
 
 ## Hard rule: RedMed stays untouched
 
-Owner also has a separate project called RedMed. **Do not read, copy from, change, branch, or open pull requests on RedMed from this repo or this work.** Nothing from RedMed goes into Brain, including text, file names, skills lists or sample data. If a task seems to need RedMed, stop and ask Owner.
+Owner update, 2026-10-31: Brain may read approved project status, documentation and handoff notes from all projects, including RedMed, into its private persistent memory. Source access is strictly read-only: no edits, builds, commits, pushes, deployments or messages on behalf of a source project. Never ingest credentials, wearer/medical records, raw band fragments or `redmed_owner` data. This replaces the earlier blanket prohibition on reading RedMed project metadata. Separate product work still requires an explicit Owner task.
 
 ## Who does what (Owner's chart)
 

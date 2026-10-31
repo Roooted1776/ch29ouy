@@ -1,6 +1,20 @@
 // Owner's team. Roles come from Owner's chart. Specialties are Owner's assignments, not claims about the products.
+/** Owner's standing startup rule, included in every Brain-authored tool role prompt. */
+export const HANDOFF_RULE =
+  'On every opening or invocation, read the incoming and latest handoff before acting. Inspect the current state, respect your assigned lane and read-only source projects, finish the scoped task, verify the result, and leave a short handoff naming changes, files, checks and blockers. The next tool must review that handoff before acting. Never invent work or another tool approval. Grok Bot records the final team PASS or FAIL after actual verification. Follow the requested response schema exactly; add no extra handoff prose to JSON-only outputs.';
+
 export type Kind = 'lead' | 'hub' | 'collab' | 'audit';
-export type AgentId = 'grok' | 'grokbot' | 'claude' | 'cursor' | 'gemini' | 'chatgpt' | 'perplexity' | 'xcode' | 'muse';
+export type AgentId =
+  | 'grok'
+  | 'grokbot'
+  | 'claude'
+  | 'cursor'
+  | 'gemini'
+  | 'chatgpt'
+  | 'perplexity'
+  | 'xcode'
+  | 'muse'
+  | 'copilot';
 
 export interface Agent {
   id: AgentId;
@@ -21,7 +35,7 @@ export const AGENTS: Agent[] = [
   {
     id: 'grokbot',
     name: 'Grok Bot',
-    role: 'Team head · final call',
+    role: 'Coordination role · final call',
     kind: 'lead',
     x: 0.62,
     y: 0.1,
@@ -46,7 +60,7 @@ export const AGENTS: Agent[] = [
   },
   {
     id: 'claude',
-    name: 'Claude',
+    name: 'Claude Code',
     role: 'Reasoning · writing · build',
     kind: 'hub',
     x: 0.46,
@@ -89,14 +103,26 @@ export const AGENTS: Agent[] = [
     kind: 'collab',
     x: 0.16,
     y: 0.55,
-    specialty: 'Edits code in the repo and reviews changes',
-    skills: ['editing files', 'merging work', 'code review'],
+    specialty: 'Reviews supplied code and repository integration risks',
+    skills: ['code context', 'integration risks', 'code review'],
     company: 'Anysphere',
     free: 'groq',
   },
   {
+    id: 'copilot',
+    name: 'Copilot',
+    role: 'Code suggestions · review',
+    kind: 'collab',
+    x: 0.14,
+    y: 0.34,
+    specialty: 'Reviews supplied code and suggests focused improvements',
+    skills: ['code suggestions', 'code explanation', 'review'],
+    company: 'GitHub',
+    free: 'groq',
+  },
+  {
     id: 'chatgpt',
-    name: 'Codex',
+    name: 'ChatGPT',
     role: 'Tools · synthesis',
     kind: 'collab',
     x: 0.78,
@@ -110,12 +136,12 @@ export const AGENTS: Agent[] = [
   {
     id: 'perplexity',
     name: 'Perplexity',
-    role: 'Sources · citations',
+    role: 'Search · logic',
     kind: 'collab',
     x: 0.2,
     y: 0.8,
-    specialty: 'Checks sources and citations',
-    skills: ['source quality', 'citations', 'fact checking'],
+    specialty: 'Searches sources and checks reasoning using the available context',
+    skills: ['search', 'logic', 'source quality'],
     company: 'Perplexity',
     free: 'groq',
   },
@@ -148,12 +174,15 @@ export const TEAM_EDGES: [AgentId, AgentId][] = [
   ['muse', 'perplexity'],
   ['chatgpt', 'grokbot'],
   ['cursor', 'grokbot'],
+  ['muse', 'copilot'],
+  ['copilot', 'grokbot'],
   ['perplexity', 'chatgpt'],
   ['claude', 'xcode'],
   ['muse', 'claude'],
 ];
 
-/** The order of a live task: three checks, then the team lead. */
+/** The default review chain stays within the nine-call task cap.
+ * Copilot is represented in the roster and huddles; it is not another automatic provider call. */
 export const LIVE_ORDER: AgentId[] = [
   'gemini',
   'muse',
@@ -168,6 +197,8 @@ export const LIVE_ORDER: AgentId[] = [
 export const IOS_RE = /\b(ios|iphone|ipad|xcode|swift|app store)\b/i;
 
 const STAGE: Record<AgentId, string> = {
+  copilot:
+    'CODE REVIEW. Explain supplied code and suggest focused improvements as text. Never claim to run tools or change a project.',
   gemini:
     'FIRST CHECK. Read the request and any context. List the concrete requirements, limits and anything unclear that blocks the work.',
   muse: 'SECOND CHECK. Audit the incoming context and handoff on your own. Name gaps, contradictions, risks and missing evidence.',
@@ -186,6 +217,7 @@ const STAGE: Record<AgentId, string> = {
 };
 
 const TASK: Record<AgentId, string> = {
+  copilot: 'Review supplied code and explain useful improvements without changing files.',
   gemini: 'Pull out requirements, given context and open questions. Deliver a context check.',
   muse: 'Audit the incoming context and handoff for gaps, risks, contradictions and unsupported claims.',
   chatgpt: 'Deploy the concrete step of attack and ordered plan from the reviewed handoff.',
@@ -200,6 +232,7 @@ const TASK: Record<AgentId, string> = {
 
 /** Each bot's voice in the team chat (Owner wants banter, Oct 2026). */
 const VOICE: Record<AgentId, string> = {
+  copilot: 'a concise coding partner who explains suggestions plainly',
   grokbot: 'a dry, decisive captain who rates the team with one-liners',
   grok: 'a cheeky contrarian who loves poking holes',
   claude: 'thoughtful and warm, a little wordy, and happy to joke about it',
@@ -219,6 +252,7 @@ const VOICE: Record<AgentId, string> = {
 export type Tone = 'serious' | 'balanced' | 'casual';
 
 const TONE: Record<AgentId, Tone> = {
+  copilot: 'balanced',
   grokbot: 'serious', // a dry, decisive captain: clipped calls, no chatter
   grok: 'casual', // a cheeky contrarian: teasing is the register
   claude: 'balanced', // thoughtful and warm: happy to joke, still measured
@@ -254,14 +288,14 @@ const WEB_OFF = ' You cannot browse here: never claim to have searched.';
 export function systemPrompt(id: AgentId, web = false): string {
   const a = AGENT[id];
   return (
-    `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), one of nine agents on Owner's team. Your specialty: ${a.specialty}. ${STAGE[id]}` +
-    ` Your voice in the chat: ${VOICE[id]}. ${toneLine(id)} Banter with your teammates by name: tease, react, agree or push back, kindly and work-safe. Keep the jokes short and the work real.` +
+    `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), a role on Owner's tool roster. Your specialty: ${a.specialty}. ${STAGE[id]}` +
+    ` ${HANDOFF_RULE} Your voice in the chat: ${VOICE[id]}. ${toneLine(id)} Banter with your teammates by name: tease, react, agree or push back, kindly and work-safe. Keep the jokes short and the work real.` +
     (web ? WEB_ON : WEB_OFF) +
     ' We are all one team of people and bots. Never hide information out of emotion; complete your task fully and push it across the desk to the next teammate.' +
     " Follow Owner's pipeline: Collect --> Review --> Edit --> Review --> Pass to next --> Review." +
     ' Deploy the concrete step of attack: examine target, review incoming handoff, execute surgical edit, review output, and pass to next worker.' +
     ' LIVE CHAT RULE: The live chat is for passes, common interactions, and team chatter. DO NOT OUTPUT CODE BLOCKS (never use ``` or raw code dumps). Describe any logic or edits in plain conversational words.' +
-    ' You have no repo access here: never claim to read files, make changes or run tests. State blockers and uncertainty. Do not invent sources, results, keys or passwords.'
+    ' This is a role prompt using the selected API provider, not a connection to the named installed app. You have no repo access here: never claim to read files, make changes or run tests. State blockers and uncertainty. Do not invent sources, results, keys or passwords.'
   );
 }
 
@@ -283,8 +317,8 @@ export function huddleSystem(id: AgentId, role: HuddleRole): string {
         ? ' You led this huddle: close it with ONE line that collects what the team surfaced — the finding, any disagreement, and what it means for Owner. Add no new claims.'
         : ' You are answering in a team huddle led by Grok Bot: say what you actually know about the topic from the brief, what you would check next, and where you disagree with a teammate if you do. Substantive, not small talk.';
   return (
-    `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), one of nine agents on Owner's team. Your specialty: ${a.specialty}.` +
-    ` Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
+    `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), a role on Owner's tool roster. Your specialty: ${a.specialty}.` +
+    ` ${HANDOFF_RULE} Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
     job +
     ' One or two short sentences. No code blocks and no lists. Do not invent facts, sources or events beyond the brief, and make no work claims: do not say you did, checked or will do any task outside this chat.'
   );
@@ -297,7 +331,7 @@ export function huddlePrompt(
   lines: { from: AgentId; text: string }[],
 ): string {
   const room = lines.length ? lines.map(l => `${AGENT[l.from].name}: ${l.text}`).join('\n') : '(nothing said yet)';
-  const head = `TEAM HUDDLE TOPIC (from Brain's own records):\n${topic.text}\n\nHUDDLE SO FAR:\n${room}\n\n`;
+  const head = `${HANDOFF_RULE}\n\nTEAM HUDDLE TOPIC (from Brain's own records):\n${topic.text}\n\nHUDDLE SO FAR:\n${room}\n\n`;
   if (role === 'open')
     return (
       head +
@@ -329,7 +363,7 @@ export function stagePrompt(
       ? 'OWNER (FINAL SITUATION REPORT)'
       : 'GROK BOT';
   return (
-    `OWNER TASK:\n${task}\n\n` +
+    `${HANDOFF_RULE}\n\nOWNER TASK:\n${task}\n\n` +
     (brainContext ? `${brainContext}\n\n` : '') +
     `INCOMING HANDOFF FROM ${incomingFrom.toUpperCase()} (COLLECT & REVIEW FIRST):\n${incoming}\n\n` +
     (chatter ? `EARLIER IN THE TEAM CHAT (you may reply to anyone here):\n${chatter}\n\n` : '') +
