@@ -80,7 +80,7 @@ export async function signIn(name: string, passcode: string): Promise<{ user: Us
     .select('id, name, role')
     .eq('id', data.user.id)
     .maybeSingle();
-  if (pe || !p || (p.role !== 'admin' && p.role !== 'viewer')) {
+  if (pe || !p || p.role !== 'admin') {
     await signOut();
     throw new AuthError(
       pe ? `Brain could not read your account: ${why(pe)}` : 'This sign-in has no Brain account. Ask an admin.',

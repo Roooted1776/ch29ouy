@@ -8,7 +8,7 @@ vi.mock('../src/store', async () => {
   const { create } = await import('zustand');
   const { blankMem } = await import('../src/lib/memory');
   const useStore = create<{
-    role: 'admin' | 'viewer';
+    role: 'admin' | null;
     storageOk: boolean;
     mem: Mem;
     commit(fn?: (mem: Mem) => void): void;
@@ -110,9 +110,9 @@ describe('Owner-selected read-only project snapshot watcher', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('refuses a viewer without opening the picker, polling or committing memory', async () => {
+  it('refuses when no admin is signed in, without opening the picker, polling or committing memory', async () => {
     const picker = installPicker(vi.fn(async () => file(snapshot())));
-    useStore.setState({ role: 'viewer' });
+    useStore.setState({ role: null });
     render(<ProjectSnapshotWatcher />);
     expect(screen.getByRole('button', { name: 'Watch project notes' })).toHaveProperty('disabled', true);
     await choose();
@@ -170,7 +170,7 @@ describe('Owner-selected read-only project snapshot watcher', () => {
     installPicker(getFile);
     render(<ProjectSnapshotWatcher />);
     await choose();
-    await act(async () => useStore.setState({ role: 'viewer' }));
+    await act(async () => useStore.setState({ role: null }));
     await act(async () => resolveFile(file(snapshot())));
     await tick();
     expect(committed).not.toHaveBeenCalled();

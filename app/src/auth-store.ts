@@ -9,14 +9,12 @@ import {
   loadVault,
   saveVault,
   loadMemoryDatabase,
-  loadProjectMemory,
   resetMirror,
   syncMemoryDatabase,
   writeAudit,
 } from './lib/cloud';
 import { blankMem, sanitizeMem } from './lib/memory';
-import { archiveEmptyAndRetiredNodes, mergeProjectMirror } from './lib/project-sync';
-import { mirror, openChannel, publish, type Hub } from './lib/share';
+import { openChannel, publish, type Hub } from './lib/share';
 import { VaultError, decryptVault, encryptVault, newSecrets, openFor, sealFor, type Secrets } from './lib/vault';
 import { GITHUB_ENTRY, KEYS_KEY, type Keys, openKeys, sealKeys } from './lib/keystore';
 import { setKeySave, setVault, takePlainGithubToken, useStore } from './store';
@@ -65,7 +63,6 @@ let generation = 0;
  * tries again with a growing wait, and a 30 second check catches anything left over.
  */
 function startMirror() {
-  const epoch = generation;
   let timer: ReturnType<typeof setTimeout> | undefined,
     running = false,
     dirty = true,
@@ -79,31 +76,12 @@ function startMirror() {
     dirty = false;
     let failed = 0;
     try {
-      const incoming = sanitizeMem(await loadProjectMemory());
-      if (epoch !== generation || useStore.getState().role !== 'admin') return;
-      if (!incoming) throw new Error('Source snapshot has an invalid memory format.');
-      const staged = structuredClone(useStore.getState().mem);
-      const archived = archiveEmptyAndRetiredNodes(staged);
-      const pulled = mergeProjectMirror(staged, incoming);
-      if (pulled.applied || archived) useStore.getState().commit(m => Object.assign(m, staged));
-      useStore.setState({
-        projectSync: {
-          checkedAt: Date.now(),
-          projects: pulled.projects,
-          records: incoming.entries.length,
-          error: '',
-        },
-      });
       const r = await syncMemoryDatabase(useStore.getState().mem);
       failed = r.failed;
       if (r.failed)
         useStore.setState({ status: `Memory: ${r.failed} item(s) not saved to the database (${r.firstError}).` });
     } catch (e) {
       failed = 1;
-      if (epoch !== generation || useStore.getState().role !== 'admin') return;
-      useStore.setState(st => ({
-        projectSync: { ...st.projectSync, error: 'Project memory sync failed; the current vault was kept.' },
-      }));
       useStore.setState({
         status: `Memory could not reach the database: ${String((e as Error)?.message || e).slice(0, 120)}`,
       });
@@ -125,9 +103,7 @@ function startMirror() {
       schedule(1500);
     }
   });
-  // Pull even when this tab is unchanged: a read-only collector may have updated
-  // project snapshots elsewhere. No provider call or source-project write occurs.
-  const tick = setInterval(() => !running && void run(), 30_000);
+  const tick = setInterval(() => dirty && !running && void run(), 30_000);
   const onHide = () => document.hidden && dirty && void run(); // push anything pending before the tab goes away
   document.addEventListener('visibilitychange', onHide);
   schedule(0);
@@ -146,7 +122,7 @@ async function unlock(u: User, kek: CryptoKey) {
   let mem = sanitizeMem(data.mem);
   if (!mem) throw new VaultError('The encrypted memory has an invalid format.', 'format');
   // The vault came back empty (wiped or new). The admin-only database mirror is the backup: rebuild from it.
-  // Viewers never read those tables; only an unlocked admin restores.
+  // Only an unlocked admin reads those tables and restores.
   let restored = 0;
   if (u.role === 'admin' && !mem.entries.length && !mem.sessions.length) {
     try {
@@ -163,7 +139,7 @@ async function unlock(u: User, kek: CryptoKey) {
   revision = remote.rev;
   chain = Promise.resolve();
   // Provider keys and the GitHub token stay on this device only, sealed with this admin's passcode
-  // (keystore.ts). They never go into the shared vault, which every viewer can open.
+  // (keystore.ts). They never go into the shared vault in the database.
   let saved: Keys = {};
   if (s.priv) {
     // An older Brain kept the sealed copy inside the local vault cache (`deviceKeys`): move it to the keystore.
@@ -260,22 +236,7 @@ let stop: (() => void)[] = [];
 function enter(u: User) {
   leave(true);
   const ch = openChannel();
-  if (ch) stop.push(u.role === 'admin' ? publish(hub, ch) : mirror(hub, ch), () => ch.close());
-  if (u.role === 'viewer') {
-    const onStorage = (e: StorageEvent) => {
-      const key = secrets;
-      if (e.key === VAULT_KEY && e.newValue && key)
-        void decryptVault(key, JSON.parse(e.newValue)).then(
-          d => {
-            const mem = sanitizeMem((d as { mem?: unknown }).mem);
-            if (mem) useStore.setState(st => ({ mem, rev: st.rev + 1 }));
-          },
-          () => useStore.setState({ status: 'Memory failed its signature check.' }),
-        );
-    };
-    addEventListener('storage', onStorage);
-    stop.push(() => removeEventListener('storage', onStorage));
-  }
+  if (ch) stop.push(publish(hub, ch), () => ch.close());
   const touch = () => {
     const t = Date.now();
     if (t - useAuth.getState().lastActive > 2000) useAuth.setState({ lastActive: t });
@@ -331,8 +292,7 @@ function leave(keepKey = false) {
   setKeySave(null);
   if (useStore.getState().busy) useStore.getState().stop(); // a running task is cancelled on lock
   useStore.setState(st => ({
-    role: 'viewer',
-    projectSync: { checkedAt: 0, projects: 0, records: 0, error: '' },
+    role: null,
     who: '',
     mem: blankMem(),
     rev: st.rev + 1,
@@ -432,7 +392,7 @@ export const useAuth = create<AuthState>()((set, get) => {
         await accounts('setup', {
           name,
           password,
-          wrap: await sealFor(kek, sec, true),
+          wrap: await sealFor(kek, sec),
           envelope: await encryptVault(sec, { mem: blankMem() }, 1),
         });
         return await login(name, i.passcode);
@@ -457,11 +417,7 @@ export const useAuth = create<AuthState>()((set, get) => {
       try {
         const name = checkNewAccount(i);
         const { password, kek } = await derivePassword(name, i.passcode);
-        await accounts(
-          'create',
-          { name, password, role: i.role, wrap: await sealFor(kek, secrets, i.role === 'admin') },
-          true,
-        );
+        await accounts('create', { name, password, role: i.role, wrap: await sealFor(kek, secrets) }, true);
         await refresh();
         set({ busy: false });
         return true;
@@ -487,7 +443,7 @@ export const useAuth = create<AuthState>()((set, get) => {
       if (bad) return bad;
       try {
         const { password, kek } = await derivePassword(u.name, pass);
-        await accounts('reset', { id, password, wrap: await sealFor(kek, secrets, u.role === 'admin') }, true);
+        await accounts('reset', { id, password, wrap: await sealFor(kek, secrets) }, true);
         if (id === get().user?.id) get().logout('Passcode changed. Sign in again.');
         return '';
       } catch (e) {

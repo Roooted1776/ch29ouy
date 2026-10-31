@@ -94,8 +94,7 @@ export interface State {
   mem: Mem;
   rev: number;
   storageOk: boolean;
-  projectSync: { checkedAt: number; projects: number; records: number; error: string };
-  role: Role;
+  role: Role | null; // null while locked: only a signed-in admin has a role
   who: string;
   notes: Partial<Record<AgentId, string>>;
   live: LiveCfg;
@@ -124,6 +123,8 @@ export interface State {
   selected: string | null;
   sceneFocus: { kind: 'memory' | 'agent'; id: string; sequence: number } | null;
   autoRotate: boolean;
+  memoryOpen: boolean;
+  setMemoryOpen(v: boolean): void;
   /** The current task: its text, the reply streaming in now, how long each bot took (ms) and what really passed between them. */
   task: string;
   draft: { from: AgentId; text: string } | null;
@@ -367,10 +368,9 @@ export const useStore = create<State>()((set, get) => {
     mem: ls ? loadMem(ls).mem : blankMem(),
     rev: 0,
     storageOk: true,
-    projectSync: { checkedAt: 0, projects: 0, records: 0, error: '' },
     dreaming: false,
     dreams: 0,
-    role: 'viewer',
+    role: null,
     who: '',
     notes: {},
     live: lv.live,
@@ -398,6 +398,10 @@ export const useStore = create<State>()((set, get) => {
     selected: null,
     sceneFocus: null,
     autoRotate: true,
+    memoryOpen: false,
+    setMemoryOpen(v) {
+      set({ memoryOpen: v });
+    },
     task: '',
     draft: null,
     timing: {},
