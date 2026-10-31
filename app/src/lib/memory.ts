@@ -21,6 +21,24 @@ export interface Source {
   label: string;
   ref: string | null;
 }
+
+/** Keep source attribution across file imports and encrypted-memory reloads. */
+export function cleanSources(raw: unknown): Source[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (s): s is Source => !!s && typeof s === 'object' && SOURCE_KINDS.includes(s.kind) && typeof s.label === 'string',
+    )
+    .slice(0, 6)
+    .map(s => ({
+      kind: s.kind,
+      label: redact(s.label.slice(0, 120)).text,
+      ref:
+        typeof s.ref === 'string' && /^(?:[se]\d{1,9}$|https:\/\/|file:\/\/\/)/.test(s.ref)
+          ? redact(s.ref.slice(0, 2000)).text
+          : null,
+    }));
+}
 export interface Entry {
   id: string;
   key: string;
@@ -128,12 +146,12 @@ export const blankMem = (): Mem => ({
   settings: { brain: true, sources: true, docs: true, msgs: false, tracker: true, instructions: '', useMemory: true },
 });
 
-// A reply from any connected provider counts as live; the labels come from the provider list so new ones are never dropped
+// Current provider labels plus read-only compatibility for saved replies from a retired provider.
 const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const LABELS = PROVIDERS.map(p => esc(PROV[p].label)).join('|');
+const LABELS = [...new Set([...PROVIDERS.map(p => PROV[p].label), 'Freebuff (free)'])].map(esc).join('|');
 export const LIVE_TAG = new RegExp(`^(live|chat) · (${LABELS}) · `);
 const TAG_RE = new RegExp(`^((live|chat) · (${LABELS}) · [A-Za-z0-9._:/-]{1,80}(?: · unverified)?|page|page checks)$`);
-const SPEAKER_RE = /^(owner|brain|queue|grok|grokbot|claude|cursor|gemini|chatgpt|perplexity|xcode|muse)$/;
+const SPEAKER_RE = /^(owner|brain|queue|grok|grokbot|claude|cursor|gemini|chatgpt|copilot|perplexity|xcode|muse)$/;
 const DEMO_LABEL = /Owner's team chart|Starter skills list|Docs connector \(sample\)|Issue tracker \(sample\)/i;
 const okTs = (v: unknown) => {
   const n = +(v as number);
@@ -184,11 +202,46 @@ function isDemoEntry(e: Entry, real: Set<string>): boolean {
 /** Clean any stored or pasted memory. Returns null when it is not Brain memory. */
 export function sanitizeMem(d: any, fromBackup = false): Mem | null {
   if (!d || typeof d !== 'object' || !Array.isArray(d.entries)) return null;
+  // Older file imports saved 1,000–1,200 character notes, which used to fail
+  // validEntry and disappear on reload. Migrate them into linked pages first.
+  let nextImportId = Math.max(0, ...d.entries.map((e: Entry) => (/^e\d{1,9}$/.test(e?.id) ? +e.id.slice(1) : 0)));
+  const entries = (d.entries as Entry[]).flatMap(e => {
+    if (
+      !e?.manual ||
+      typeof e.key !== 'string' ||
+      !e.key.startsWith('import:') ||
+      typeof e.title !== 'string' ||
+      typeof e.note !== 'string' ||
+      e.note.length <= 600 ||
+      e.note.length > 1200 ||
+      !Array.isArray(e.links)
+    )
+      return [e];
+    const id = 'e' + ++nextImportId;
+    const root = { ...e, note: e.note.slice(0, 600), links: [...e.links, id] };
+    return [
+      root,
+      {
+        ...e,
+        id,
+        key: `${e.key.slice(0, 113)}:part:2`,
+        title: `${e.title.slice(0, 71)} (part 2)`,
+        note: e.note.slice(600),
+        links: [e.id, ...e.links],
+      },
+    ];
+  });
+  const projectNodes = new Map(
+    entries
+      .filter(validEntry)
+      .filter(e => e.key.startsWith('project:'))
+      .map(e => [e.id, scrub(e.title.trim().slice(0, 80))]),
+  );
   const m = blankMem();
   const ids = new Set<string>();
   const sessions: any[] = Array.isArray(d.sessions) ? d.sessions : [];
   const real = new Set<string>(sessions.filter(isLiveSession).map(s => s.id));
-  for (const e of (d.entries as Entry[]).filter(validEntry)) {
+  for (const e of entries.filter(validEntry)) {
     if ((isDemoEntry(e, real) && !e.corrected) || ids.has(e.id) || m.entries.length >= MAX_ENTRIES) continue;
     ids.add(e.id);
     m.entries.push({
@@ -206,29 +259,19 @@ export function sanitizeMem(d: any, fromBackup = false): Mem | null {
       prog: e.prog || null,
       corpusId: null,
       manual: !!e.manual,
+      project:
+        typeof e.project === 'string' && e.project.trim()
+          ? scrub(e.project.trim().slice(0, 80))
+          : e.key.startsWith('project:')
+            ? scrub(e.title.trim().slice(0, 80))
+            : e.links.map(id => projectNodes.get(id)).find(Boolean),
       kws: Array.isArray(e.kws)
         ? e.kws
             .filter(k => typeof k === 'string')
             .slice(0, 12)
             .map(k => scrub(k.slice(0, 30)))
         : null,
-      sources: e.sources
-        .filter(
-          s =>
-            s &&
-            typeof s.label === 'string' &&
-            SOURCE_KINDS.includes(s.kind) &&
-            !(e.corrected && DEMO_LABEL.test(s.label)),
-        )
-        .slice(0, 6)
-        .map(s => ({
-          kind: s.kind,
-          label: scrub(s.label.slice(0, 120)),
-          ref:
-            typeof s.ref === 'string' && (/^[se]\d{1,9}$/.test(s.ref) || /^https:\/\/github\.com\//.test(s.ref))
-              ? s.ref
-              : null,
-        })),
+      sources: cleanSources(e.sources).filter(s => !(e.corrected && DEMO_LABEL.test(s.label))),
       links: [],
       ...(Array.isArray(e.hist)
         ? {
@@ -240,7 +283,7 @@ export function sanitizeMem(d: any, fromBackup = false): Mem | null {
         : {}),
     });
   }
-  for (const e of d.entries as Entry[]) {
+  for (const e of entries) {
     const t = e && m.entries.find(x => x.id === e.id);
     if (t && Array.isArray(e.links))
       t.links = e.links.slice(0, 60).filter(l => typeof l === 'string' && ids.has(l) && l !== e.id);
@@ -427,12 +470,13 @@ export function mkEntry(
     corpusId: null,
     kws: o.kws || null,
     manual: !!o.manual,
+    ...(o.project?.trim() ? { project: redact(o.project.trim()).text.slice(0, 80) } : {}),
   };
 }
 
 /** Ensures a project exists as a workstream node in the Brain graph, and links any session to it. */
 export function ensureProjectNode(m: Mem, projectName: string, s?: Session, now = Date.now()): Entry {
-  const name = projectName.trim() || 'Brain';
+  const name = redact(projectName.trim()).text.slice(0, 80) || 'Brain';
   const key = `project:${name.toLowerCase()}`;
   let node = m.entries.find(
     e => (e.type === 'workstream' && e.title.toLowerCase() === name.toLowerCase()) || e.key === key,
@@ -444,6 +488,7 @@ export function ensureProjectNode(m: Mem, projectName: string, s?: Session, now 
         key,
         type: 'workstream',
         title: name,
+        project: name,
         note: `Project ${name}. Tasks and workstreams in Brain.`,
         sources: s ? [{ kind: 'session', label: `Task: ${clip(s.q, 40)}`, ref: s.id }] : [],
         kws: [name.toLowerCase(), 'project', 'workstream'],
@@ -452,6 +497,7 @@ export function ensureProjectNode(m: Mem, projectName: string, s?: Session, now 
     );
     m.entries.push(node);
   } else {
+    node.project = name;
     node.seen = now;
     node.strength = Math.min(9, node.strength + 1);
     if (s && !node.sources.some(src => src.ref === s.id)) {

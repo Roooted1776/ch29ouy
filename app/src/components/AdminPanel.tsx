@@ -91,7 +91,24 @@ export default function AdminPanel() {
             {s.stopped ? ' · stopped' : ''}
           </p>
         </Card>
-        <Card title="Provider" hint="One provider powers all nine roles.">
+        <Card title="Project memory" hint="One-way source snapshots. Brain never edits the source projects.">
+          <p>
+            {s.projectSync.projects} projects · {s.projectSync.records} source records
+          </p>
+          <p className="mini" role="status">
+            {s.projectSync.error ||
+              (s.projectSync.checkedAt
+                ? `Database checked ${new Date(s.projectSync.checkedAt).toLocaleString()}`
+                : 'Source sync is checked after admin sign-in.')}
+          </p>
+          <p className="mini">
+            {s.storageOk ? 'Memory uses the encrypted vault.' : 'Encrypted save failed. Keep this tab open.'}
+          </p>
+        </Card>
+        <Card
+          title="Provider"
+          hint="One selected provider powers the role prompts; the roster does not connect to the installed apps."
+        >
           <Switch
             on={live.web}
             set={v => s.setLive({ web: v })}

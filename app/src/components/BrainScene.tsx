@@ -12,6 +12,7 @@ import { TYPE_LABEL, agentActivityScores, nodeSize, weight, type Session } from 
 import { PULSE_AFTERGLOW, pulseMs, useMem, useStore, type Pulse } from '../store';
 import { DOT_FRAG, DOT_VERT, RIM_FRAG, RIM_VERT } from '../lib/shaders';
 import { sceneStats } from '../lib/stats';
+import { headViewDistance } from '../lib/scene-camera';
 
 /** Keep label roots on one DOM parent while Canvas disconnects during lock/unlock. */
 function Html(props: React.ComponentProps<typeof DreiHtml>) {
@@ -901,12 +902,21 @@ const Transits = () => {
   );
 };
 
-function Rig() {
+function Rig({ resetView }: { resetView: number }) {
   const controls = useRef<{ target: THREE.Vector3 } | null>(null),
     selected = useStore(s => s.selected),
     auto = useStore(s => s.autoRotate),
     mem = useMem();
   const target = useRef(new THREE.Vector3(...HEAD_CENTER));
+  const { camera, size } = useThree();
+  const fitDistance = headViewDistance(size.width, size.height);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resetView is an explicit reset request even when dimensions are unchanged.
+  useEffect(() => {
+    target.current.set(...HEAD_CENTER);
+    controls.current?.target.set(...HEAD_CENTER);
+    camera.position.copy(target.current).add(new THREE.Vector3(0.2, 0.08, 1).normalize().multiplyScalar(fitDistance));
+    camera.lookAt(target.current);
+  }, [camera, fitDistance, resetView]);
   useEffect(() => {
     const e = selected ? mem.entries.find(x => x.id === selected) : undefined,
       p = e && placeMemory(mem.entries).get(e.id);
@@ -924,8 +934,9 @@ function Rig() {
       dampingFactor={0.08}
       autoRotate={auto}
       autoRotateSpeed={0.55}
-      minDistance={3}
-      maxDistance={32}
+      minDistance={8}
+      maxDistance={Math.max(64, fitDistance * 2.2)}
+      zoomSpeed={0.65}
       target={HEAD_CENTER}
       enablePan={false}
     />
@@ -938,11 +949,11 @@ export const HEAD_CENTER: V3 = [-0.2, -1.0, 0];
 export const HEAD_PARTS = ['skull', 'agents', 'memories', 'transits', 'brain'] as const;
 
 /** The brain as a solid white outline, with flat coloured memory dots and warm agent dots behind it, and live handoffs travelling between agents. */
-export default function BrainScene({ locked = false }: { locked?: boolean }) {
+export default function BrainScene({ locked = false, resetView = 0 }: { locked?: boolean; resetView?: number }) {
   const select = useStore(s => s.select);
   return (
     <Canvas
-      camera={{ position: [3.8, 0.9, 18.5], fov: 40 }}
+      camera={{ position: [4.7, 0.9, 24], fov: 40 }}
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: true, stencil: true, powerPreference: 'high-performance' }}
       onPointerMissed={() => select(null)}
@@ -959,7 +970,7 @@ export default function BrainScene({ locked = false }: { locked?: boolean }) {
         <Transits />
         <Outline />
       </group>
-      <Rig />
+      <Rig resetView={resetView} />
     </Canvas>
   );
 }

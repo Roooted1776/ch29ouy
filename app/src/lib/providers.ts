@@ -1,6 +1,7 @@
+import { HANDOFF_RULE } from '../data/team';
 import { redact } from './redact';
 
-export type ProviderId = 'anthropic' | 'openai' | 'google' | 'xai' | 'groq' | 'cerebras' | 'freebuff' | 'muse';
+export type ProviderId = 'anthropic' | 'openai' | 'google' | 'xai' | 'groq' | 'cerebras' | 'muse';
 export interface Provider {
   label: string;
   model: string;
@@ -48,14 +49,6 @@ export const PROV: Record<ProviderId, Provider> = {
     color: '#ffa24d',
     roles: 'Any bot you pick as the main one',
   },
-  /** Freebuff has no official public API. This address and model name are unverified: change the Model box if it fails. */
-  freebuff: {
-    label: 'Freebuff (free)',
-    model: 'z-ai/glm-4.6',
-    hint: 'paste your Freebuff token',
-    color: '#7dd3fc',
-    roles: 'Any bot you pick as the main one',
-  },
   /** Meta's Model API (api.meta.ai). Model name is unverified: check dev.meta.ai and change the Model box if needed. */
   muse: {
     label: 'Muse (Meta)',
@@ -80,7 +73,6 @@ export const RETIRED = new Set([
 const CHAT_URL: Partial<Record<ProviderId, string>> = {
   groq: 'https://api.groq.com/openai/v1/chat/completions',
   cerebras: 'https://api.cerebras.ai/v1/chat/completions',
-  freebuff: 'https://freebuff.com/api/v1/chat/completions',
   muse: 'https://api.meta.ai/v1/chat/completions',
 };
 const isChat = (p: ProviderId) => p in CHAT_URL;
@@ -149,6 +141,9 @@ export function buildRequest(
   o: Pick<CallOpts, 'provider' | 'key' | 'model' | 'system' | 'user' | 'maxTokens' | 'web'>,
   stream = false,
 ): { url: string; headers: Record<string, string>; body: unknown } {
+  if (!PROVIDERS.includes(o.provider))
+    throw new ProviderError('This provider is no longer supported. Choose a provider in Settings.');
+  const system = o.system.includes(HANDOFF_RULE) ? o.system : `${HANDOFF_RULE}\n\n${o.system}`;
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (o.provider === 'anthropic') {
     headers['x-api-key'] = o.key;
@@ -160,7 +155,7 @@ export function buildRequest(
       body: {
         model: o.model,
         max_tokens: o.maxTokens,
-        system: o.system,
+        system,
         messages: [{ role: 'user', content: o.user }],
         ...(o.web ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }] } : {}),
         ...(stream ? { stream: true } : {}),
@@ -177,7 +172,7 @@ export function buildRequest(
       body: {
         model: o.model,
         messages: [
-          { role: 'system', content: o.system },
+          { role: 'system', content: system },
           { role: 'user', content: o.user },
         ],
         max_completion_tokens: reasoning ? o.maxTokens + 1024 : o.maxTokens,
@@ -192,7 +187,7 @@ export function buildRequest(
     const body: Record<string, unknown> = {
       model: o.model,
       input: [
-        { role: 'system', content: o.system },
+        { role: 'system', content: system },
         { role: 'user', content: o.user },
       ],
       max_output_tokens: o.maxTokens,
@@ -214,7 +209,7 @@ export function buildRequest(
       encodeURIComponent(o.key),
     headers,
     body: {
-      systemInstruction: { parts: [{ text: o.system }] },
+      systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: o.user }] }],
       generationConfig: { maxOutputTokens: o.maxTokens },
       ...(o.web ? { tools: [{ google_search: {} }] } : {}),

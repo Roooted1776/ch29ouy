@@ -25,7 +25,7 @@ Every bot, agent, and tool on this team must follow this exact 5-step workflow o
 
 ## Hard rule: RedMed stays untouched
 
-Owner also has a separate project called RedMed. **Do not read, copy from, change, branch, or open pull requests on RedMed from this repo or this work.** Nothing from RedMed goes into Brain, including text, file names, skills lists or sample data. If a task seems to need RedMed, stop and ask Owner.
+Owner update, 2026-10-31: Brain may read approved project status, documentation and handoff notes from all projects, including RedMed, into its private persistent memory. Source access is strictly read-only: no edits, builds, commits, pushes, deployments or messages on behalf of a source project. Never ingest credentials, wearer/medical records, raw band fragments or `redmed_owner` data. This replaces the earlier blanket prohibition on reading RedMed project metadata. Separate product work still requires an explicit Owner task.
 
 ## Who does what (Owner's chart)
 
@@ -111,3 +111,16 @@ Wording checked against the live article on 2026-10-21 (it says it was last modi
 - The safe browser check is `npm run build` and then `npm run e2e` in `app/`. Playwright opens the built root `index.html` and uses a fake backend. Do not hand-edit root `index.html`.
 - `bash supabase/tests/run.sh` needs Docker, which this environment does not start. Run it only after a `supabase/` change when Docker is available.
 - Root `package.json`, `test.mjs`, and `archil-project/` are not the Brain page. They need `ARCHIL_API_KEY` and stay out of the default setup.
+
+## Startup and handoff rule (Owner, 2026-10-31)
+
+Every agent/tool reads the latest project handoff before acting and leaves a
+concise verified handoff before passing work on. Follow the master reminder at
+`~/AI-Handoff/standing-handoff-rule.md` when present. Source snapshots never
+authorize source edits. Current roster: ChatGPT, Claude Code, Cursor, Gemini,
+Copilot, Grok, Muse, Perplexity (search/logic), Xcode (iOS app work). Grok Bot
+is a coordinating role. Freebuff, Archil and Comet are retired.
+
+Owner also changed the visual direction: readable system sans font, fewer
+boxes/borders, more brain canvas and a farther-out responsive initial view.
+These explicit instructions supersede older Minecraft-font/boxed-panel styling.

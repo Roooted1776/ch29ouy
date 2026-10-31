@@ -64,6 +64,10 @@ describe('memory database sync', () => {
           const q = {
             eq: () => q,
             order: () => q,
+            range: async (start: number, end: number) => ({
+              data: rows[t as 'memories' | 'sessions'].slice(start, end + 1),
+              error: null,
+            }),
             limit: async () => ({ data: rows[t as 'memories' | 'sessions'], error: null }),
           };
           return q;
@@ -96,5 +100,42 @@ describe('memory database sync', () => {
     const back = sanitizeMem(await loadMemoryDatabase(d));
     expect(back?.entries.map(e => e.title)).toEqual(['Alpha']);
     expect(back?.sessions.map(x => x.q)).toEqual([session('s1').q]);
+  });
+  it('loads source snapshots beyond the API first page and never rewrites their remapped ids', async () => {
+    const { loadProjectMemory } = await import('../src/lib/cloud');
+    const rows = Array.from({ length: 235 }, (_, i) => ({
+      id: `e${i + 1}`,
+      key: `source:${i}`,
+      type: 'concept',
+      title: `Note ${i}`,
+      note: 'read-only source',
+      project: i < 200 ? 'One' : 'Two',
+      body: {},
+    }));
+    const ranges: number[] = [];
+    const d = {
+      from: () => {
+        const q = {
+          select: () => q,
+          eq: () => q,
+          like: () => q,
+          order: () => q,
+          range: async (start: number, end: number) => {
+            ranges.push(start);
+            return { data: rows.slice(start, end + 1), error: null };
+          },
+        };
+        return q;
+      },
+    } as unknown as Db;
+    const back = await loadProjectMemory(d);
+    expect(back.entries).toHaveLength(235);
+    expect(ranges).toEqual([0, 200]);
+    resetMirror();
+    const m = blank();
+    m.entries.push(mkEntry(m, { key: 'source:1', type: 'concept', title: 'Local remapped source', note: 'source' }, 1));
+    const write = fake();
+    await syncMemoryDatabase(m, write.d);
+    expect(write.calls.some(c => c.name === 'upsert_memory')).toBe(false);
   });
 });

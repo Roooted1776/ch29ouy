@@ -187,6 +187,9 @@ export async function syncMemoryDatabase(mem: import('./memory').Mem, d: Db = db
     );
   }
   for (const e of mem.entries) {
+    // Collector snapshots have their own durable identity. A vault may remap their
+    // local ids; never send those ids back over the source mirror's rows.
+    if (e.key.startsWith('source:')) continue;
     const args = {
       p_id: e.id,
       p_key: cut(e.key, 120),
@@ -230,13 +233,23 @@ export async function syncMemoryDatabase(mem: import('./memory').Mem, d: Db = db
  * Read memory back from the admin-only database mirror (the copy `syncMemoryDatabase` keeps).
  * Shaped for `sanitizeMem`. Viewers have no SELECT on these tables.
  */
-export async function loadMemoryDatabase(d: Db = db()): Promise<{ entries: unknown[]; sessions: unknown[] }> {
-  const [m, t] = await Promise.all([
-    d.from('memories').select('id, key, type, title, note, project, body').eq('archived', false).limit(10000),
-    d.from('sessions').select('body').order('ts', { ascending: false }).limit(25),
-  ]);
-  if (m.error || t.error) throw new CloudError(`Memory tables could not be read: ${why(m.error || t.error)}`);
-  const entries = (m.data || []).map(r => {
+async function memoryRows(d: Db, sourcesOnly = false) {
+  const rows = [];
+  // The project API caps a response at 200 rows. Paginate instead of silently
+  // losing every project/memory beyond the first page.
+  for (let offset = 0; offset < 10000; offset += 200) {
+    let q = d.from('memories').select('id, key, type, title, note, project, body').eq('archived', false);
+    if (sourcesOnly) q = q.like('key', 'source:%');
+    const { data, error } = await q.order('id', { ascending: true }).range(offset, offset + 199);
+    if (error) throw new CloudError(`Memory tables could not be read: ${why(error)}`);
+    rows.push(...(data || []));
+    if (!data || data.length < 200) break;
+  }
+  return rows;
+}
+
+function entriesFromRows(rows: Awaited<ReturnType<typeof memoryRows>>) {
+  return rows.map(r => {
     const b = (r.body || {}) as Record<string, unknown>;
     return {
       links: [],
@@ -254,6 +267,17 @@ export async function loadMemoryDatabase(d: Db = db()): Promise<{ entries: unkno
       project: r.project,
     };
   });
-  const sessions = (t.data || []).map(r => r.body).reverse();
-  return { entries, sessions };
+}
+
+export async function loadProjectMemory(d: Db = db()): Promise<{ entries: unknown[]; sessions: unknown[] }> {
+  return { entries: entriesFromRows(await memoryRows(d, true)), sessions: [] };
+}
+
+export async function loadMemoryDatabase(d: Db = db()): Promise<{ entries: unknown[]; sessions: unknown[] }> {
+  const [rows, t] = await Promise.all([
+    memoryRows(d),
+    d.from('sessions').select('body').order('ts', { ascending: false }).limit(25),
+  ]);
+  if (t.error) throw new CloudError(`Memory tables could not be read: ${why(t.error)}`);
+  return { entries: entriesFromRows(rows), sessions: (t.data || []).map(r => r.body).reverse() };
 }

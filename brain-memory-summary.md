@@ -25,3 +25,25 @@ Condensed by Ren (Muse) on 2026-10-31 at Maximilian's request. The structured im
 
 ## Infrastructure state
 - Hostinger VPS 2010795 (2.25.249.204) serves redeemed.live + redmed.live; connector verified. Supabase connector returns 401; needs a fresh sbp_ token from him. GitHub: Meta Muse app narrowed to ch29ouy only; Claude app (Anthropic) on all repos. Projects moved 2026-10-31 to "/Users/claude/-- Projects -- " (trailing space); fix list at ~/Desktop/FIX-PATHS-AFTER-MOVE.txt. Archil + Freebuff fully removed 2026-10-30. Mini Trash (~40 items) still to empty; Brave folders blocked to Ren's tools.
+
+## RedMed local handoff update — 2026-10-31 (Codex)
+
+Owner explicitly requested adding this RedMed status to Brain. Current checkout is
+`/Users/claude/Projects/RedMed` (the older paths above are historical). Local shallow
+Git cleanup reduced the project from about 178 MiB to 20 MiB without changing commit
+IDs or product source. Full history/reflogs and pending edits remain in
+`/Users/claude/redmed-backups/local-history-20261031-072208/` (~171 MiB outside
+the project; retained backup still consumes disk). Nothing committed, pushed or deployed.
+
+All 18 local checks and fresh unsigned Simulator compilation passed. Homepage
+account screens, store selection/order review, Assist navigation and bundled
+Tapper resources were verified locally. Native launch, Face ID, physical NFC/SOS,
+real authentication and payment were not verified; no Simulator runtime is installed.
+Full named-team signoff is incomplete. Cleanup edits remain uncommitted.
+
+Claude should continue from
+`docs/release/archive/HANDOFF-folder-cleanup-2026-10-31.md` in RedMed, preserve
+the pending edits and recovery backup, and distinguish compile success from
+device/runtime success. The full structured record is in `brain-import.json`.
+These local Brain files have been updated; live encrypted Brain memory sync
+was not performed or verified.

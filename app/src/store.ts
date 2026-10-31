@@ -94,6 +94,7 @@ export interface State {
   mem: Mem;
   rev: number;
   storageOk: boolean;
+  projectSync: { checkedAt: number; projects: number; records: number; error: string };
   role: Role;
   who: string;
   notes: Partial<Record<AgentId, string>>;
@@ -366,6 +367,7 @@ export const useStore = create<State>()((set, get) => {
     mem: ls ? loadMem(ls).mem : blankMem(),
     rev: 0,
     storageOk: true,
+    projectSync: { checkedAt: 0, projects: 0, records: 0, error: '' },
     dreaming: false,
     dreams: 0,
     role: 'viewer',

@@ -9,11 +9,13 @@ import {
   loadVault,
   saveVault,
   loadMemoryDatabase,
+  loadProjectMemory,
   resetMirror,
   syncMemoryDatabase,
   writeAudit,
 } from './lib/cloud';
 import { blankMem, sanitizeMem } from './lib/memory';
+import { archiveEmptyAndRetiredNodes, mergeProjectMirror } from './lib/project-sync';
 import { mirror, openChannel, publish, type Hub } from './lib/share';
 import { VaultError, decryptVault, encryptVault, newSecrets, openFor, sealFor, type Secrets } from './lib/vault';
 import { GITHUB_ENTRY, KEYS_KEY, type Keys, openKeys, sealKeys } from './lib/keystore';
@@ -63,6 +65,7 @@ let generation = 0;
  * tries again with a growing wait, and a 30 second check catches anything left over.
  */
 function startMirror() {
+  const epoch = generation;
   let timer: ReturnType<typeof setTimeout> | undefined,
     running = false,
     dirty = true,
@@ -76,12 +79,31 @@ function startMirror() {
     dirty = false;
     let failed = 0;
     try {
+      const incoming = sanitizeMem(await loadProjectMemory());
+      if (epoch !== generation || useStore.getState().role !== 'admin') return;
+      if (!incoming) throw new Error('Source snapshot has an invalid memory format.');
+      const staged = structuredClone(useStore.getState().mem);
+      const archived = archiveEmptyAndRetiredNodes(staged);
+      const pulled = mergeProjectMirror(staged, incoming);
+      if (pulled.applied || archived) useStore.getState().commit(m => Object.assign(m, staged));
+      useStore.setState({
+        projectSync: {
+          checkedAt: Date.now(),
+          projects: pulled.projects,
+          records: incoming.entries.length,
+          error: '',
+        },
+      });
       const r = await syncMemoryDatabase(useStore.getState().mem);
       failed = r.failed;
       if (r.failed)
         useStore.setState({ status: `Memory: ${r.failed} item(s) not saved to the database (${r.firstError}).` });
     } catch (e) {
       failed = 1;
+      if (epoch !== generation || useStore.getState().role !== 'admin') return;
+      useStore.setState(st => ({
+        projectSync: { ...st.projectSync, error: 'Project memory sync failed; the current vault was kept.' },
+      }));
       useStore.setState({
         status: `Memory could not reach the database: ${String((e as Error)?.message || e).slice(0, 120)}`,
       });
@@ -103,7 +125,9 @@ function startMirror() {
       schedule(1500);
     }
   });
-  const tick = setInterval(() => dirty && !running && void run(), 30_000);
+  // Pull even when this tab is unchanged: a read-only collector may have updated
+  // project snapshots elsewhere. No provider call or source-project write occurs.
+  const tick = setInterval(() => !running && void run(), 30_000);
   const onHide = () => document.hidden && dirty && void run(); // push anything pending before the tab goes away
   document.addEventListener('visibilitychange', onHide);
   schedule(0);
@@ -186,6 +210,7 @@ async function unlock(u: User, kek: CryptoKey) {
     githubToken: u.role === 'admin' ? githubToken : '',
     live: u.role === 'admin' && Object.keys(providerKeys).length > 0 ? { ...st.live, remember: true } : st.live,
     storageOk: true,
+    projectSync: { checkedAt: 0, projects: 0, records: 0, error: '' },
   }));
   setAuditSink((who, what) => writeAudit(u.id, who, what));
   if (s.priv) {
@@ -307,6 +332,7 @@ function leave(keepKey = false) {
   if (useStore.getState().busy) useStore.getState().stop(); // a running task is cancelled on lock
   useStore.setState(st => ({
     role: 'viewer',
+    projectSync: { checkedAt: 0, projects: 0, records: 0, error: '' },
     who: '',
     mem: blankMem(),
     rev: st.rev + 1,

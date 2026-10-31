@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { dreamDue } from '../lib/dream';
 import { useAuth } from '../auth-store';
 import { useStore } from '../store';
@@ -27,12 +27,16 @@ class Boundary extends Component<{ children: ReactNode }, { err: string }> {
   }
 }
 
-/** One page: the 3D brain, the live chat beside it and (for admins) the admin panel along the bottom. */
+/** The brain takes the main space; chat stays nearby and settings open only when needed. */
 export default function Home() {
   const { user, logout } = useAuth(),
     inspectedBot = useStore(s => s.inspectedBot),
     inspectBot = useStore(s => s.inspectBot);
   const admin = user?.role === 'admin';
+  const [settingsOpen, setSettingsOpen] = useState(false),
+    [chatOpen, setChatOpen] = useState(true),
+    [resetView, setResetView] = useState(0);
+  const status = useStore(s => s.status);
   // Dream runs by itself at most once a day, after sign-in, when something waits in the inbox
   const ready = useStore(s => !!s.keys[s.live.provider] || Object.values(s.keys).some(Boolean)),
     due = useStore(s => dreamDue(s.mem, Date.now()));
@@ -52,32 +56,75 @@ export default function Home() {
     return () => clearInterval(t);
   }, [admin, ready, banterOn]);
   return (
-    <div className={'home single' + (admin ? ' with-admin' : '')}>
+    <div className={'home single brain-first' + (chatOpen ? '' : ' chat-hidden')}>
       <section className="workspace" aria-label="Visualization">
         <main className="stage" aria-label="Brain view">
           <Boundary>
             <Suspense fallback={null}>
-              <BrainScene />
+              <BrainScene resetView={resetView} />
             </Suspense>
           </Boundary>
           {admin && <SearchBar />}
           {inspectedBot && <AgentInspector id={inspectedBot} onClose={() => inspectBot(null)} />}
-          <button type="button" className="icon-btn lock-btn" onClick={() => logout()} aria-label="Lock" title="Lock">
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shapeRendering="crispEdges">
-              <path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <rect x="3" y="7" width="10" height="7" fill="currentColor" />
-            </svg>
-          </button>
+          <div className="view-tools">
+            <button
+              type="button"
+              onClick={() => {
+                useStore.getState().select(null);
+                setResetView(v => v + 1);
+              }}
+            >
+              Reset view
+            </button>
+            <button
+              type="button"
+              aria-expanded={chatOpen}
+              aria-controls="brain-chat"
+              onClick={() => setChatOpen(v => !v)}
+            >
+              {chatOpen ? 'Hide chat' : 'Show chat'}
+            </button>
+            {admin && (
+              <button
+                type="button"
+                aria-expanded={settingsOpen}
+                aria-controls="brain-settings"
+                onClick={() => setSettingsOpen(v => !v)}
+              >
+                Settings
+              </button>
+            )}
+            <button type="button" className="icon-btn" onClick={() => logout()} aria-label="Lock" title="Lock">
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shapeRendering="crispEdges">
+                <path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <rect x="3" y="7" width="10" height="7" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
+          {status && (
+            <p className="workspace-status" role="status">
+              {status}
+            </p>
+          )}
         </main>
       </section>
-      <aside className="flow-side">
-        <FlowPane />
-      </aside>
-      <aside className="side">
-        <ChatPanel />
-      </aside>
-      {admin && (
-        <section className="admin-bar" aria-label="Admin panel">
+      {chatOpen && (
+        <aside className="side" id="brain-chat">
+          <details className="handoff-summary">
+            <summary>Handoffs</summary>
+            <FlowPane />
+          </details>
+          <ChatPanel />
+        </aside>
+      )}
+      {admin && settingsOpen && (
+        <section className="admin-bar settings-drawer" id="brain-settings" aria-label="Admin panel">
+          <div className="settings-heading">
+            <h2>Settings</h2>
+            <button type="button" onClick={() => setSettingsOpen(false)}>
+              Close settings
+            </button>
+          </div>
           <AdminPanel />
         </section>
       )}
