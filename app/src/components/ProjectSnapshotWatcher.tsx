@@ -138,7 +138,7 @@ export default function ProjectSnapshotWatcher() {
   };
 
   return (
-    <div className="project-snapshot-watch" role="group" aria-label="Project snapshot watcher">
+    <fieldset className="project-snapshot-watch" aria-label="Project snapshot watcher">
       <p className="hint2">
         Read only the generated snapshot file you choose, every 30 seconds while signed in as admin. Browser file
         permission is required. Other browsers can use Import Files. This cannot edit your project folders.
@@ -161,6 +161,6 @@ export default function ProjectSnapshotWatcher() {
       <p className="hint2">
         Updates use Brain's existing encrypted memory sync. No model calls are made by this watcher.
       </p>
-    </div>
+    </fieldset>
   );
 }
