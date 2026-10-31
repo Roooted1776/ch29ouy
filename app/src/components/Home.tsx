@@ -6,6 +6,7 @@ import AdminPanel from './AdminPanel';
 import AgentInspector from './AgentInspector';
 import ChatPanel from './ChatPanel';
 import FlowPane from './FlowPane';
+import MemoryList from './MemoryList';
 import SearchBar from './SearchBar';
 
 const BrainScene = lazy(() => import('./BrainScene'));
@@ -43,6 +44,19 @@ export default function Home() {
   useEffect(() => {
     if (admin && ready && due) void useStore.getState().dream(true);
   }, [admin, ready, due]);
+  // GitHub auto-sync: while an admin has the page open and a repo is set, pull only what changed every 12 hours
+  const repo = useStore(s => s.githubRepo);
+  useEffect(() => {
+    if (!admin || !repo.trim()) return;
+    const t = setInterval(
+      () => {
+        const st = useStore.getState();
+        if (!st.busy) void st.syncGithub({ differential: true });
+      },
+      12 * 60 * 60 * 1000,
+    );
+    return () => clearInterval(t);
+  }, [admin, repo]);
   // Idle huddles: while an admin is signed in with a key and nothing is running, Grok Bot leads
   // short team huddles on its own small budget (lib/banter). A task, Stop, lock or the switch ends it.
   const banterOn = useStore(s => s.live.banter);
@@ -65,6 +79,7 @@ export default function Home() {
             </Suspense>
           </Boundary>
           {admin && <SearchBar />}
+          {admin && <MemoryList />}
           {inspectedBot && <AgentInspector id={inspectedBot} onClose={() => inspectBot(null)} />}
           <div className="view-tools">
             <button
