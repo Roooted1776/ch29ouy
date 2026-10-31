@@ -74,17 +74,6 @@ export const KEY_GUIDE: Record<ProviderId, KeyGuide> = {
       "The free tier has daily limits; check the page for today's numbers",
     ],
   },
-  freebuff: {
-    site: 'Freebuff',
-    url: 'https://freebuff.com',
-    prefix: '',
-    steps: [
-      'Sign in at freebuff.com',
-      'Freebuff has no official public API. Use the token it gives you after sign-in',
-      'Paste the token here and press Test',
-      'If the test fails, the address or model name may differ. Change the Model box',
-    ],
-  },
   muse: {
     site: 'Meta Model API',
     url: 'https://dev.meta.ai',

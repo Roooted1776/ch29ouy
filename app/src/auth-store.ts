@@ -186,6 +186,7 @@ async function unlock(u: User, kek: CryptoKey) {
     githubToken: u.role === 'admin' ? githubToken : '',
     live: u.role === 'admin' && Object.keys(providerKeys).length > 0 ? { ...st.live, remember: true } : st.live,
     storageOk: true,
+    projectSync: { checkedAt: 0, projects: 0, records: 0, error: '' },
   }));
   setAuditSink((who, what) => writeAudit(u.id, who, what));
   if (s.priv) {

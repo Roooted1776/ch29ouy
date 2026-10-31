@@ -1,4 +1,13 @@
-import { ensureProjectNode, link, mkEntry, type EntryType, type Mem, type Source } from './memory';
+import {
+  cleanSources,
+  ensureProjectNode,
+  keepHistory,
+  link,
+  mkEntry,
+  type EntryType,
+  type Mem,
+  type Source,
+} from './memory';
 import { redact } from './redact';
 import { keywords } from './text';
 
@@ -55,7 +64,7 @@ export function parseJsonMemory(text: string, defaultProject = 'Brain'): RawMemo
         const type: EntryType = VALID_TYPES.has(rawType as EntryType) ? (rawType as EntryType) : 'concept';
         const project = typeof it.project === 'string' && it.project.trim() ? it.project.trim() : defaultProject;
         const kws = Array.isArray(it.kws) ? it.kws.map(String) : undefined;
-        items.push({ title, note, type, project, kws });
+        items.push({ title, note, type, project, kws, sources: cleanSources(it.sources) });
       }
       return items;
     }
@@ -74,7 +83,7 @@ export function parseJsonMemory(text: string, defaultProject = 'Brain'): RawMemo
           const type: EntryType = VALID_TYPES.has(rawType as EntryType) ? (rawType as EntryType) : 'concept';
           const project =
             typeof valObj.project === 'string' && valObj.project.trim() ? valObj.project.trim() : defaultProject;
-          items.push({ title, note, type, project });
+          items.push({ title, note, type, project, sources: cleanSources(valObj.sources) });
         }
       }
     }
@@ -111,7 +120,7 @@ export function parseMarkdownMemory(text: string, filename: string, defaultProje
       if (body) {
         sections.push({
           title: cur.title.slice(0, 80),
-          body: body.slice(0, 1000),
+          body,
         });
       }
     }
@@ -120,7 +129,7 @@ export function parseMarkdownMemory(text: string, filename: string, defaultProje
     const body = clean.slice(cur.index + cur.length).trim();
     sections.push({
       title: cur.title.slice(0, 80),
-      body: (body || clean).slice(0, 1000),
+      body: body || clean,
     });
   }
 
@@ -137,7 +146,7 @@ export function parseMarkdownMemory(text: string, filename: string, defaultProje
   return [
     {
       title: (baseTitle || 'Note').slice(0, 80),
-      note: clean.slice(0, 1000),
+      note: clean,
       type: 'concept',
       project: defaultProject,
     },
@@ -175,7 +184,7 @@ export function parseCsvMemory(text: string, defaultProject = 'Brain'): RawMemor
 
     if (cols.length >= 2 && cols[0] && cols[1]) {
       const title = cols[0].replace(/^"|"$/g, '').slice(0, 80);
-      const note = cols[1].replace(/^"|"$/g, '').slice(0, 1000);
+      const note = cols[1].replace(/^"|"$/g, '');
       const rawType = (cols[2] || '').toLowerCase().replace(/^"|"$/g, '');
       const type: EntryType = VALID_TYPES.has(rawType as EntryType) ? (rawType as EntryType) : 'concept';
       const project = (cols[3] || defaultProject).replace(/^"|"$/g, '');
@@ -200,7 +209,15 @@ export async function parseMemoryFile(file: File, defaultProject = 'Brain'): Pro
   return parseMarkdownMemory(text, file.name, defaultProject);
 }
 
-/** Import and merge items into the given Memory object. */
+function importKey(project: string, type: EntryType, title: string): string {
+  // Compact, project-scoped identity stays inside the stored 120-character key limit.
+  const identity = JSON.stringify([project.toLowerCase(), type, title.toLowerCase()]);
+  let hash = 2166136261;
+  for (let i = 0; i < identity.length; i++) hash = Math.imul(hash ^ identity.charCodeAt(i), 16777619);
+  return `import:${type}:${(hash >>> 0).toString(16)}:${title.toLowerCase().slice(0, 64)}`;
+}
+
+/** Import and merge items into the given Memory object without losing long source notes. */
 export function importMemoryItems(
   m: Mem,
   items: RawMemoryItem[],
@@ -212,62 +229,85 @@ export function importMemoryItems(
 
   for (const it of items) {
     const rawTitle = it.title.trim().slice(0, 80);
-    const rawNote = it.note.trim().slice(0, 1000);
+    const rawNote = it.note.trim();
     if (!rawTitle || !rawNote) continue;
 
-    const title = redact(rawTitle).text;
+    const title = redact(rawTitle).text.slice(0, 80);
     const note = redact(rawNote).text;
     const type: EntryType = it.type && VALID_TYPES.has(it.type) ? it.type : 'concept';
-    const project = (it.project || defaultProject).trim() || 'Brain';
-    const key = `import:${type}:${title.toLowerCase()}`;
+    const project = redact((it.project || defaultProject).trim()).text.slice(0, 80) || 'Brain';
+    const key = importKey(project, type, title);
+    if (m.blocked.includes(key) || m.blocked.includes(`import:${type}:${title.toLowerCase()}`)) continue;
 
     // Ensure project node exists
     const projNode = ensureProjectNode(m, project, undefined, now);
 
-    // Look for existing memory by title or key
-    const existing = m.entries.find(e => e.key === key || e.title.toLowerCase() === title.toLowerCase());
-
-    if (existing) {
-      existing.seen = now;
-      existing.strength = Math.min(9, existing.strength + 1);
-      existing.status = 'fresh';
-      // Append note if new details are present
-      if (!existing.note.includes(note)) {
-        existing.note = `${existing.note}\n\n${note}`.slice(0, 1200);
+    // Legacy imports have unscoped keys: match them only inside the same project.
+    const existing = m.entries.find(
+      e =>
+        e.key.startsWith('import:') &&
+        e.type === type &&
+        e.title.toLowerCase() === title.toLowerCase() &&
+        (e.project?.toLowerCase() === project.toLowerCase() || e.links.includes(projNode.id)),
+    );
+    const rootKey = existing?.key || key;
+    if (m.blocked.includes(rootKey)) continue;
+    const previous = existing
+      ? [
+          existing,
+          ...m.entries
+            .filter(e => e.key.startsWith(`${rootKey}:part:`))
+            .sort((a, b) => +a.key.split(':part:')[1] - +b.key.split(':part:')[1]),
+        ]
+          .map(e => e.note)
+          .join('')
+      : '';
+    const fullNote = previous && !previous.includes(note) ? `${previous}\n\n${note}` : previous || note;
+    const sources = cleanSources(it.sources);
+    const attribution: Source[] = sources.length
+      ? sources
+      : [{ kind: 'file', label: `Imported file: ${title}`, ref: null }];
+    let root = existing;
+    for (let offset = 0, part = 1; offset < fullNote.length; offset += 600, part++) {
+      const partKey = part === 1 ? rootKey : `${rootKey}:part:${part}`;
+      const suffix = part === 1 ? '' : ` (part ${part})`;
+      const partTitle = title.slice(0, 80 - suffix.length) + suffix;
+      const partNote = fullNote.slice(offset, offset + 600);
+      let entry = part === 1 ? existing : m.entries.find(e => e.key === partKey);
+      if (entry) {
+        if (entry.note !== partNote) keepHistory(entry, 'file', now);
+        entry.note = partNote;
+        entry.project = project;
+        entry.seen = now;
+        entry.strength = Math.min(9, entry.strength + 1);
+        entry.status = 'fresh';
+        for (const source of attribution)
+          if (!entry.sources.some(s => s.kind === source.kind && s.label === source.label && s.ref === source.ref))
+            entry.sources.push(source);
+        entry.sources = entry.sources.slice(-6);
+        updated++;
+      } else {
+        entry = mkEntry(
+          m,
+          {
+            key: partKey,
+            type,
+            title: partTitle,
+            note: partNote,
+            project,
+            manual: true,
+            kws: it.kws || keywords(`${title} ${note}`).slice(0, 8),
+            sources: attribution.map(s => ({ ...s })),
+          },
+          now,
+        );
+        m.entries.push(entry);
+        m.inbox.push({ kind: 'file', ref: entry.id });
+        added++;
       }
-      if (it.sources) {
-        for (const s of it.sources) {
-          if (!existing.sources.some(x => x.label === s.label && x.ref === s.ref)) {
-            existing.sources.push(s);
-            if (existing.sources.length > 6) existing.sources.shift();
-          }
-        }
-      }
-      if (!existing.links.includes(projNode.id)) {
-        link(existing, projNode);
-      }
-      updated++;
-    } else {
-      const e = mkEntry(
-        m,
-        {
-          key,
-          type,
-          title,
-          note,
-          manual: true,
-          kws: it.kws || keywords(`${title} ${note}`).slice(0, 8),
-          sources:
-            it.sources && it.sources.length > 0
-              ? it.sources
-              : [{ kind: 'file', label: `Imported file: ${title}`, ref: null }],
-        },
-        now,
-      );
-      link(e, projNode);
-      m.entries.push(e);
-      m.inbox.push({ kind: 'file', ref: e.id });
-      added++;
+      root ??= entry;
+      link(entry, projNode);
+      if (entry !== root) link(entry, root);
     }
   }
 

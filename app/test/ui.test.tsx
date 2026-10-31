@@ -128,6 +128,8 @@ describe('setup and login', () => {
     render(<App />);
     await makeAdmin(u);
     expect(await screen.findByRole('main', { name: 'Brain view' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Admin panel' })).toBeNull();
+    await u.click(screen.getByRole('button', { name: /^Settings$/ }));
     expect(screen.getByRole('region', { name: 'Admin panel' })).toBeTruthy();
     expect(localStorage.getItem('brain.auth.v1') || '').not.toMatch(/correct horse/);
     await u.click(screen.getByRole('button', { name: 'Lock' }));
@@ -228,12 +230,14 @@ describe('who can do what', () => {
     expect(localStorage.getItem('brain.vault.v1')).not.toContain('Plain words'); // memory is encrypted at rest
   }, 30000);
 
-  it('an admin gets the composer and the admin panel along the bottom, with keys and accounts', async () => {
+  it('an admin gets the composer and can open settings with keys and accounts', async () => {
     const { u, App } = await asRole('admin');
     render(<App />);
     expect(await screen.findByRole('main', { name: 'Brain view' })).toBeTruthy();
     expect(screen.queryAllByRole('tab')).toEqual([]);
     expect(screen.getByLabelText('Task for the team')).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Admin panel' })).toBeNull();
+    await u.click(screen.getByRole('button', { name: /^Settings$/ }));
     const bar = screen.getByRole('region', { name: 'Admin panel' });
     const keys = within(bar).getByText('API keys').closest('section')!; // the one place to paste a key
     expect(
@@ -266,16 +270,16 @@ describe('who can do what', () => {
     expect(chat.querySelectorAll('.bot-icon').length).toBeGreaterThanOrEqual(2);
     const doing = chat.querySelector('.activity')!;
     expect(doing.textContent).toMatch(/Cursor/);
-    const claude = within(chat).getByRole('button', { name: 'Claude' });
+    const claude = within(chat).getByRole('button', { name: 'Claude Code' });
     expect(claude.className).not.toMatch(/limited/);
     act(() => store.useStore.setState({ ranOn: { claude: 'google' } }));
     expect(within(chat).getByText('via Google')).toBeTruthy(); // a free stand-in is labelled, never passed off as the real bot
     act(() => store.useStore.setState({ limited: ['claude'] }));
-    expect(within(chat).getByRole('button', { name: 'Claude' }).className).toMatch(/limited/);
+    expect(within(chat).getByRole('button', { name: 'Claude Code' }).className).toMatch(/limited/);
     act(() => store.useStore.setState({ limited: [] })); // it answered again
-    expect(within(chat).getByRole('button', { name: 'Claude' }).className).not.toMatch(/limited/);
+    expect(within(chat).getByRole('button', { name: 'Claude Code' }).className).not.toMatch(/limited/);
     // clicking a name opens that bot's profile
-    await u.click(within(chat).getByRole('button', { name: 'Claude' }));
+    await u.click(within(chat).getByRole('button', { name: 'Claude Code' }));
     const dialog = await screen.findByRole('dialog', { name: /Agent Inspector: Claude/ });
     expect(within(dialog).getByText(/Anthropic/)).toBeTruthy();
   }, 30000);
@@ -419,7 +423,8 @@ describe('who can do what', () => {
     render(<App />);
     expect(await screen.findByRole('main', { name: 'Brain view' })).toBeTruthy();
 
-    // 1. Check Admin Panel has GitHub Connector
+    // 1. Settings keeps connectors available without taking space from the brain.
+    await u.click(screen.getByRole('button', { name: /^Settings$/ }));
     expect(await screen.findByText('GitHub Connector')).toBeTruthy();
     expect(screen.getByLabelText('GitHub Repository')).toBeTruthy();
     expect(screen.getByLabelText('GitHub Personal Access Token')).toBeTruthy();

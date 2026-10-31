@@ -33,9 +33,11 @@ test('built page: set up admin, draw brain, pass System check, lock', async ({ p
   await page.waitForTimeout(2500); // let the brain settle for the picture
   await info.attach('brain.png', { body: await stage.screenshot(), contentType: 'image/png' });
 
-  // one page: no view switch, no tabs, the live chat beside the brain and the admin panel along the bottom
+  // Brain-first home: chat beside the brain; settings stay closed until requested.
   await expect(page.getByRole('tab')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Live chat' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Admin panel' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Admin panel' })).toBeVisible();
 
   // no key yet: the task box stays usable (so a key can be pasted into it) but nothing is sent to the team
@@ -87,6 +89,12 @@ test('built page: set up admin, draw brain, pass System check, lock', async ({ p
     await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2 + 20, { steps: 8 });
     await page.mouse.up();
   }
+  await page.getByRole('button', { name: 'Reset view', exact: true }).click();
+  await page.getByRole('button', { name: 'Hide chat', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Live chat' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show chat', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Live chat' })).toBeVisible();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   // the Accounts card adds admins only (no role choice): add a spare admin and sign in with it in a second tab
   await expect(page.getByRole('combobox', { name: 'Role' })).toHaveCount(0);
   await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Spare');
@@ -100,6 +108,7 @@ test('built page: set up admin, draw brain, pass System check, lock', async ({ p
   await spare.getByLabel('Password').fill('fake spare passcode');
   await spare.getByRole('button', { name: 'Sign in' }).click();
   await expect(spare.getByRole('main', { name: 'Brain view' })).toBeVisible({ timeout: 30_000 });
+  await spare.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(spare.getByRole('region', { name: 'Admin panel' })).toBeVisible();
   // GitHub's runners draw the 3D brain in software, a few frames a second. Both windows share one CPU,
   // so close the first window (all its errors are already collected) and give the phone steps room.
