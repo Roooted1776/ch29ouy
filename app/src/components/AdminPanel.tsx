@@ -147,7 +147,7 @@ export default function AdminPanel() {
                 <div key={p} className="company-key-card">
                   <div className="company-key-head">
                     <span className="company-tag" style={{ borderLeftColor: PROV[p].color }}>
-                      <b style={{ color: PROV[p].color }}>{PROV[p].label}</b>
+                      <b style={{ color: PROV[p].color }}>{p === 'google' ? 'Google (Gemini)' : PROV[p].label}</b>
                       <small>{PROV[p].roles}</small>
                     </span>
                     <span className={`pill ${has ? (isDead ? 'warn' : 'ok') : ''}`}>
