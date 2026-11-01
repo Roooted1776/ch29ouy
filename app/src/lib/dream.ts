@@ -21,8 +21,8 @@ import { clip, fmtDate, keywords } from './text';
 
 export const DREAM_BATCH = 12,
   DREAM_PAGES = 8;
-/** How long after a Dream the next automatic one may run. */
-export const DREAM_EVERY = 20 * 60 * 60 * 1000;
+/** Dream runs by itself about once an hour while something waits (Owner, Nov 1 2026: no manual memory updates). */
+export const DREAM_EVERY = 60 * 60 * 1000;
 
 export const DREAM_SYSTEM =
   "You are Dream, the memory agent of Owner's Brain. You keep a small wiki of what the team knows. Work in four steps. " +

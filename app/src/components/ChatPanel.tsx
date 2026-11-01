@@ -289,28 +289,14 @@ export default function ChatPanel() {
   );
 }
 
-/** The banter switch, right by the chat: on, teammates chime in on chat replies and Grok Bot leads huddles when idle; off, one bot answers and the room stays quiet. */
+/** Banter runs by itself (Owner, Nov 1 2026): no switch, just a quiet note while the team is huddling. */
 function BanterBar() {
-  const on = useStore(s => s.live.banter),
-    setLive = useStore(s => s.setLive),
-    bantering = useStore(s => s.bantering),
-    stop = useStore(s => s.stop);
-  return (
+  const bantering = useStore(s => s.bantering);
+  return bantering ? (
     <div className="banter-bar">
-      <label className="sw">
-        <input type="checkbox" checked={on} onChange={e => setLive({ banter: e.target.checked })} />
-        <span>Banter &amp; side chat</span>
-      </label>
-      {on && bantering ? (
-        <>
-          <span className="doing">huddling…</span>
-          <button type="button" className="sm link" onClick={() => stop()} title="Stop this huddle">
-            Stop
-          </button>
-        </>
-      ) : null}
+      <span className="doing">team is chatting…</span>
     </div>
-  );
+  ) : null;
 }
 
 /** The handoff in flight: a light moves from the sender to the receiver in the same time as the 3D view. */

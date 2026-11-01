@@ -85,9 +85,34 @@ export function resetFeel(clearStorage = false): void {
     }
 }
 
-/** How the bot feels at `now`: its saved mood eased back toward its baseline. */
+let shuffle = true;
+/** Turns the daily mood shuffle on or off (tests turn it off to check the fixed baselines). */
+export function setMoodShuffle(on: boolean): void {
+  shuffle = on;
+}
+const hash = (t: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619);
+  return (h >>> 0) / 4294967296;
+};
+/**
+ * Some days a bot wakes up in a different mood (Owner, Nov 1 2026: "some days shuffle moods randomly").
+ * About half the days, each bot's baseline moves by up to 0.5; the same day always gives the same mood.
+ */
+export function dayBase(id: AgentId, now = Date.now()): { warmth: number; energy: number } {
+  const p = PERSONA[id];
+  if (!shuffle) return { warmth: p.warmth, energy: p.energy };
+  const day = new Date(now).toISOString().slice(0, 10);
+  if (hash(day + ':' + id) < 0.5) return { warmth: p.warmth, energy: p.energy };
+  return {
+    warmth: clamp(p.warmth + (hash(day + ':w:' + id) - 0.5)),
+    energy: clamp(p.energy + (hash(day + ':e:' + id) - 0.5)),
+  };
+}
+
+/** How the bot feels at `now`: its saved mood eased back toward today's baseline. */
 export function feelOf(id: AgentId, now = Date.now()): Feel {
-  const base = PERSONA[id],
+  const base = dayBase(id, now),
     f = load()[id];
   if (!f) return { warmth: base.warmth, energy: base.energy, ts: now };
   const k = Math.pow(0.5, Math.max(0, now - f.ts) / HALF_LIFE_MS);

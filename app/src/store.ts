@@ -23,7 +23,16 @@ import { DREAM_SYSTEM, applyDream, dreamPrompt, gatherInbox, parseDream } from '
 import { tally } from './lib/learn';
 import { SEARCH_NO_WEB, SEARCH_SYSTEM, searchMemory, searchPrompt } from './lib/search';
 import { CAN_SEARCH } from './lib/providers';
-import { MODEL_RE, PROV, PROVIDERS, ProviderError, callModel, type ProviderId, RETIRED } from './lib/providers';
+import {
+  FREE_PROVIDERS,
+  MODEL_RE,
+  PROV,
+  PROVIDERS,
+  ProviderError,
+  callModel,
+  type ProviderId,
+  RETIRED,
+} from './lib/providers';
 import { redact } from './lib/redact';
 import { transitMs } from './lib/geometry';
 import { runChat } from './lib/run-chat';
@@ -141,14 +150,11 @@ export interface State {
   inspectedBot: AgentId | null;
   promptDraft: string;
   /** Composer mode: team task (multi-bot) or single-model chat. */
-  composerMode: 'task' | 'chat';
   /** Active chat thread session id (kind chat); null starts a new thread. */
   chatThreadId: string | null;
   // actions
   inspectBot(id: AgentId | null): void;
   setPromptDraft(q: string): void;
-  setComposerMode(mode: 'task' | 'chat'): void;
-  newChatThread(): void;
   commit(fn?: (m: Mem) => void): void;
   setLive(p: Partial<LiveCfg>): void;
   setKey(k: string, provider?: ProviderId): void;
@@ -201,7 +207,13 @@ export interface State {
 let logN = 0,
   pulseN = 0;
 const ctls = new Set<AbortController>();
-const DREAM_RUNS = 3;
+/** The task in a message, or null for plain chat: "task: …", "/task …" or "Task for Gemini: …". */
+export function taskText(raw: string): string | null {
+  const m = raw.match(/^\s*(?:\/task\b|task\s*:)\s*/i);
+  if (m) return raw.slice(m[0].length);
+  return /^\s*task for [^:\n]{1,40}:/i.test(raw) ? raw : null;
+}
+const DREAM_RUNS = 8; // self-updates on a page left open, capped to save credits
 const ls: Storage | null = typeof localStorage !== 'undefined' ? localStorage : null;
 
 function loadLive(): { live: LiveCfg; keys: Partial<Record<ProviderId, string>> } {
@@ -225,7 +237,7 @@ function loadLive(): { live: LiveCfg; keys: Partial<Record<ProviderId, string>> 
       if (Number.isFinite(d.maxTokens) && d.maxTokens !== 120)
         live.maxTokens = Math.max(20, Math.min(400, Math.round(d.maxTokens)));
       if (typeof d.web === 'boolean') live.web = d.web;
-      if (typeof d.banter === 'boolean') live.banter = d.banter;
+      // banter is always on (Owner, Nov 1 2026: "banter should auto happen, I should have no role"): an old saved "off" is ignored
       if (Number.isFinite(d.callCap)) live.callCap = Math.max(1, Math.min(9, Math.round(d.callCap)));
       for (const p of PROVIDERS)
         if (typeof d.models?.[p] === 'string' && MODEL_RE.test(d.models[p]) && !RETIRED.has(d.models[p]))
@@ -421,11 +433,7 @@ export const useStore = create<State>()((set, get) => {
     inspectBot: (id: AgentId | null) => set({ inspectedBot: id }),
     promptDraft: '',
     setPromptDraft: (promptDraft: string) => set({ promptDraft }),
-    composerMode: 'task',
     chatThreadId: null,
-    setComposerMode: mode => set({ composerMode: mode }),
-    newChatThread: () =>
-      set({ chatThreadId: null, log: [], viewing: null, status: 'New chat. Messages stay out of wiki memory.' }),
     activeProject: 'Brain',
     setActiveProject: p => set({ activeProject: p.trim() || 'Brain' }),
     githubRepo: gh.repo,
@@ -527,8 +535,10 @@ export const useStore = create<State>()((set, get) => {
 
     async send(raw) {
       const deps = { get, set, say, clean, addPulse, words, speedFor, liveReady, admin, ctls, ls };
-      if (get().composerMode === 'chat') return runChat(raw, deps);
-      return runTask(raw, deps);
+      // one chat pane (Owner, Nov 1 2026): a message is group chat, the cheap path; "task: …" or
+      // "Task for <bot>: …" runs the full team task chain instead
+      const t = taskText(raw);
+      return t === null ? runChat(raw, deps) : runTask(t, deps);
     },
     async banter(opts) {
       if (get().bantering) return;
@@ -647,13 +657,15 @@ export const useStore = create<State>()((set, get) => {
       }
       // Dream has its own small budget, apart from the task calls
       if (s.dreams >= DREAM_RUNS) {
-        if (!auto) set({ status: 'Dream already ran three times this page load. Reload to run it again.' });
+        if (!auto) set({ status: `Dream already ran ${DREAM_RUNS} times this page load. Reload to run it again.` });
         return;
       }
+      // free services first (Owner, Nov 1 2026), then the main provider, then any working key
       const pv =
-        s.keys[s.live.provider] && !s.dead[s.live.provider]
+        FREE_PROVIDERS.find(p => !!s.keys[p] && !s.dead[p]) ||
+        (s.keys[s.live.provider] && !s.dead[s.live.provider]
           ? s.live.provider
-          : PROVIDERS.find(p => !!s.keys[p] && !s.dead[p]);
+          : PROVIDERS.find(p => !!s.keys[p] && !s.dead[p]));
       if (!pv) {
         if (!auto) set({ status: 'Dream needs a working API key. Add one under API keys.' });
         return;

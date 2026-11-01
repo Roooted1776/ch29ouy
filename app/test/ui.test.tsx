@@ -215,7 +215,7 @@ describe('who can do what', () => {
     act(() => auth.useAuth.getState().logout());
     expect(await screen.findByRole('heading', { name: 'Sign in to Brain' })).toBeTruthy();
     expect(store.useStore.getState().role).toBeNull();
-    expect(screen.queryByLabelText('Task for the team')).toBeNull();
+    expect(screen.queryByLabelText('Message the team')).toBeNull();
     expect(screen.queryByRole('region', { name: 'Admin panel' })).toBeNull();
     // even calling the store directly cannot change anything
     const s = store.useStore.getState();
@@ -235,7 +235,7 @@ describe('who can do what', () => {
     render(<App />);
     expect(await screen.findByRole('main', { name: 'Brain view' })).toBeTruthy();
     expect(screen.queryAllByRole('tab')).toEqual([]);
-    expect(screen.getByLabelText('Task for the team')).toBeTruthy();
+    expect(screen.getByLabelText('Message the team')).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'Admin panel' })).toBeNull();
     await u.click(screen.getByRole('button', { name: /^Settings$/ }));
     const bar = screen.getByRole('region', { name: 'Admin panel' });
@@ -246,7 +246,7 @@ describe('who can do what', () => {
         .getAttribute('href'),
     ).toBe('https://platform.openai.com/api-keys');
     expect(within(bar).queryByRole('region', { name: 'Connect real AI' })).toBeNull();
-    expect((screen.getByLabelText('Task for the team') as HTMLTextAreaElement).disabled).toBe(false);
+    expect((screen.getByLabelText('Message the team') as HTMLTextAreaElement).disabled).toBe(false);
     const acc = within(bar).getByText('Accounts').closest('section')!;
     expect(within(acc as HTMLElement).getByText('Owner')).toBeTruthy();
     await u.type(screen.getByLabelText('Name', { selector: 'input[placeholder="Name"]' }), 'Kid');

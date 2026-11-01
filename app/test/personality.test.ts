@@ -8,6 +8,8 @@ import {
   ownerEvent,
   personalityLine,
   resetFeel,
+  setMoodShuffle,
+  dayBase,
 } from '../src/lib/personality';
 import { huddleSystem, roomSystem } from '../src/data/team';
 
@@ -22,6 +24,7 @@ function fakeStorage() {
 
 describe('chat personality', () => {
   beforeEach(() => {
+    setMoodShuffle(false);
     (globalThis as any).localStorage = fakeStorage();
     resetFeel(true);
   });
@@ -67,5 +70,19 @@ describe('chat personality', () => {
     const line = personalityLine('gemini');
     expect(roomSystem('gemini', false, line)).toContain(line);
     expect(huddleSystem('gemini', 'respond', line)).toContain(line);
+  });
+});
+
+describe('daily mood shuffle', () => {
+  it('gives the same mood all day and stays in range', () => {
+    setMoodShuffle(true);
+    const day = Date.parse('2026-11-01T09:00:00Z');
+    expect(dayBase('claude', day)).toEqual(dayBase('claude', day + 3 * 3600_000));
+    for (let d = 0; d < 30; d++) {
+      const b = dayBase('grok', day + d * 86_400_000);
+      expect(Math.abs(b.warmth)).toBeLessThanOrEqual(1);
+      expect(Math.abs(b.energy)).toBeLessThanOrEqual(1);
+    }
+    setMoodShuffle(false);
   });
 });

@@ -7,6 +7,7 @@ import { STAGE_COLOR, TYPE_COLOR, colorOf } from '../data/colors';
 import { AGENTS, isAgent } from '../data/team';
 import { OUTLINE } from '../data/outline';
 import { buildSkull, skullLines } from '../lib/skull';
+import { brainEntries, brainTasks } from '../lib/brain-view';
 import { buildShell, midline, placeMemory, route, station, surfaceFolds, toWorld, type P3 } from '../lib/geometry';
 import {
   TASK_FAN,
@@ -441,7 +442,7 @@ function Memories() {
   const top = useMemo(
     () =>
       new Set(
-        [...mem.entries]
+        brainEntries(mem.entries)
           .sort((a, b) => weight(b) - weight(a))
           .slice(0, 12)
           .map(e => e.id),
@@ -449,7 +450,11 @@ function Memories() {
     [mem.entries],
   );
   const sel = selected ? mem.entries.find(e => e.id === selected) : undefined;
-  const list = useMemo(() => mem.entries.filter(e => pos.has(e.id)), [mem.entries, pos]);
+  // the brain draws a cleaned view: no stale pages, no repeat GitHub feed items, one dot per title
+  const list = useMemo(
+    () => brainEntries(mem.entries, selected).filter(e => pos.has(e.id)),
+    [mem.entries, pos, selected],
+  );
 
   // Consolidated task dots (Owner, Nov 1 2026): one blue dot per project. Clicking it, or a memory, blooms that
   // node open: its own tasks fan out around it, newest first, and each one opens that exact task in the chat.
@@ -459,7 +464,7 @@ function Memories() {
     const linkPoints: number[] = [];
 
     const byProject = new Map<string, Session[]>();
-    for (const s of mem.sessions) {
+    for (const s of brainTasks(mem.sessions)) {
       const projKey = (s.projectId || s.project || 'Brain').toLowerCase();
       const arr = byProject.get(projKey) || [];
       arr.push(s);
@@ -476,6 +481,12 @@ function Memories() {
         list.find(e => e.type === 'workstream');
 
       if (!pNode || !pos.has(pNode.id)) continue;
+      // projects that fall back to the same page share one dot instead of stacking several
+      const same = clusters.find(c => c.at === pNode.id);
+      if (same) {
+        same.sessions = [...same.sessions, ...sessions].sort((a, b) => b.ts - a.ts);
+        continue;
+      }
       const p = toWorld(pos.get(pNode.id)!);
       const parentPos: V3 = [p[0], p[1], p[2]];
       const cPos: V3 = [parentPos[0] + 0.28, parentPos[1] + 0.1, parentPos[2]];
@@ -488,7 +499,7 @@ function Memories() {
   // The node open now: a project's blue dot, or else the selected memory when it has tasks behind it.
   const fan = useMemo(() => {
     const c = taskNodes.clusters.find(x => x.key === open);
-    const sessions = c ? c.sessions : sel ? sessionsFor(mem, sel.id) : [];
+    const sessions = c ? c.sessions : sel ? brainTasks(sessionsFor(mem, sel.id)) : [];
     const p = c ? c.pos : sel && pos.has(sel.id) ? toWorld(pos.get(sel.id)!) : null;
     if (!p || !sessions.length) return null;
     const shown = sessions.slice(0, TASK_FAN);

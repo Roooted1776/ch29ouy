@@ -17,7 +17,7 @@ import {
   type Msg,
   type Session,
 } from './memory';
-import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, type ProviderId } from './providers';
+import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, type ProviderId, pickBotProvider } from './providers';
 import { redact } from './redact';
 import { contextBlock, indexTitles, relevant } from './retrieve';
 import { clip } from './text';
@@ -147,12 +147,12 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
           set({ draft: { from: bot, text: clean(t) } });
         }
       : undefined;
-    // the bot's own company if there is a key for it, else its free service, else the main provider
+    // free services first, then the bot's own company, then the main provider
     const usable = (p?: string): p is ProviderId =>
       !!p && p in PROV && !!st.keys[p as ProviderId] && !st.dead[p as ProviderId];
     const own = bot ? AGENT[bot]?.provider : undefined,
       free = bot ? AGENT[bot]?.free : undefined;
-    const activeProv: ProviderId = usable(own) ? own : usable(free) ? free : pv;
+    const activeProv: ProviderId = pickBotProvider(own, free, pv, usable);
     if (bot) set(x => ({ ranOn: { ...x.ranOn, [bot]: activeProv } }));
     const activeKey = st.keys[activeProv] || st.keys[pv] || '';
     const activeModel = st.live.models[activeProv] || PROV[activeProv].model;

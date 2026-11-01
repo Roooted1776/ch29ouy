@@ -46,7 +46,7 @@ const reply = (text: string) =>
     status: 200,
     headers: { 'content-type': 'application/json' },
   });
-const fast = { firstDelayMs: 0, gapMs: 0, sessionGapMs: 0, rand: () => 0 };
+const fast = { firstDelayMs: 0, gapMs: 0, sessionGapMs: 0, rand: () => 0, lines: BANTER_MAX_LINES };
 
 const entry = (over: any = {}) => ({
   id: 'e1',
@@ -177,7 +177,7 @@ describe('idle huddles', () => {
     expect(await runBanter(w.deps, { ...fast, sessionGapMs: undefined })).toBe(BANTER_MAX_LINES);
     const before = w.calls();
     // a second huddle right away is refused by the default session gap
-    expect(await runBanter(w.deps, { firstDelayMs: 0, gapMs: 0, rand: () => 0 })).toBe(0);
+    expect(await runBanter(w.deps, { firstDelayMs: 0, gapMs: 0, rand: () => 0, lines: BANTER_MAX_LINES })).toBe(0);
     expect(w.calls()).toBe(before);
   });
 
@@ -231,7 +231,7 @@ describe('idle huddles in the store', () => {
     useStore.setState({ role: 'admin', keys: { openai: 'sk-test' } });
     useStore.getState().setLive({ provider: 'openai' });
     useStore.setState({ keys: { openai: 'sk-test' } });
-    await useStore.getState().banter({ firstDelayMs: 0, gapMs: 0, rand: () => 0 });
+    await useStore.getState().banter({ firstDelayMs: 0, gapMs: 0, rand: () => 0, lines: BANTER_MAX_LINES });
     const s = useStore.getState();
     expect(s.log.length).toBe(BANTER_MAX_LINES);
     expect(s.log[0].from).toBe('grokbot');
@@ -244,8 +244,19 @@ describe('idle huddles in the store', () => {
     expect(s.mem.sessions).toEqual([]);
     // the switch off silences the room even with budget left
     s.setLive({ banter: false });
-    await useStore.getState().banter({ firstDelayMs: 0, gapMs: 0, sessionGapMs: 0, rand: () => 0 });
+    await useStore
+      .getState()
+      .banter({ firstDelayMs: 0, gapMs: 0, sessionGapMs: 0, rand: () => 0, lines: BANTER_MAX_LINES });
     expect(f).toHaveBeenCalledTimes(BANTER_MAX_LINES);
     delete (globalThis as any).localStorage;
+  });
+});
+
+describe('casual huddles', () => {
+  it('a short huddle has 2 lines: Grok Bot opens, one teammate answers, no wrap-up', async () => {
+    const w = fakeWorld(async n => reply('line ' + n));
+    expect(await runBanter(w.deps, { ...fast, lines: 2 })).toBe(2);
+    expect(w.said[0].from).toBe('grokbot');
+    expect(w.said[1].from).not.toBe('grokbot');
   });
 });

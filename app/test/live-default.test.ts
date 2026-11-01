@@ -20,7 +20,7 @@ describe('Live AI default', () => {
     expect(s.calls).toBe(0);
     expect(fetchSpy).not.toHaveBeenCalled();
     useStore.setState({ role: 'admin' });
-    await s.send('a task'); // no key yet: refused before any call
+    await s.send('task: a task'); // no key yet: refused before any call
     expect(useStore.getState().status).toMatch(/Add your Anthropic key/);
     expect(fetchSpy).not.toHaveBeenCalled();
     delete (globalThis as any).localStorage;

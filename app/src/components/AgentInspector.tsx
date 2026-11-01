@@ -2,7 +2,7 @@ import type React from 'react';
 import { colorOf } from '../data/colors';
 import { AGENT, TEAM_EDGES, type AgentId } from '../data/team';
 import { PERSONA, feelOf, moodOf } from '../lib/personality';
-import { PROV, type ProviderId } from '../lib/providers';
+import { PROV, pickBotProvider, type ProviderId } from '../lib/providers';
 import { useStore } from '../store';
 
 const DOCTRINE: Record<AgentId, { stage: string; action: string }> = {
@@ -34,6 +34,7 @@ export default function AgentInspector({ id, onClose }: { id?: AgentId; onClose?
   const handleClose = onClose ?? (() => inspectBot(null));
 
   const keys = useStore(s => s.keys);
+  const dead = useStore(s => s.dead);
   const live = useStore(s => s.live);
   const inactiveBots = useStore(s => s.inactiveBots);
   const toggleBotActive = useStore(s => s.toggleBotActive);
@@ -48,9 +49,10 @@ export default function AgentInspector({ id, onClose }: { id?: AgentId; onClose?
   const incoming = TEAM_EDGES.filter(([, to]) => to === botId).map(([from]) => from);
   const outgoing = TEAM_EDGES.filter(([from]) => from === botId).map(([, to]) => to);
 
-  const prov = a.provider as ProviderId | undefined;
-  const directKey = prov && keys[prov];
-  const activeFallback = keys[live.provider];
+  // the key this bot would speak through right now: free services first, then its own company, then the main one
+  const usable = (p?: string): p is ProviderId => !!p && p in PROV && !!keys[p as ProviderId] && !dead[p as ProviderId];
+  const runsOn = pickBotProvider(a.provider, a.free, live.provider, usable);
+  const hasKey = usable(runsOn);
 
   const handleDirectTask = () => {
     setPromptDraft(`Task for ${a.name}: `);
@@ -85,13 +87,13 @@ export default function AgentInspector({ id, onClose }: { id?: AgentId; onClose?
       <div className="ai-body">
         <div className="ai-grid">
           <div className="ai-tile">
-            <span className="lbl">Doctrine & Stage</span>
+            <span className="lbl">Stage</span>
             <b>{DOCTRINE[botId].stage}</b>
             <p className="desc">{DOCTRINE[botId].action}</p>
           </div>
 
           <div className="ai-tile">
-            <span className="lbl">Status & Model</span>
+            <span className="lbl">Status</span>
             <div className="row">
               {isInactive ? (
                 <span className="badge-nocredit">Role disabled</span>
@@ -100,25 +102,21 @@ export default function AgentInspector({ id, onClose }: { id?: AgentId; onClose?
               )}
             </div>
             <small>
-              {prov && directKey
-                ? `${PROV[prov].label} API key configured`
-                : activeFallback
-                  ? `Powered via ${PROV[live.provider].label} fallback`
-                  : 'Needs API key in Admin'}
+              {hasKey
+                ? `Runs on ${PROV[runsOn].label} · ${live.models[runsOn] || PROV[runsOn].model}`
+                : 'Needs an API key'}
             </small>
           </div>
         </div>
 
         <div className="ai-section">
-          <p className="desc">
-            Tool roster and model roles. This page does not connect to the installed apps or change their projects. Grok
-            Bot is the coordinating role. Copilot is available for huddles; the default task chain keeps its nine-call
-            limit.
-          </p>
           <span className="lbl">Specialty</span>
           <p className="ai-specialty">{a.specialty}</p>
           <p className="ai-specialty">
-            Chat personality: {PERSONA[botId].trait}. Feeling {moodOf(feelOf(botId))} right now.
+            <span className="lbl">Personality</span>
+          </p>
+          <p className="ai-specialty">
+            {PERSONA[botId].trait}. Feeling <b>{moodOf(feelOf(botId))}</b> right now.
           </p>
         </div>
 

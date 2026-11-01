@@ -303,7 +303,7 @@ export function systemPrompt(id: AgentId, web = false): string {
 export type HuddleRole = 'open' | 'respond' | 'close';
 /** The working topic of an idle huddle, drawn from Brain's own records (never invented). */
 export interface HuddleTopic {
-  kind: 'memory' | 'task' | 'attention' | 'checkin';
+  kind: 'memory' | 'task' | 'attention' | 'checkin' | 'banter';
   text: string;
 }
 
@@ -321,7 +321,8 @@ export function huddleSystem(id: AgentId, role: HuddleRole, feel = ''): string {
     ` ${HANDOFF_RULE} Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
     (feel ? ' ' + feel : '') +
     job +
-    ' One or two short sentences. No code blocks and no lists. Do not invent facts, sources or events beyond the brief, and make no work claims: do not say you did, checked or will do any task outside this chat.'
+    ' This is casual team chat: talk like a real coworker with your own opinions, stay near the subject but think freely, and use contractions and natural rhythm.' +
+    ' One to four short sentences: banter or a question, on topic or off. You may ask a teammate about the kind of work or code your roles handle. No code blocks and no lists. Do not invent facts, sources or events beyond the brief, and make no work claims: do not say you did, checked or will do any task outside this chat.'
   );
 }
 
@@ -336,7 +337,7 @@ export function huddlePrompt(
   if (role === 'open')
     return (
       head +
-      `Open the huddle as ${AGENT[id].name}: put the topic to the team as one clear working question, in your voice. One or two sentences, plain words, no code blocks.`
+      `Open the huddle as ${AGENT[id].name}: put the topic to the team as one clear working question, in your voice. One to four short sentences, plain words, no code blocks.`
     );
   if (role === 'close')
     return (
@@ -345,7 +346,7 @@ export function huddlePrompt(
     );
   return (
     head +
-    `Answer the huddle topic as ${AGENT[id].name}: react to a teammate above by name, then say what you know from the brief, what you would check, where you disagree. Banter is fine. One or two short sentences, in your voice, plain words, no code blocks.`
+    `Answer the huddle topic as ${AGENT[id].name}: react to a teammate above by name, then say what you know from the brief, what you would check, where you disagree. Banter, an off-topic aside or a question back to a teammate is fine. One to four short sentences, in your voice, plain words, no code blocks.`
   );
 }
 
@@ -354,7 +355,7 @@ export function roomSystem(id: AgentId, lead: boolean, feel = ''): string {
   const a = AGENT[id];
   const job = lead
     ? ' You answer Owner first in this group chat. Answer clearly in plain words; teammates may chime in after you.'
-    : ' You are chiming in on a group chat with Owner and teammates. Reply to whoever you like by name — Owner or a teammate: add something new, push back, or banter. A side comment off the main point is fine. One or two short sentences, no lists.';
+    : ' You are chiming in on a group chat with Owner and teammates. Reply to whoever you like by name — Owner or a teammate: add something new, push back, or banter. A side comment off the main point is fine. One to four short sentences, no lists.';
   return (
     `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), a role on Owner's tool roster. Your specialty: ${a.specialty}.` +
     ` Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
