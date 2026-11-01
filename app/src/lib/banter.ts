@@ -16,6 +16,7 @@ import {
 } from '../data/team';
 import type { State } from '../store';
 import { TYPE_LABEL, plainNote, weight, type Msg } from './memory';
+import { nudge, personalityLine } from './personality';
 import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, type ProviderId } from './providers';
 import { clip } from './text';
 
@@ -206,7 +207,7 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
           provider: activeProv,
           key,
           model,
-          system: huddleSystem(bot, role),
+          system: huddleSystem(bot, role, personalityLine(bot)),
           user: huddlePrompt(bot, role, topic, lines),
           maxTokens: Math.min(st.live.maxTokens, BANTER_MAX_TOKENS),
           web: false,
@@ -222,10 +223,14 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
         // a task may have started while this line was written; then the line is dropped, never mixed into the task
         if (!text || get().busy || get().stopped || ctl.signal.aborted) break;
         say({ from: bot, tag, text });
+        nudge(bot, 'spoke');
         lines.push({ from: bot, text });
       } catch (e) {
         if (e instanceof ProviderError && e.rejected) set(x => ({ dead: { ...x.dead, [activeProv]: true } }));
-        if (isLimitError(e)) set(x => ({ limited: x.limited.includes(bot) ? x.limited : [...x.limited, bot] }));
+        if (isLimitError(e)) {
+          nudge(bot, 'quota');
+          set(x => ({ limited: x.limited.includes(bot) ? x.limited : [...x.limited, bot] }));
+        }
         break; // a failed line ends the huddle quietly; nothing is filled in
       } finally {
         if (get().draft?.from === bot) set({ draft: null });

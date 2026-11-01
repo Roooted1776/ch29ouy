@@ -8,7 +8,16 @@ import { AGENT, AGENTS, isAgent } from '../data/team';
 import { OUTLINE } from '../data/outline';
 import { buildSkull, skullLines } from '../lib/skull';
 import { buildShell, midline, placeMemory, route, station, surfaceFolds, toWorld, type P3 } from '../lib/geometry';
-import { TASK_FAN, TYPE_LABEL, agentActivityScores, nodeSize, sessionsFor, weight, type Session } from '../lib/memory';
+import {
+  TASK_FAN,
+  TYPE_LABEL,
+  agentActivityScores,
+  nodeSize,
+  routeOf,
+  sessionsFor,
+  weight,
+  type Session,
+} from '../lib/memory';
 import { PULSE_AFTERGLOW, pulseMs, useMem, useStore, type Pulse } from '../store';
 import { DOT_FRAG, DOT_VERT, RIM_FRAG, RIM_VERT } from '../lib/shaders';
 import { sceneStats } from '../lib/stats';
@@ -497,6 +506,20 @@ function Memories() {
   }, [taskNodes, open, sel, pos, mem]);
   // the spokes from the open node to its task dots, built once per fan (not on every hover re-render)
   const fanLines = useMemo(() => (fan ? new Float32Array(fan.dots.flatMap(d => [0, 0, 0, ...d.pos])) : null), [fan]);
+  // Mind-map edges for the task in focus (hovered, or open in the chat): a spoke from the task to every agent that
+  // worked on it, and the handoffs between those agents in the order they happened.
+  const focusId = fan ? [hoverTask, viewing?.id].find(id => id && fan.dots.some(d => d.s.id === id)) : undefined;
+  const routeEdges = useMemo(() => {
+    const d = fan?.dots.find(x => x.s.id === focusId);
+    if (!fan || !d) return null;
+    const at = (id: string) => toWorld(station(id) as P3);
+    const from: V3 = [fan.anchor[0] + d.pos[0], fan.anchor[1] + d.pos[1], fan.anchor[2] + d.pos[2]];
+    const spokes: number[] = [],
+      hops: number[] = [];
+    for (const id of routeOf(d.s)) spokes.push(...from, ...at(id));
+    for (const [a, b] of d.s.flow || []) if (isAgent(a) && isAgent(b)) hops.push(...at(a), ...at(b));
+    return { spokes: new Float32Array(spokes), hops: new Float32Array(hops) };
+  }, [fan, focusId]);
   const activityScores = useMemo(() => agentActivityScores(mem), [mem]);
   const maxActScore = useMemo(() => {
     let m = 0;
@@ -683,6 +706,22 @@ function Memories() {
           </group>
         );
       })}
+      {routeEdges && routeEdges.spokes.length > 0 && (
+        <lineSegments key={'rs' + focusId} renderOrder={4}>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[routeEdges.spokes, 3]} />
+          </bufferGeometry>
+          <lineBasicMaterial color="#7dd3fc" transparent opacity={0.45} depthTest={false} depthWrite={false} />
+        </lineSegments>
+      )}
+      {routeEdges && routeEdges.hops.length > 0 && (
+        <lineSegments key={'rh' + focusId} renderOrder={4}>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[routeEdges.hops, 3]} />
+          </bufferGeometry>
+          <lineBasicMaterial color="#ffffff" transparent opacity={0.7} depthTest={false} depthWrite={false} />
+        </lineSegments>
+      )}
       {fan && (
         <Bloom key={fan.key} position={fan.anchor}>
           <lineSegments renderOrder={3}>

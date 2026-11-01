@@ -1,6 +1,7 @@
 import type React from 'react';
 import { colorOf } from '../data/colors';
 import { AGENT, TEAM_EDGES, type AgentId } from '../data/team';
+import { PERSONA, feelOf, moodOf } from '../lib/personality';
 import { PROV, type ProviderId } from '../lib/providers';
 import { useStore } from '../store';
 
@@ -116,6 +117,9 @@ export default function AgentInspector({ id, onClose }: { id?: AgentId; onClose?
           </p>
           <span className="lbl">Specialty</span>
           <p className="ai-specialty">{a.specialty}</p>
+          <p className="ai-specialty">
+            Chat personality: {PERSONA[botId].trait}. Feeling {moodOf(feelOf(botId))} right now.
+          </p>
         </div>
 
         <div className="ai-section">

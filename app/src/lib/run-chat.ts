@@ -4,6 +4,7 @@ import { TYPE_COLOR } from '../data/colors';
 import { AGENT, AGENTS, roomPrompt, roomSystem, type AgentId } from '../data/team';
 import { BANTER_MAX_TOKENS, SIDE_CHAT_PER_MESSAGE, botProvider } from './banter';
 import { keepSessions, type Flow, type Msg, type Session } from './memory';
+import { nudge, ownerEvent, personalityLine } from './personality';
 import { PROV, PROVIDERS, ProviderError, QUOTA_LABEL, callModel, isLimitError, type ProviderId } from './providers';
 import { redact } from './redact';
 import { contextBlock, indexTitles, relevant } from './retrieve';
@@ -50,6 +51,10 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
   if (!room.length) return set({ status: 'No bot is on to answer. Turn one on in Settings. Nothing was sent.' });
   const named = room.find(id => addressed(q, id));
   const lead: AgentId = named ?? room[Math.floor(Math.random() * room.length)];
+  // moods: Owner's tone moves everyone in the room, and a bot spoken to by name perks up
+  const tone = ownerEvent(q);
+  if (tone) for (const id of room) nudge(id, tone);
+  if (named) nudge(named, 'called');
   const leadPv = botProvider(s, lead, pv);
   const model = s.live.models[leadPv] || PROV[leadPv].model,
     tag = `chat · ${PROV[leadPv].label} · ${model} · unverified`;
@@ -153,7 +158,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
       provider: leadPv,
       key: s.keys[leadPv] || s.keys[pv]!,
       model,
-      system: CHAT_SYSTEM + roomSystem(lead, true),
+      system: CHAT_SYSTEM + roomSystem(lead, true, personalityLine(lead)),
       user: roomPrompt(lead, ctxBlock, history, said),
       maxTokens: Math.min(s.live.maxTokens, 900),
       web: false,
@@ -169,6 +174,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
     if (!text) throw new Error(res.why ? `no text (${res.why})` : 'an empty reply');
     const reply: Msg = { from: lead, tag, text: text.slice(0, 4000) };
     say(reply);
+    nudge(lead, 'spoke');
     said.push({ from: AGENT[lead].name, text: reply.text });
     set(x => ({
       tin: x.tin + res.tin,
@@ -181,6 +187,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
   } catch (e: unknown) {
     if (e instanceof ProviderError && e.rejected) set(x => ({ dead: { ...x.dead, [leadPv]: true } }));
     if (isLimitError(e)) {
+      nudge(lead, 'quota');
       set(x => ({
         limited: x.limited.includes(lead) ? x.limited : [...x.limited, lead],
         status: `${AGENT[lead].name}: ${QUOTA_LABEL}`,
@@ -247,7 +254,9 @@ async function sideChat(
         provider: bp,
         key,
         model,
-        system: standIn ? CHAT_SYSTEM + roomSystem(bot, true) : roomSystem(bot, false),
+        system: standIn
+          ? CHAT_SYSTEM + roomSystem(bot, true, personalityLine(bot))
+          : roomSystem(bot, false, personalityLine(bot)),
         user: roomPrompt(bot, ctx, history, said),
         maxTokens: Math.min(st.live.maxTokens, standIn ? 900 : BANTER_MAX_TOKENS),
         web: false,
@@ -264,12 +273,16 @@ async function sideChat(
       if (!text || get().stopped || signal.aborted) break;
       const m: Msg = { from: bot, tag: `chat · ${PROV[bp].label} · ${model} · unverified`, text: text.slice(0, 1000) };
       say(m);
+      nudge(bot, 'spoke');
       out.push(m);
       said.push({ from: AGENT[bot].name, text: m.text });
       if (standIn) break;
     } catch (e) {
       if (e instanceof ProviderError && e.rejected) set(x => ({ dead: { ...x.dead, [bp]: true } }));
-      if (isLimitError(e)) set(x => ({ limited: x.limited.includes(bot) ? x.limited : [...x.limited, bot] }));
+      if (isLimitError(e)) {
+        nudge(bot, 'quota');
+        set(x => ({ limited: x.limited.includes(bot) ? x.limited : [...x.limited, bot] }));
+      }
       if (!(standIn && isLimitError(e))) break; // a stand-in out of credit hands to one more teammate
     } finally {
       set({ draft: null });
