@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { TYPE_COLOR } from '../data/colors';
+import { TYPE_COLOR, colorOf } from '../data/colors';
+import { AGENT, isAgent } from '../data/team';
 import {
   downloadFile,
   exportMemoryJson,
@@ -10,7 +11,7 @@ import {
   parseMemoryFile,
   type RawMemoryItem,
 } from '../lib/file-import';
-import { TYPE_LABEL, byId, type Entry, type EntryType } from '../lib/memory';
+import { TYPE_LABEL, byId, noteParts, routeOf, sessionsFor, type Entry, type EntryType } from '../lib/memory';
 import { fmtDate } from '../lib/text';
 import { useMem, useStore } from '../store';
 import { fetchAndConvertGitHub } from '../lib/github';
@@ -183,7 +184,7 @@ export default function MemoryPanel() {
   );
 }
 
-function Detail({ e, onSession }: { e: Entry; onSession(id: string): void }) {
+export function Detail({ e, onSession }: { e: Entry; onSession(id: string): void }) {
   const mem = useMem(),
     role = useStore(s => s.role),
     select = useStore(s => s.select),
@@ -193,6 +194,7 @@ function Detail({ e, onSession }: { e: Entry; onSession(id: string): void }) {
     [note, setNote] = useState(e.note),
     [title, setTitle] = useState(e.title),
     [sure, setSure] = useState(false);
+  const tasks = useMemo(() => sessionsFor(mem, e.id), [mem, e.id]);
   return (
     <article
       tabIndex={-1}
@@ -204,7 +206,7 @@ function Detail({ e, onSession }: { e: Entry; onSession(id: string): void }) {
         <span className="type" style={{ color: TYPE_COLOR[e.type] }}>
           {TYPE_LABEL[e.type]}
         </span>
-        <span className="strength">Strength {e.strength}/9</span>
+        <span className="strength">Updated {fmtDate(e.seen)}</span>
         <button type="button" className="close" onClick={() => select(null)} aria-label="Close detail">
           ✕
         </button>
@@ -246,77 +248,120 @@ function Detail({ e, onSession }: { e: Entry; onSession(id: string): void }) {
       ) : (
         <>
           <h4>{e.title}</h4>
-          <p className="note">{e.note}</p>
+          {/* A Brain page in the Perplexity style: one subject, readable alone; [[links]] open the linked page,
+              numbered marks point at the sources below. */}
+          <p className="note">
+            {noteParts(e.note).map((part, i) => {
+              const to = part.link ? mem.entries.find(x => x.title.toLowerCase() === part.text.toLowerCase()) : null;
+              return to ? (
+                // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed note, never reordered
+                <button type="button" key={i} className="wiki" onClick={() => select(to.id)}>
+                  {part.text}
+                </button>
+              ) : (
+                // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed note, never reordered
+                <span key={i}>{part.text}</span>
+              );
+            })}
+            {e.sources.map((src, i) => (
+              <sup key={`${src.label}-${src.ref ?? src.kind}`} className="cite">
+                {i + 1}
+              </sup>
+            ))}
+          </p>
         </>
       )}
-      <dl className="meta">
-        <div>
-          <dt>Status</dt>
-          <dd>{e.status}</dd>
-        </div>
-        <div>
-          <dt>First learned</dt>
-          <dd>{fmtDate(e.created)}</dd>
-        </div>
-        <div>
-          <dt>Last reinforced</dt>
-          <dd>{fmtDate(e.seen)}</dd>
-        </div>
-        {e.sources.length > 0 && (
-          <div>
-            <dt>Sources</dt>
-            <dd>
-              {e.sources.map(s =>
-                s.kind === 'session' && s.ref ? (
-                  <button
-                    type="button"
-                    key={`${s.label}-${s.ref}`}
-                    className="link"
-                    onClick={() => s.ref && onSession(s.ref)}
-                  >
+      {tasks.length > 0 && (
+        <section className="page-sec">
+          <h5>Tasks ({tasks.length})</h5>
+          {tasks.slice(0, 8).map(t => {
+            const r = routeOf(t),
+              talk = t.msgs.filter(m => isAgent(m.from)).length;
+            return (
+              <button type="button" key={t.id} className="task-card" onClick={() => onSession(t.id)}>
+                <b>{t.q.length > 70 ? t.q.slice(0, 68) + '…' : t.q}</b>
+                <small>
+                  {fmtDate(t.ts)} · {t.kind === 'chat' ? 'chat' : 'task'} · {talk} message{talk === 1 ? '' : 's'}
+                  {t.flow?.length ? ` · ${t.flow.length} handoffs` : ''}
+                </small>
+                {r.length > 0 && (
+                  <span className="route">
+                    {r.map((id, k) => (
+                      <i key={id} style={{ color: colorOf(id) }}>
+                        {k ? '→ ' : ''}
+                        {AGENT[id as keyof typeof AGENT]?.name ?? id}
+                      </i>
+                    ))}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </section>
+      )}
+      {e.sources.length > 0 && (
+        <section className="page-sec">
+          <h5>Sources</h5>
+          <ol className="src-list">
+            {e.sources.map(s => (
+              <li key={`${s.label}-${s.ref ?? s.kind}`}>
+                {s.kind === 'session' && s.ref ? (
+                  <button type="button" className="link" onClick={() => s.ref && onSession(s.ref)}>
                     {s.label}
                   </button>
                 ) : s.kind === 'github' && s.ref && s.ref.startsWith('https://github.com/') ? (
-                  <a
-                    key={`${s.label}-${s.ref}`}
-                    href={s.ref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="link gh-source-link"
-                  >
+                  <a href={s.ref} target="_blank" rel="noopener noreferrer" className="link gh-source-link">
                     {s.label} ↗
                   </a>
                 ) : (
-                  <span key={`${s.label}-${s.kind}`}>{s.label}</span>
-                ),
-              )}
-            </dd>
+                  <span>{s.label}</span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+      {e.links.length > 0 && (
+        <section className="page-sec">
+          <h5>Linked pages</h5>
+          <div className="links">
+            {e.links.map(id => {
+              const linkEntry = byId(mem, id);
+              if (!linkEntry) return null;
+              return (
+                <button
+                  type="button"
+                  key={id}
+                  className="chip"
+                  style={{ borderColor: TYPE_COLOR[linkEntry.type] }}
+                  onClick={() => select(id)}
+                >
+                  <i style={{ color: TYPE_COLOR[linkEntry.type] }}>{SHAPE[linkEntry.type]}</i>
+                  {linkEntry.title}
+                </button>
+              );
+            })}
           </div>
-        )}
-        {e.links.length > 0 && (
-          <div>
-            <dt>Connected to</dt>
-            <dd className="links">
-              {e.links.map(id => {
-                const linkEntry = byId(mem, id);
-                if (!linkEntry) return null;
-                return (
-                  <button
-                    type="button"
-                    key={id}
-                    className="chip"
-                    style={{ borderColor: TYPE_COLOR[linkEntry.type] }}
-                    onClick={() => select(id)}
-                  >
-                    <i style={{ color: TYPE_COLOR[linkEntry.type] }}>{SHAPE[linkEntry.type]}</i>
-                    {linkEntry.title}
-                  </button>
-                );
-              })}
-            </dd>
-          </div>
-        )}
-      </dl>
+        </section>
+      )}
+      {!!e.hist?.length && (
+        <details className="page-sec">
+          <summary>Changes ({e.hist.length})</summary>
+          <ol className="src-list">
+            {[...e.hist].reverse().map(h => (
+              <li key={h.t}>
+                <small>
+                  {fmtDate(h.t)} · {h.by}
+                </small>{' '}
+                {h.note}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+      <p className="page-meta">
+        {e.status} · strength {e.strength}/9 · first learned {fmtDate(e.created)}
+      </p>
       {role === 'admin' ? (
         !edit && (
           <div className="actions">

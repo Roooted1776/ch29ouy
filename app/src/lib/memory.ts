@@ -517,14 +517,31 @@ export function ensureProjectNode(m: Mem, projectName: string, s?: Session, now 
  * Returns a map from entry ID to its aggregate agent activity score.
  */
 /** Task dots kept on their own around each project node; older tasks fold into one "earlier" dot. */
-export const TASK_DOTS_SHOWN = 3;
-/** Splits one project's sessions for the brain view: the newest real tasks keep their own dot,
- * older tasks and casual chats are consolidated into a single dot (Owner, Oct 2026). */
-export function foldSessions(sessions: Session[], keep = TASK_DOTS_SHOWN): { shown: Session[]; folded: Session[] } {
-  const newest = [...sessions].sort((a, b) => b.ts - a.ts);
-  const shown = newest.filter(s => s.kind !== 'chat').slice(0, keep);
-  const folded = newest.filter(s => !shown.includes(s));
-  return { shown: shown.reverse(), folded };
+/** Task dots one expanded node fans out at once, newest first (Owner, Nov 1 2026: "more consolidated"). */
+export const TASK_FAN = 8;
+
+/** The tasks behind one memory page, newest first: filed under it, run with it as context, or cited as its source. */
+export function sessionsFor(m: Mem, id: string): Session[] {
+  const e = m.entries.find(x => x.id === id);
+  const refs = new Set((e?.sources || []).filter(x => x.kind === 'session' && x.ref).map(x => x.ref));
+  return m.sessions
+    .filter(x => x.projectId === id || x.nodeId === id || !!x.used?.includes(id) || refs.has(x.id))
+    .sort((a, b) => b.ts - a.ts);
+}
+
+/** The route a task took around the team: each bot in the order it first sent or got a real handoff. */
+export function routeOf(x: Session): string[] {
+  const out: string[] = [];
+  for (const [a, b] of x.flow || []) for (const id of [a, b]) if (isAgent(id) && !out.includes(id)) out.push(id);
+  return out;
+}
+
+/** Splits a page note into plain text and [[Title]] wiki links, the way Brain pages link each other. */
+export function noteParts(note: string): { text: string; link?: boolean }[] {
+  return note
+    .split(/(\[\[[^\]]{1,80}\]\])/)
+    .filter(Boolean)
+    .map(t => (/^\[\[.*\]\]$/.test(t) ? { text: t.slice(2, -2).trim(), link: true } : { text: t }));
 }
 
 export function agentActivityScores(m: Mem): Map<string, number> {

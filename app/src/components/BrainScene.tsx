@@ -8,7 +8,7 @@ import { AGENT, AGENTS, isAgent } from '../data/team';
 import { OUTLINE } from '../data/outline';
 import { buildSkull, skullLines } from '../lib/skull';
 import { buildShell, midline, placeMemory, route, station, surfaceFolds, toWorld, type P3 } from '../lib/geometry';
-import { TYPE_LABEL, agentActivityScores, foldSessions, nodeSize, weight, type Session } from '../lib/memory';
+import { TASK_FAN, TYPE_LABEL, agentActivityScores, nodeSize, sessionsFor, weight, type Session } from '../lib/memory';
 import { PULSE_AFTERGLOW, pulseMs, useMem, useStore, type Pulse } from '../store';
 import { DOT_FRAG, DOT_VERT, RIM_FRAG, RIM_VERT } from '../lib/shaders';
 import { sceneStats } from '../lib/stats';
@@ -445,14 +445,11 @@ function Memories() {
   const sel = selected ? mem.entries.find(e => e.id === selected) : undefined;
   const list = useMemo(() => mem.entries.filter(e => pos.has(e.id)), [mem.entries, pos]);
 
+  // Consolidated task dots (Owner, Nov 1 2026): one blue dot per project. Clicking it, or a memory, blooms that
+  // node open: its own tasks fan out around it, newest first, and each one opens that exact task in the chat.
+  const [open, setOpen] = useState<string | null>(null);
   const taskNodes = useMemo(() => {
-    // folded: the older tasks and chats this one "earlier" dot stands for (empty for a single task dot)
-    const items: {
-      session: Session;
-      pos: V3;
-      parentPos: V3;
-      folded: Session[];
-    }[] = [];
+    const clusters: { key: string; at: string; pos: V3; sessions: Session[] }[] = [];
     const linkPoints: number[] = [];
 
     const byProject = new Map<string, Session[]>();
@@ -473,28 +470,31 @@ function Memories() {
         list.find(e => e.type === 'workstream');
 
       if (!pNode || !pos.has(pNode.id)) continue;
-      const parentP3 = toWorld(pos.get(pNode.id)!);
-      const parentPos: V3 = [parentP3[0], parentP3[1], parentP3[2]];
-
-      const { shown, folded } = foldSessions(sessions);
-      const dots = shown.map(s => ({ s, folded: [] as Session[] }));
-      if (folded.length) dots.unshift({ s: folded[0], folded });
-      const total = dots.length;
-      dots.forEach(({ s, folded }, idx) => {
-        const phi = (idx / Math.max(1, total)) * Math.PI * 2 + 0.35;
-        const rad = 0.28 + (idx % 2) * 0.08;
-        const taskPos: V3 = [
-          parentPos[0] + Math.cos(phi) * rad,
-          parentPos[1] + Math.sin(phi) * rad * 0.8,
-          parentPos[2] + Math.sin(phi * 2) * 0.12,
-        ];
-        items.push({ session: s, pos: taskPos, parentPos, folded });
-        linkPoints.push(...parentPos, ...taskPos);
-      });
+      const p = toWorld(pos.get(pNode.id)!);
+      const parentPos: V3 = [p[0], p[1], p[2]];
+      const cPos: V3 = [parentPos[0] + 0.28, parentPos[1] + 0.1, parentPos[2]];
+      clusters.push({ key: projKey, at: pNode.id, pos: cPos, sessions: [...sessions].sort((a, b) => b.ts - a.ts) });
+      linkPoints.push(...parentPos, ...cPos);
     }
 
-    return { items, linkLines: new Float32Array(linkPoints) };
+    return { clusters, linkLines: new Float32Array(linkPoints) };
   }, [mem.sessions, list, pos]);
+  // The node open now: a project's blue dot, or else the selected memory when it has tasks behind it.
+  const fan = useMemo(() => {
+    const c = taskNodes.clusters.find(x => x.key === open);
+    const sessions = c ? c.sessions : sel ? sessionsFor(mem, sel.id) : [];
+    const p = c ? c.pos : sel && pos.has(sel.id) ? toWorld(pos.get(sel.id)!) : null;
+    if (!p || !sessions.length) return null;
+    const shown = sessions.slice(0, TASK_FAN);
+    return {
+      key: c ? 'c:' + c.key : 'm:' + sel?.id,
+      anchor: [p[0], p[1], p[2]] as V3,
+      dots: shown.map((s, i) => {
+        const phi = (i / shown.length) * Math.PI * 2 + 0.35;
+        return { s, pos: [Math.cos(phi) * 0.34, Math.sin(phi) * 0.28, Math.sin(phi * 2) * 0.1] as V3 };
+      }),
+    };
+  }, [taskNodes, open, sel, pos, mem]);
   const activityScores = useMemo(() => agentActivityScores(mem), [mem]);
   const maxActScore = useMemo(() => {
     let m = 0;
@@ -596,6 +596,7 @@ function Memories() {
               onClick={ev => {
                 ev.stopPropagation();
                 select(e.id);
+                setOpen(null);
                 useStore.setState(s => ({
                   tab: 'memory',
                   sceneFocus: { kind: 'memory', id: e.id, sequence: (s.sceneFocus?.sequence || 0) + 1 },
@@ -635,35 +636,32 @@ function Memories() {
           <lineBasicMaterial color="#38bdf8" transparent opacity={0.35} depthTest={false} depthWrite={false} />
         </lineSegments>
       )}
-      {taskNodes.items.map(({ session: s, pos: tPos, folded }) => {
-        const isViewing = folded.length ? folded.some(f => f.id === viewing?.id) : viewing?.id === s.id;
-        const isHovered = hoverTask === s.id;
-        const showTag = isViewing || isHovered;
+      {taskNodes.clusters.map(c => {
+        const on = open === c.key,
+          hov = hoverTask === 'c:' + c.key,
+          n = c.sessions.length;
         return (
-          <group key={s.id} position={tPos}>
-            {/* Visual smaller node */}
+          <group key={c.key} position={c.pos}>
             <mesh renderOrder={5}>
-              <sphereGeometry args={[folded.length ? 0.085 : 0.055, 12, 12]} />
+              <sphereGeometry args={[0.06 + 0.008 * Math.min(n, 10), 14, 14]} />
               <meshBasicMaterial
-                color={isViewing ? '#ffffff' : isHovered ? '#7dd3fc' : '#38bdf8'}
+                color={on ? '#ffffff' : hov ? '#7dd3fc' : '#38bdf8'}
                 transparent
-                opacity={isViewing ? 1 : 0.85}
+                opacity={on ? 1 : 0.9}
               />
             </mesh>
-            {/* Hit area for clicking the smaller node to view the task */}
             {/* biome-ignore lint/a11y/noStaticElementInteractions: a three.js mesh, not a DOM element */}
             <mesh
               onClick={ev => {
                 ev.stopPropagation();
-                viewSession(isViewing ? null : s.id);
+                setOpen(on ? null : c.key);
                 useStore.setState(st => ({
-                  tab: 'chat',
-                  sceneFocus: { kind: 'memory', id: s.projectId || s.id, sequence: (st.sceneFocus?.sequence || 0) + 1 },
+                  sceneFocus: { kind: 'memory', id: c.at, sequence: (st.sceneFocus?.sequence || 0) + 1 },
                 }));
               }}
               onPointerOver={ev => {
                 ev.stopPropagation();
-                setHoverTask(s.id);
+                setHoverTask('c:' + c.key);
                 document.body.style.cursor = 'pointer';
               }}
               onPointerOut={() => {
@@ -671,23 +669,90 @@ function Memories() {
                 document.body.style.cursor = '';
               }}
             >
-              <sphereGeometry args={[0.09, 8, 8]} />
+              <sphereGeometry args={[0.12, 8, 8]} />
               <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
-            {showTag && (
-              <Html center distanceFactor={9} zIndexRange={[25, 0]} style={{ pointerEvents: 'none' }}>
-                <div className={'task-node-tag' + (isViewing ? ' on' : '')}>
-                  {folded.length
-                    ? `${folded.length} earlier session${folded.length === 1 ? '' : 's'}`
-                    : s.q.length > 28
-                      ? s.q.slice(0, 26) + '…'
-                      : s.q}
-                </div>
-              </Html>
-            )}
+            <Html center distanceFactor={9} zIndexRange={[25, 0]} style={{ pointerEvents: 'none' }}>
+              <div className={'task-node-tag' + (on ? ' on' : '')}>
+                {n} task{n === 1 ? '' : 's'}
+                {on ? '' : ' · open'}
+              </div>
+            </Html>
           </group>
         );
       })}
+      {fan && (
+        <Bloom key={fan.key} position={fan.anchor}>
+          <lineSegments renderOrder={3}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                args={[new Float32Array(fan.dots.flatMap(d => [0, 0, 0, ...d.pos])), 3]}
+              />
+            </bufferGeometry>
+            <lineBasicMaterial color="#38bdf8" transparent opacity={0.5} depthTest={false} depthWrite={false} />
+          </lineSegments>
+          {fan.dots.map(({ s, pos: tPos }, i) => {
+            const isViewing = viewing?.id === s.id,
+              isHovered = hoverTask === s.id;
+            return (
+              <group key={s.id} position={tPos}>
+                <mesh renderOrder={5}>
+                  <sphereGeometry args={[0.05, 12, 12]} />
+                  <meshBasicMaterial
+                    color={isViewing ? '#ffffff' : isHovered ? '#7dd3fc' : '#38bdf8'}
+                    transparent
+                    opacity={isViewing ? 1 : 0.85}
+                  />
+                </mesh>
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: a three.js mesh, not a DOM element */}
+                <mesh
+                  onClick={ev => {
+                    ev.stopPropagation();
+                    viewSession(isViewing ? null : s.id);
+                  }}
+                  onPointerOver={ev => {
+                    ev.stopPropagation();
+                    setHoverTask(s.id);
+                    document.body.style.cursor = 'pointer';
+                  }}
+                  onPointerOut={() => {
+                    setHoverTask(null);
+                    document.body.style.cursor = '';
+                  }}
+                >
+                  <sphereGeometry args={[0.09, 8, 8]} />
+                  <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                </mesh>
+                {(isViewing || isHovered || i === 0) && (
+                  <Html center distanceFactor={9} zIndexRange={[25, 0]} style={{ pointerEvents: 'none' }}>
+                    <div className={'task-node-tag' + (isViewing ? ' on' : '')}>
+                      {s.kind === 'chat' ? 'chat · ' : ''}
+                      {s.q.length > 28 ? s.q.slice(0, 26) + '…' : s.q}
+                    </div>
+                  </Html>
+                )}
+              </group>
+            );
+          })}
+        </Bloom>
+      )}
+    </group>
+  );
+}
+
+/** Eases a node's opened contents out from its centre, so expanding reads as a bloom, not a jump. */
+function Bloom({ position, children }: { position: V3; children: React.ReactNode }) {
+  const g = useRef<THREE.Group>(null),
+    t0 = useRef(performance.now());
+  useFrame(() => {
+    if (!g.current) return;
+    const k = Math.min(1, (performance.now() - t0.current) / 380);
+    g.current.scale.setScalar(Math.max(0.001, 1 - (1 - k) ** 3));
+  });
+  return (
+    <group ref={g} position={position} scale={0.001}>
+      {children}
     </group>
   );
 }
