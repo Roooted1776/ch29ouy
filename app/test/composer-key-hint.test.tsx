@@ -9,7 +9,7 @@ import { useStore } from '../src/store';
 Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
 afterEach(cleanup);
 
-const ADMIN_HINT = 'Add an API key to send tasks. Paste it into this box to save it.';
+const ADMIN_HINT = 'Add an API key to chat. Paste it into this box to save it.';
 
 describe('no-key hint under the composer', () => {
   it('an admin with no key sees how to add one', () => {
@@ -33,7 +33,7 @@ describe('no-key hint under the composer', () => {
     useStore.setState({ role: 'admin', keys: {}, busy: false });
     render(<Composer />);
     expect(screen.getByText(ADMIN_HINT)).toBeTruthy();
-    await userEvent.setup().type(screen.getByLabelText('Task for the team'), 'sk-ant-fake-test-value-not-a-key{Enter}');
+    await userEvent.setup().type(screen.getByLabelText('Message the team'), 'sk-ant-fake-test-value-not-a-key{Enter}');
     expect(screen.queryByText(ADMIN_HINT)).toBeNull();
   });
 });

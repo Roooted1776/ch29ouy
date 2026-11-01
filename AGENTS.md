@@ -111,3 +111,12 @@ Wording checked against the live article on 2026-10-21 (it says it was last modi
 - The safe browser check is `npm run build` and then `npm run e2e` in `app/`. Playwright opens the built root `index.html` and uses a fake backend. Do not hand-edit root `index.html`.
 - `bash supabase/tests/run.sh` needs Docker, which this environment does not start. Run it only after a `supabase/` change when Docker is available.
 - Root `package.json`, `test.mjs`, and `archil-project/` are not the Brain page. They need `ARCHIL_API_KEY` and stay out of the default setup.
+
+## Owner update, 2026-11-01 (compact UI, self-running team)
+
+- **Look:** every part of the page outside the brain and background uses one 11px techy font (JetBrains Mono, bundled) that never animates, in a compact layout (`app/src/compact.css`). The brain's shape and the background are unchanged.
+- **Brain view:** the 3D brain hides stale pages, repeat GitHub feed items (commits, PRs, issues, releases) and repeated titles, and its blue task dots show real tasks only, one per question (`app/src/lib/brain-view.ts`). Everything stays in the Memory list.
+- **No manual upkeep:** Dream files the inbox by itself about once an hour; GitHub syncs hourly. Banter is always on (no switch).
+- **One chat pane:** a message is group chat; `task: …` or `Task for <bot>: …` runs the full team task.
+- **Credits:** free keys (Groq, Cerebras) are used first, then each bot's own company, then the main provider.
+- **Huddles:** casual, 2–6 lines, 20–40 s apart, mixed bots who answer each other; moods shuffle on some days; teammates may use web search when it is on in Settings.

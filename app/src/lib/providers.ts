@@ -39,7 +39,7 @@ export const PROV: Record<ProviderId, Provider> = {
     model: 'openai/gpt-oss-120b',
     hint: 'key starts with gsk_',
     color: '#f55036',
-    roles: 'Free backup for every bot',
+    roles: 'Used first by every bot (free)',
   },
   /** Free tier, very fast open models. Limits per Cerebras' pricing page, Oct 2026. */
   cerebras: {
@@ -408,4 +408,23 @@ export async function callModel(o: CallOpts): Promise<CallResult> {
     throw new ProviderError('the reply was not JSON');
   }
   return parseReply(o.provider, data);
+}
+
+/** Free services (Groq, Cerebras): tried first so paid keys are spent only when no free one works. */
+export const FREE_PROVIDERS = PROVIDERS.filter(p => PROV[p].label.includes('(free)'));
+
+/**
+ * The provider a bot speaks through (Owner, Nov 1 2026: "auto prefer to use free api keys"):
+ * its own free service, then any other free service with a key, then its own company, then the main one.
+ */
+export function pickBotProvider(
+  own: string | undefined,
+  free: string | undefined,
+  main: ProviderId,
+  usable: (p?: string) => p is ProviderId,
+): ProviderId {
+  if (usable(free)) return free;
+  const anyFree = FREE_PROVIDERS.find(p => usable(p));
+  if (anyFree) return anyFree;
+  return usable(own) ? own : main;
 }

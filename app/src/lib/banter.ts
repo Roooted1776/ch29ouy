@@ -17,31 +17,31 @@ import {
 import type { State } from '../store';
 import { TYPE_LABEL, plainNote, weight, type Msg } from './memory';
 import { nudge, personalityLine } from './personality';
-import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, type ProviderId } from './providers';
+import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, pickBotProvider, type ProviderId } from './providers';
 import { clip } from './text';
 
-/** Lines in one idle huddle: Grok Bot opens, teammates answer, Grok Bot closes. */
+/** Lines in one idle huddle: 2 to 6, picked at random each time (Owner, Nov 1 2026). */
 export const BANTER_MAX_LINES = 6;
+export const BANTER_MIN_LINES = 2;
 /** Idle huddles per page load (with the gap below, about 50 minutes of now-and-then team talk). */
 export const BANTER_MAX_SESSIONS = 10;
 /** One huddle line never gets more output room than this, however the task setting is set. */
 export const BANTER_MAX_TOKENS = 120;
 /** Quiet time after the page settles before the first line. */
 export const BANTER_FIRST_DELAY_MS = 5_000;
-/** Pause between lines, so the chat reads like people talking, not a dump. */
-export const BANTER_GAP_MS = 5_000;
+/** Pause between lines, so the chat reads like people talking: 20 to 40 seconds after the last message. */
+export const BANTER_GAP_MS = 20_000;
+export const BANTER_GAP_SPREAD_MS = 20_000;
 /** Quiet time between two huddles: the team talks every now and then, not back to back (Owner, Oct 31 2026). */
-export const BANTER_SESSION_GAP_MS = 5 * 60_000;
+export const BANTER_SESSION_GAP_MS = 10 * 60_000; // (Nov 1 2026: save credits)
 /** Teammates who chime in after the lead reply to one Owner chat message (Owner, Nov 1 2026: "banter and side chat enabled"). */
 export const SIDE_CHAT_PER_MESSAGE = 2;
 
-/** The provider a bot speaks through: its own company if that key works, then its free service, then the main one. */
+/** The provider a bot speaks through: free services first, then its own company, then the main one. */
 export function botProvider(s: State, bot: AgentId, main: ProviderId): ProviderId {
   const usable = (p?: string): p is ProviderId =>
     !!p && p in PROV && !!s.keys[p as ProviderId] && !s.dead[p as ProviderId];
-  const own = AGENT[bot].provider,
-    free = AGENT[bot].free;
-  return usable(own) ? own : usable(free) ? free : main;
+  return pickBotProvider(AGENT[bot].provider, AGENT[bot].free, main, usable);
 }
 
 type SetFn = (p: Partial<State> | ((s: State) => Partial<State>)) => void;
@@ -57,6 +57,8 @@ export interface BanterOpts {
   firstDelayMs?: number;
   gapMs?: number;
   sessionGapMs?: number;
+  /** How many lines this huddle has (tests); otherwise 2 to 6 at random. */
+  lines?: number;
   rand?: () => number;
 }
 
@@ -90,12 +92,19 @@ export function pickTopic(s: State, rand: () => number): HuddleTopic {
   if (fresh.length) kinds.push('memory');
   if (lastTask) kinds.push('task');
   if (stale.length || mem.inbox.length) kinds.push('attention');
+  // free talk (Owner, Nov 1 2026): short banter or questions, on topic or not, about what each role works on or codes
+  if (kinds.length) kinds.push('banter');
   if (!kinds.length)
     return {
       kind: 'checkin',
       text: 'Brain holds no saved memory and no past tasks yet, so there is no record to work from. Run a general team check-in: how is the team set up, and what should Owner know about the room?',
     };
   const kind = kinds[(s.banterSessions + Math.floor(rand() * kinds.length)) % kinds.length];
+  if (kind === 'banter')
+    return {
+      kind,
+      text: 'No set topic: open banter. Ask a teammate a light question, on topic or not: what kind of work their role is on, a piece of code or a tool they like, or anything off topic. Keep it friendly and short.',
+    };
   if (kind === 'memory') {
     const top = [...fresh].sort((a, b) => weight(b) - weight(a)).slice(0, 3);
     const e = top[Math.min(top.length - 1, Math.floor(rand() * top.length))];
@@ -173,24 +182,44 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
     if (!room.includes('grokbot')) return 0;
     const bag = room.filter(id => id !== 'grokbot');
     if (!bag.length) return 0;
+    // 2 to 6 lines. Grok Bot (in charge) opens; then a mix of teammates talk back and forth, each line by
+    // someone other than the last speaker, so two bots can trade replies. Grok Bot wraps up longer huddles.
+    const n = Math.max(
+      BANTER_MIN_LINES,
+      Math.min(
+        BANTER_MAX_LINES,
+        opts.lines ?? BANTER_MIN_LINES + Math.floor(Math.random() * (BANTER_MAX_LINES - BANTER_MIN_LINES + 1)),
+      ),
+    );
+    const closes = n >= 5;
+    const middle = n - 1 - (closes ? 1 : 0);
+    const order = [...bag];
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.min(i, Math.floor(rand() * (i + 1)));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
     const responders: AgentId[] = [];
-    while (responders.length < Math.min(BANTER_MAX_LINES - 2, bag.length))
-      responders.push(bag.splice(Math.min(bag.length - 1, Math.floor(rand() * bag.length)), 1)[0]);
+    for (let i = 0; i < middle; i++) {
+      // fresh voices first; once everyone spoke, a bot answers back (never twice in a row)
+      let next = order[i % order.length];
+      if (next === responders.at(-1) && order.length > 1) next = order[(i + 1) % order.length];
+      responders.push(next);
+    }
     const plan: { bot: AgentId; role: HuddleRole }[] = [
       { bot: 'grokbot', role: 'open' },
       ...responders.map(bot => ({ bot, role: 'respond' as const })),
-      { bot: 'grokbot', role: 'close' },
+      ...(closes ? [{ bot: 'grokbot' as AgentId, role: 'close' as const }] : []),
     ];
     const topic = pickTopic(get(), rand);
     set(x => ({ banterSessions: x.banterSessions + 1, lastBanterAt: Date.now() }));
     for (let i = 0; i < plan.length; i++) {
-      if (i > 0) await wait(opts.gapMs ?? BANTER_GAP_MS, ctl.signal);
+      if (i > 0) await wait(opts.gapMs ?? BANTER_GAP_MS + Math.random() * BANTER_GAP_SPREAD_MS, ctl.signal);
       if (halted() || ctl.signal.aborted) break;
       const { bot, role } = plan[i];
       const st = get();
       const own = AGENT[bot].provider,
         free = AGENT[bot].free;
-      const activeProv: ProviderId = usable(own) ? own : usable(free) ? free : pv;
+      const activeProv: ProviderId = pickBotProvider(own, free, pv, usable);
       const key = st.keys[activeProv] || st.keys[pv] || '';
       if (!key) break;
       const model = st.live.models[activeProv] || PROV[activeProv].model,
@@ -210,7 +239,8 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
           system: huddleSystem(bot, role, personalityLine(bot)),
           user: huddlePrompt(bot, role, topic, lines),
           maxTokens: Math.min(st.live.maxTokens, BANTER_MAX_TOKENS),
-          web: false,
+          // teammates may look things up when web search is on in Settings
+          web: role === 'respond' && st.live.web,
           signal: ctl.signal,
           onDelta,
         });

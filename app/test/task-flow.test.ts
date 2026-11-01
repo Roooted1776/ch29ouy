@@ -47,7 +47,7 @@ describe('a real task, streamed', () => {
     useStore.setState({ role: 'admin', keys: { openai: 'sk-test' } });
     useStore.getState().setLive({ provider: 'openai' });
     useStore.setState({ keys: { openai: 'sk-test' } });
-    await useStore.getState().send('write a plan');
+    await useStore.getState().send('task: write a plan');
     const s = useStore.getState();
     expect(f).toHaveBeenCalledTimes(9); // 8 bots, then Grok Bot files memory
     expect(JSON.parse((f.mock.calls[0] as any)[1].body).stream).toBe(true);

@@ -130,7 +130,7 @@ export default function AdminPanel() {
         </Card>
         <Card
           title="API keys"
-          hint="Paste a key for any company, then press Test. Each bot uses its own company's key when there is one. Keys are saved encrypted."
+          hint="Paste a key for any company, then press Test. Free keys (Groq, Cerebras) are used first to save credits, then each bot's own company. Keys are saved encrypted."
           wide
         >
           {s.status && (
@@ -385,7 +385,7 @@ export default function AdminPanel() {
       <div className="cards">
         <Card
           title="Memory"
-          hint="Works like Perplexity Brain: tasks, files, GitHub and your corrections wait in an inbox. Dream (one AI call) turns them into linked pages that cite their sources. It runs by itself once a day."
+          hint="Works like Perplexity Brain: tasks, files, GitHub and your corrections wait in an inbox. Dream (one AI call) turns them into linked pages that cite their sources. It runs by itself about once an hour; you never need to press anything."
         >
           <p className="mini">
             Inbox: {mem.inbox.length} waiting · {mem.entries.length} pages · last Dream{' '}

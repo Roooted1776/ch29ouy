@@ -42,12 +42,19 @@ export default function Home() {
   const status = useStore(s => s.status);
   // the Handoffs bar shows only when there is a handoff to list
   const hasFlow = useStore(s => (s.viewing?.flow || s.flow).length > 0);
-  // Dream runs by itself at most once a day, after sign-in, when something waits in the inbox
-  const ready = useStore(s => !!s.keys[s.live.provider] || Object.values(s.keys).some(Boolean)),
-    due = useStore(s => dreamDue(s.mem, Date.now()));
+  // Memory keeps itself up to date (Owner, Nov 1 2026: "the user should not have to update the memory or add tasks"):
+  // with a saved key, Dream files whatever waits in the inbox about once an hour, checked every few minutes.
+  const ready = useStore(s => !!s.keys[s.live.provider] || Object.values(s.keys).some(Boolean));
   useEffect(() => {
-    if (admin && ready && due) void useStore.getState().dream(true);
-  }, [admin, ready, due]);
+    if (!admin || !ready) return;
+    const run = () => {
+      const st = useStore.getState();
+      if (!st.busy && !st.dreaming && dreamDue(st.mem, Date.now())) void st.dream(true);
+    };
+    run();
+    const t = setInterval(run, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [admin, ready]);
   // GitHub auto-sync (Owner, Nov 1 2026: "I shouldn't have to import or sync"): while an admin has the page open
   // and a repo is set (on the live site, its own repo by default), pull only what changed when the page opens
   // and then every hour. Skipped while the team is busy or when the last sync is under an hour old.
@@ -69,17 +76,16 @@ export default function Home() {
     };
   }, [admin, repo]);
   // Idle huddles: while an admin is signed in with a key and nothing is running, Grok Bot leads
-  // short team huddles on its own small budget (lib/banter). A task, Stop, lock or the switch ends it.
-  const banterOn = useStore(s => s.live.banter);
+  // short team huddles on its own small budget (lib/banter). A task, Stop or lock ends it; there is no switch.
   useEffect(() => {
-    if (!admin || !ready || !banterOn) return;
+    if (!admin || !ready) return;
     const t = setInterval(() => {
       const st = useStore.getState();
       // stopped stays set after Stop live — do not keep starting huddles that immediately no-op
       if (!st.busy && !st.dreaming && !st.bantering && !st.stopped) void st.banter();
     }, 5000);
     return () => clearInterval(t);
-  }, [admin, ready, banterOn]);
+  }, [admin, ready]);
   return (
     <div className={'home single brain-first' + (chatOpen ? '' : ' chat-hidden')}>
       <section className="workspace" aria-label="Visualization">

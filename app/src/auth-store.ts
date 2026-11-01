@@ -315,7 +315,6 @@ function leave(keepKey = false) {
     notes: {},
     active: null,
     chatThreadId: null,
-    composerMode: 'task',
     status: 'Locked.',
   }));
 }

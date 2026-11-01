@@ -103,7 +103,7 @@ describe('Dream (Perplexity-style memory pass)', () => {
     expect(e.note).toBe('AES-256-GCM, owner checked.');
   });
 
-  it('is due once a day when something waits in the inbox', () => {
+  it('is due about once an hour when something waits in the inbox', () => {
     const m = blankMem();
     expect(dreamDue(m, Date.now())).toBe(false);
     session(m, 'x');

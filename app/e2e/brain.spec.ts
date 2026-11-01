@@ -76,7 +76,7 @@ test('brain end to end', async ({ page, context }) => {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByLabel('OpenAI key').fill('sk-test123');
   await page.getByRole('button', { name: 'Close settings', exact: true }).click();
-  await page.getByLabel('Task for the team').fill('Plan the Brain launch');
+  await page.getByLabel('Message the team').fill('task: Plan the Brain launch');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByText(/Grok Bot filed \d+ memor/).first()).toBeVisible({ timeout: 90000 });
   const chat = await page.getByRole('region', { name: 'Live chat' }).innerText();

@@ -42,7 +42,7 @@ test('built page: set up admin, draw brain, pass System check, lock', async ({ p
 
   // no key yet: the task box stays usable (so a key can be pasted into it) but nothing is sent to the team
   await expect(page.getByLabel('OpenAI key')).toBeVisible();
-  const task = page.getByLabel('Task for the team');
+  const task = page.getByLabel('Message the team');
   await expect(task).toBeEnabled();
   await expect(task).toHaveAttribute('placeholder', 'Paste an API key here to save it');
   const modelCalls: string[] = [];

@@ -17,7 +17,7 @@ describe('pasting a key into the composer', () => {
     useStore.setState({ role: null, keys: {}, status: '', busy: false });
     render(<Composer />);
     const u = userEvent.setup();
-    await u.type(screen.getByLabelText('Task for the team'), `${KEY}{Enter}`);
+    await u.type(screen.getByLabelText('Message the team'), `${KEY}{Enter}`);
     expect(useStore.getState().keys.anthropic).toBeUndefined();
     expect(useStore.getState().status).toBe(NOT_ADMIN);
     expect(useStore.getState().status).not.toMatch(/saved on this device/);
@@ -26,7 +26,7 @@ describe('pasting a key into the composer', () => {
     useStore.setState({ role: 'admin', keys: {}, status: '', busy: false });
     render(<Composer />);
     const u = userEvent.setup();
-    await u.type(screen.getByLabelText('Task for the team'), `${KEY}{Enter}`);
+    await u.type(screen.getByLabelText('Message the team'), `${KEY}{Enter}`);
     expect(useStore.getState().keys.anthropic).toBe(KEY);
     expect(useStore.getState().status).toMatch(/key saved on this device\./);
   });

@@ -11,10 +11,6 @@ export default function Composer() {
     ready = useStore(s => Object.values(s.keys).some(Boolean)),
     promptDraft = useStore(s => s.promptDraft),
     setPromptDraft = useStore(s => s.setPromptDraft),
-    mode = useStore(s => s.composerMode),
-    setMode = useStore(s => s.setComposerMode),
-    newChat = useStore(s => s.newChatThread),
-    chatThreadId = useStore(s => s.chatThreadId),
     isAdmin = useStore(s => s.role === 'admin');
 
   useEffect(() => {
@@ -53,54 +49,14 @@ export default function Composer() {
           go();
         }}
       >
-        <fieldset className="composer-modes">
-          <legend className="sr-only">Send as</legend>
-          <button
-            type="button"
-            className={'mode-btn' + (mode === 'task' ? ' on' : '')}
-            aria-pressed={mode === 'task'}
-            disabled={busy}
-            onClick={() => setMode('task')}
-            title="Full team task (uses the call budget and may file memory)"
-          >
-            Task
-          </button>
-          <button
-            type="button"
-            className={'mode-btn' + (mode === 'chat' ? ' on' : '')}
-            aria-pressed={mode === 'chat'}
-            disabled={busy}
-            onClick={() => setMode('chat')}
-            title="Single reply; saved as chat, not filed to wiki memory"
-          >
-            Chat
-          </button>
-          {mode === 'chat' && (
-            <button
-              type="button"
-              className="mode-btn"
-              disabled={busy || !chatThreadId}
-              onClick={() => newChat()}
-              title="Start a new chat thread"
-            >
-              New
-            </button>
-          )}
-        </fieldset>
         <textarea
           value={q}
           onChange={e => setQ(e.target.value)}
           rows={1}
           maxLength={2000}
           disabled={busy}
-          placeholder={
-            !ready
-              ? 'Paste an API key here to save it'
-              : mode === 'chat'
-                ? 'Chat with one model… (not filed to wiki)'
-                : 'Task for the team…'
-          }
-          aria-label={mode === 'chat' ? 'Chat message' : 'Task for the team'}
+          placeholder={!ready ? 'Paste an API key here to save it' : 'Message the team… (task: … runs a full task)'}
+          aria-label="Message the team"
           onKeyDown={e => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -129,7 +85,7 @@ export default function Composer() {
         )}
       </form>
       {!ready && isAdmin && (
-        <p className="hint composer-key-hint">Add an API key to send tasks. Paste it into this box to save it.</p>
+        <p className="hint composer-key-hint">Add an API key to chat. Paste it into this box to save it.</p>
       )}
     </>
   );
