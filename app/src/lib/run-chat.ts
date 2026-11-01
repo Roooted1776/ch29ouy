@@ -1,6 +1,6 @@
 // Chat mode: one real model reply. Saved as a session. Never auto-files wiki memory or the Dream inbox.
 import { TYPE_COLOR } from '../data/colors';
-import type { Flow, Msg, Session } from './memory';
+import { keepSessions, type Flow, type Msg, type Session } from './memory';
 import { PROV, PROVIDERS, ProviderError, callModel, type ProviderId } from './providers';
 import { redact } from './redact';
 import { contextBlock, indexTitles, relevant } from './retrieve';
@@ -130,7 +130,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
             msgs: [ownerMsg, extra],
           };
           m.sessions.push(sess);
-          if (m.sessions.length > 25) m.sessions.shift();
+          m.sessions = keepSessions(m.sessions, m.entries);
           // Chat stays out of the Dream inbox — casual talk is not trusted wiki fact.
           threadId = sess.id;
         }

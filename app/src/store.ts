@@ -3,6 +3,7 @@ import { AGENT, type AgentId } from './data/team';
 import { addNote, correctEntry, deleteEntry } from './lib/learn';
 import {
   blankMem,
+  keepSessions,
   loadMem,
   sanitizeMem,
   saveMem,
@@ -610,7 +611,7 @@ export const useStore = create<State>()((set, get) => {
               ],
             };
             m.sessions.push(sess);
-            if (m.sessions.length > 25) m.sessions.shift();
+            m.sessions = keepSessions(m.sessions, m.entries);
             m.inbox.push({ kind: 'session', ref: sess.id });
           });
       } catch (e: unknown) {

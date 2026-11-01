@@ -1,7 +1,7 @@
 // The one-time upload: memory and tasks that an older Brain kept in this browser (brain.vault.v1, brain.mem.v2,
 // with accounts in brain.auth.v1). The old accounts cannot move: their passcodes were hashed differently,
 // so an admin adds those people again. After a good upload the old local copies are deleted.
-import { blankMem, MAX_SESSIONS, sanitizeMem, type Entry, type Mem } from './memory';
+import { blankMem, keepSessions, sanitizeMem, type Entry, type Mem } from './memory';
 import type { Keys } from './keystore';
 import { decryptVault, openFor, type Sealed } from './vault';
 
@@ -142,7 +142,7 @@ export function mergeMem(cloud: Mem, local: Mem): { mem: Mem; entries: number; s
     })),
   );
   m.sessions.sort((a, b) => a.ts - b.ts);
-  m.sessions = m.sessions.slice(-MAX_SESSIONS);
+  m.sessions = keepSessions(m.sessions, m.entries);
   m.blocked = [...new Set([...m.blocked, ...local.blocked])];
   m.runs += local.runs;
   m.filtered += local.filtered;

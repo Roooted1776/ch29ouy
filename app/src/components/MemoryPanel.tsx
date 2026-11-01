@@ -252,6 +252,15 @@ export function Detail({ e, onSession }: { e: Entry; onSession(id: string): void
               numbered marks point at the sources below. */}
           <p className="note">
             {noteParts(e.note).map((part, i) => {
+              if (part.cite !== undefined) {
+                const n = e.sources.findIndex(x => x.ref === part.cite) + 1;
+                return n ? (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed note, never reordered
+                  <sup key={i} className="cite" title={e.sources[n - 1].label}>
+                    {n}
+                  </sup>
+                ) : null;
+              }
               const to = part.link ? mem.entries.find(x => x.title.toLowerCase() === part.text.toLowerCase()) : null;
               return to ? (
                 // biome-ignore lint/suspicious/noArrayIndexKey: parts of one fixed note, never reordered
@@ -263,11 +272,12 @@ export function Detail({ e, onSession }: { e: Entry; onSession(id: string): void
                 <span key={i}>{part.text}</span>
               );
             })}
-            {e.sources.map((src, i) => (
-              <sup key={`${src.label}-${src.ref ?? src.kind}`} className="cite">
-                {i + 1}
-              </sup>
-            ))}
+            {!/\[cite:/.test(e.note) &&
+              e.sources.map((src, i) => (
+                <sup key={`${src.label}-${src.ref ?? src.kind}`} className="cite">
+                  {i + 1}
+                </sup>
+              ))}
           </p>
         </>
       )}

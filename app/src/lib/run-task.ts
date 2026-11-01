@@ -8,7 +8,15 @@ import { audit } from './audit';
 import { chainFor, runChain } from './chain';
 import { tally } from './learn';
 import { AI_KEY, MEMORY_SYSTEM, fileMemories, memoryPrompt, parseMemories } from './ai-memory';
-import { ensureProjectNode, findMostWorkedNode, type Cover, type Flow, type Msg, type Session } from './memory';
+import {
+  ensureProjectNode,
+  findMostWorkedNode,
+  keepSessions,
+  type Cover,
+  type Flow,
+  type Msg,
+  type Session,
+} from './memory';
 import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, type ProviderId } from './providers';
 import { redact } from './redact';
 import { contextBlock, indexTitles, relevant } from './retrieve';
@@ -336,7 +344,7 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
       const targetNode = findMostWorkedNode(mm, assignedProj);
       sess.projectId = targetNode.id;
       mm.sessions.push(sess);
-      if (mm.sessions.length > 25) mm.sessions.shift();
+      mm.sessions = keepSessions(mm.sessions, mm.entries);
       mm.inbox.push({ kind: 'session', ref: sess.id }); // Dream reads it later
     });
     await fileByAi(sess, result.msgs);

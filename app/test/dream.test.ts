@@ -42,8 +42,11 @@ describe('Dream (Perplexity-style memory pass)', () => {
     });
     const plan = parseDream(reply, cites.length);
     expect(plan.pages.map(p => p.title)).toEqual(['Supabase', 'Brain']);
-    expect(plan.pages[0].note).toBe('Holds the vault for Brain.');
+    // links and evidence marks stay in the page, as in Perplexity Brain
+    expect(plan.pages[0].note).toBe('Holds the vault for [[Brain]] [cite:1].');
     const { pages } = applyDream(m, plan, cites, Date.now());
+    // on write, the mark names its source by id, so the page numbers it against its own sources
+    expect(m.entries.find(e => e.title === 'Supabase')!.note).toBe(`Holds the vault for [[Brain]] [cite:${s.id}].`);
     expect(pages).toHaveLength(2);
     const supa = m.entries.find(e => e.title === 'Supabase')!;
     const brain = m.entries.find(e => e.title === 'Brain')!;
@@ -68,7 +71,7 @@ describe('Dream (Perplexity-style memory pass)', () => {
       Date.now(),
     );
     expect(supa.note).toBe('Now holds memory too.');
-    expect(supa.hist?.at(-1)?.note).toBe('Holds the vault for Brain.');
+    expect(supa.hist?.at(-1)?.note).toBe('Holds the vault for [[Brain]] [cite:s1].');
     expect(nodeSize(supa)).toBeGreaterThan(
       nodeSize(mkEntry(blankMem(), { key: 'x', type: 'concept', title: 'x', note: '' }, 0)),
     );
