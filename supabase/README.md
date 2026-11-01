@@ -21,7 +21,7 @@ Brain's surface small:
 | `auth.enable_anonymous_sign_ins`, `auth.enable_manual_linking` | `false` | No anonymous or linked identities. |
 | `auth.minimum_password_length` | `32` | The page sends a 43-character PBKDF2 password; anything shorter did not come from Brain. |
 | `auth.email.enable_confirmations` | `true` | Accounts are created already confirmed, so a hand-made auth user is not a usable back door. |
-| `auth.site_url`, `additional_redirect_urls` | `https://redeemed.live`, `www` | Exact URLs only. |
+| `auth.site_url`, `additional_redirect_urls` | `https://roooted1776.github.io/ch29ouy/` | Exact URLs only. |
 | `auth.jwt_expiry` | `3600` | Short-lived tokens, rotated refresh tokens. |
 | `api.schemas` | `["public"]` | No `graphql_public`: Brain has no GraphQL client, and the resolver is revoked in SQL too. |
 | `api.auto_expose_new_tables` | `false` | New tables need an explicit grant instead of the cloud default of granting first. |
