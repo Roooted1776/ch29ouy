@@ -6,3 +6,11 @@ app/node_modules/
 app/test-results/
 app/playwright-report/
 .DS_Store
+
+# Private local project snapshots; never publish project notes in the web bundle.
+.local/
+__pycache__/
+
+# Private memory imports: keep off GitHub (public repo).
+brain-import.json
+brain-memory-summary.md

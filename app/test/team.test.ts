@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { AGENTS, TONE_LINE, huddleSystem, stagePrompt, systemPrompt, toneLine, toneOf } from '../src/data/team';
+import {
+  AGENTS,
+  HANDOFF_RULE,
+  LIVE_ORDER,
+  TONE_LINE,
+  huddlePrompt,
+  huddleSystem,
+  stagePrompt,
+  systemPrompt,
+  toneLine,
+  toneOf,
+} from '../src/data/team';
 
 describe('agent tones (Owner: register assigned from personality, fixed per bot)', () => {
-  it('every one of the nine agents has a tone on the scale', () => {
-    expect(AGENTS).toHaveLength(9);
+  it('every configured tool role has a tone on the scale', () => {
+    expect(AGENTS).toHaveLength(10);
+    expect(AGENTS.find(a => a.id === 'chatgpt')?.name).toBe('ChatGPT');
+    expect(AGENTS.find(a => a.id === 'claude')?.name).toBe('Claude Code');
+    expect(AGENTS.find(a => a.id === 'copilot')?.company).toBe('GitHub');
     for (const a of AGENTS) expect(['serious', 'balanced', 'casual']).toContain(toneOf(a.id));
   });
 
@@ -17,6 +31,7 @@ describe('agent tones (Owner: register assigned from personality, fixed per bot)
   it('assignments follow the voices: deadpan and no-fluff bots are serious, cheeky and upbeat ones casual', () => {
     expect(toneOf('muse')).toBe('serious'); // a blunt, deadpan auditor
     expect(toneOf('grokbot')).toBe('serious'); // a dry, decisive captain
+    expect(toneOf('copilot')).toBe('balanced');
     expect(toneOf('cursor')).toBe('serious'); // no patience for fluff
     expect(toneOf('grok')).toBe('casual'); // a cheeky contrarian
     expect(toneOf('gemini')).toBe('casual'); // curious and upbeat
@@ -44,6 +59,26 @@ describe('agent tones (Owner: register assigned from personality, fixed per bot)
     // and Grok Bot leads in its own serious register, opening and closing
     expect(huddleSystem('grokbot', 'open')).toContain('Your register is serious');
     expect(huddleSystem('grokbot', 'close')).toContain('Your register is serious');
+  });
+
+  it('keeps the startup handoff rule in role, task and huddle prompts', () => {
+    for (const agent of AGENTS) {
+      expect(systemPrompt(agent.id)).toContain(HANDOFF_RULE);
+      expect(huddleSystem(agent.id, 'respond')).toContain(HANDOFF_RULE);
+      expect(huddlePrompt(agent.id, 'respond', { kind: 'checkin', text: 'Current status' }, [])).toContain(
+        HANDOFF_RULE,
+      );
+      expect(stagePrompt(agent.id, 'Review', 'Owner', 'Latest handoff', null, '')).toContain(HANDOFF_RULE);
+    }
+    expect(LIVE_ORDER).toHaveLength(9);
+    expect(LIVE_ORDER.at(-1)).toBe('grokbot');
+  });
+
+  it('labels roster prompts as model roles rather than installed app connections', () => {
+    for (const agent of AGENTS) {
+      expect(systemPrompt(agent.id)).toContain('not a connection to the named installed app');
+      expect(systemPrompt(agent.id)).toContain('never claim to read files, make changes or run tests');
+    }
   });
 
   it('task chat prompts carry the same register, in the system prompt and the stage prompt', () => {

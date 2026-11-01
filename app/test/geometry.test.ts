@@ -61,6 +61,7 @@ describe('live transitions', () => {
 
 describe('pathways in 3D', () => {
   it('every agent has a station inside the volume', () => {
+    expect(new Set(AGENTS.map(a => JSON.stringify(station(a.id)))).size).toBe(AGENTS.length);
     for (const a of AGENTS) {
       const s = station(a.id)!;
       expect(inside(s[0], s[1])).toBe(true);
@@ -72,6 +73,8 @@ describe('pathways in 3D', () => {
       ['owner', LIVE_ORDER[0]],
       ...LIVE_ORDER.slice(0, -1).map((a, i) => [a, LIVE_ORDER[i + 1]]),
       ['grok', 'grokbot'],
+      ['muse', 'copilot'],
+      ['copilot', 'grokbot'],
       ['grokbot', 'brain'],
     ];
     for (const [a, b] of pairs) {

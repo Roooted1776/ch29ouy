@@ -73,12 +73,15 @@ test('brain end to end', async ({ page, context }) => {
   await page.getByLabel('Password').fill('e2e only 7Q');
   await page.getByRole('button', { name: 'Create admin' }).click();
   await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByLabel('OpenAI key').fill('sk-test123');
+  await page.getByRole('button', { name: 'Close settings', exact: true }).click();
   await page.getByLabel('Task for the team').fill('Plan the Brain launch');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByText(/Grok Bot filed \d+ memor/).first()).toBeVisible({ timeout: 90000 });
   const chat = await page.getByRole('region', { name: 'Live chat' }).innerText();
   console.log('CHAT REPLIES:', (chat.match(/nice one team/g) || []).length);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Dream now' }).click();
   await expect(page.getByText(/Dream filed \d+ page/).first()).toBeVisible({ timeout: 30000 });
   console.log('STATUS:', await page.locator('.key-status').innerText());
@@ -92,16 +95,19 @@ test('brain end to end', async ({ page, context }) => {
   await page.getByLabel('Password').fill('e2e only 7Q');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.waitForTimeout(1500);
   console.log(
     'AFTER RELOAD:',
     await page.locator('.card2', { hasText: 'Dream now' }).locator('.mini').first().innerText(),
   );
+  await page.getByRole('button', { name: 'Close settings', exact: true }).click();
   await page.getByLabel('Search', { exact: true }).fill('when does the brain launch ship small');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByText(/Search answered by OpenAI\./).first()).toBeVisible({ timeout: 30000 });
   const link = page.getByRole('link', { name: 'https://example.com/launch' });
   console.log('SEARCH LINK CLICKABLE:', await link.getAttribute('href'), await link.getAttribute('target'));
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   console.log('MEMORY HIT SHOWN:', await page.locator('.key-status').innerText());
   console.log(
     'INBOX AFTER SEARCH:',

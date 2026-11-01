@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildRequest, callModel, ProviderError, type ProviderId } from '../src/lib/providers';
+import { HANDOFF_RULE } from '../src/data/team';
+import { buildRequest, callModel, PROVIDERS, ProviderError, type ProviderId } from '../src/lib/providers';
 import { sanitizeMem } from '../src/lib/memory';
 
 /** A fake provider that answers with server-sent events, split at awkward places like a real network. */
@@ -56,9 +57,6 @@ const EVENTS: Record<ProviderId, unknown[]> = {
   get cerebras() {
     return this.groq;
   },
-  get freebuff() {
-    return this.groq;
-  },
   get muse() {
     return this.groq;
   },
@@ -66,6 +64,27 @@ const EVENTS: Record<ProviderId, unknown[]> = {
 const base = { key: 'k-123', model: 'm', system: 's', user: 'u', maxTokens: 50 };
 
 describe('streaming replies', () => {
+  it('reminds every provider call of the handoff boundary without weakening a JSON-only response contract', () => {
+    for (const provider of PROVIDERS) {
+      const request = buildRequest({ ...base, provider, system: 'Return JSON only matching the supplied schema.' });
+      const body = JSON.stringify(request.body);
+      expect(body).toContain(HANDOFF_RULE);
+      expect(body).toContain('Return JSON only matching the supplied schema.');
+      expect(body).toContain('add no extra handoff prose to JSON-only outputs');
+      const alreadyReminded = buildRequest({ ...base, provider, system: `${HANDOFF_RULE} Return JSON only.` });
+      expect(JSON.stringify(alreadyReminded.body).split(HANDOFF_RULE)).toHaveLength(2);
+    }
+  });
+
+  it('refuses retired or unknown providers before a key can reach another service', async () => {
+    for (const provider of ['freebuff', 'toString', 'unknown']) {
+      const fetchImpl = vi.fn();
+      await expect(callModel({ ...base, provider: provider as ProviderId, fetchImpl })).rejects.toThrow(
+        /provider is no longer supported/,
+      );
+      expect(fetchImpl).not.toHaveBeenCalled();
+    }
+  });
   it('asks each provider to stream', () => {
     expect((buildRequest({ provider: 'anthropic', ...base }, true).body as any).stream).toBe(true);
     expect((buildRequest({ provider: 'openai', ...base }, true).body as any).stream).toBe(true);
@@ -78,13 +97,12 @@ describe('streaming replies', () => {
     expect((g.body as any).reasoning_effort).toBe('low');
     expect((buildRequest({ provider: 'openai', ...base }).body as any).stream).toBeUndefined();
   });
-  it('Cerebras, Freebuff and Muse use the chat format at their own addresses', () => {
+  it('Cerebras and Muse use the chat format at their own addresses', () => {
     const urls: Record<string, string> = {
       cerebras: 'https://api.cerebras.ai/v1/chat/completions',
-      freebuff: 'https://freebuff.com/api/v1/chat/completions',
       muse: 'https://api.meta.ai/v1/chat/completions',
     };
-    for (const p of ['cerebras', 'freebuff', 'muse'] as ProviderId[]) {
+    for (const p of ['cerebras', 'muse'] as ProviderId[]) {
       const r = buildRequest({ provider: p, ...base, model: 'm' }, true);
       expect(r.url).toBe(urls[p]);
       expect(r.headers.authorization).toBe('Bearer k-123');
@@ -92,7 +110,7 @@ describe('streaming replies', () => {
       expect((r.body as any).stream).toBe(true);
     }
   });
-  for (const p of ['anthropic', 'openai', 'xai', 'google', 'groq', 'cerebras', 'freebuff', 'muse'] as ProviderId[])
+  for (const p of ['anthropic', 'openai', 'xai', 'google', 'groq', 'cerebras', 'muse'] as ProviderId[])
     it(`${p}: text grows as it arrives and the totals are kept`, async () => {
       const seen: string[] = [];
       const r = await callModel({ provider: p, ...base, fetchImpl: sse(EVENTS[p]) as any, onDelta: t => seen.push(t) });

@@ -2,6 +2,14 @@
 
 Repository: https://github.com/Roooted1776/ch29ouy (renamed from Nodes). Work on `main` only.
 
+## Now: GitHub Pages (Owner, 2026-10-31)
+
+Brain is served by GitHub Pages at https://roooted1776.github.io/ch29ouy/ straight from the root `index.html` on `main`. Every merge to `main` goes live; there is no server, firewall or pin to update. `.nojekyll` makes Pages serve the file as is. The accounts function allows the `https://roooted1776.github.io` origin.
+
+redeemed.live is retired from Brain and free for another project. Keep `users.redeemed.live` (account sign-in names) and the `brain.redeemed.live:` salt exactly as they are: they are identifiers inside existing accounts, not web addresses, and changing them would lock every account out.
+
+Everything below is the earlier Hostinger setup, kept for history.
+
 ## Layout
 
 - Namecheap BasicDNS already points redeemed.live and www.redeemed.live to the VPS at 2.25.249.204. No registrar transfer or nameserver change is needed.
