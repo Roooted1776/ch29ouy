@@ -118,6 +118,8 @@ export function parseRepoInput(input: string): { owner: string; repo: string } |
   if (!/^[a-zA-Z0-9_.-]+$/.test(owner) || !/^[a-zA-Z0-9_.-]+$/.test(repo)) {
     return null;
   }
+  // "." and ".." are not real names and would change the API path
+  if (/^\.+$/.test(owner) || /^\.+$/.test(repo)) return null;
 
   return { owner, repo };
 }
