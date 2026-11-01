@@ -516,6 +516,17 @@ export function ensureProjectNode(m: Mem, projectName: string, s?: Session, now 
  * Calculates agent work scores for every entry in the memory graph.
  * Returns a map from entry ID to its aggregate agent activity score.
  */
+/** Task dots kept on their own around each project node; older tasks fold into one "earlier" dot. */
+export const TASK_DOTS_SHOWN = 3;
+/** Splits one project's sessions for the brain view: the newest real tasks keep their own dot,
+ * older tasks and casual chats are consolidated into a single dot (Owner, Oct 2026). */
+export function foldSessions(sessions: Session[], keep = TASK_DOTS_SHOWN): { shown: Session[]; folded: Session[] } {
+  const newest = [...sessions].sort((a, b) => b.ts - a.ts);
+  const shown = newest.filter(s => s.kind !== 'chat').slice(0, keep);
+  const folded = newest.filter(s => !shown.includes(s));
+  return { shown: shown.reverse(), folded };
+}
+
 export function agentActivityScores(m: Mem): Map<string, number> {
   const scores = new Map<string, number>();
   for (const node of m.entries) {

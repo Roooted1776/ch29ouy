@@ -501,3 +501,148 @@ textarea:focus {
     max-height: 76svh;
   }
 }
+
+/* Chat column fits the page (Owner, Oct 31 2026): docked beside the brain and never over it,
+   one clear type scale (15px text, 13px labels, 12px small print), compact one-line headers. */
+.home.single.brain-first {
+  grid-template-columns: minmax(0, 1fr) clamp(340px, 30vw, 460px);
+}
+.home.single.brain-first .side {
+  min-width: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--line) !important;
+}
+.chat.grok {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.chat.grok .msgs {
+  gap: 16px;
+  padding: 14px 16px 18px;
+}
+.side .chat.grok .msg {
+  background: none;
+  box-shadow: none;
+}
+.side .chat.grok .msg::before {
+  display: none;
+}
+.chat.grok .msg header {
+  flex-wrap: nowrap;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  margin: 0 0 4px;
+  border: 0;
+  font-size: 14px;
+}
+.chat.grok .msg header b,
+.chat.grok .bot-name-btn b {
+  font-size: 14px;
+  white-space: nowrap;
+}
+.chat.grok .msg header .doing,
+.chat.grok .activity .doing {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.chat.grok .via {
+  flex: 0 0 auto;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.chat.grok .msg p {
+  margin: 0 0 0 28px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #e4e4e7;
+}
+.chat.grok .chat-pass {
+  gap: 6px;
+  margin: -6px 0 -6px 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chat.grok .chat-pass.in-flight {
+  margin: 0 0 0 28px;
+  border: 0;
+  background: none;
+}
+.chat.grok .chat-pass .pass-pill {
+  padding: 0 5px;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+}
+.chat.grok .chat-pass .pass-arrow {
+  font-size: 12px;
+}
+.handoff-summary {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.side .banter-bar {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 16px;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.side .banter-bar .sw {
+  white-space: nowrap;
+}
+.side .banter-bar input {
+  margin: 0;
+}
+.side .banter-bar .sm {
+  margin-left: auto;
+  font-size: 13px;
+}
+.composer.minimal {
+  flex: 0 0 auto;
+  padding: 10px 16px 14px;
+}
+.composer-modes .mode-btn {
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.composer.minimal textarea {
+  min-height: 40px;
+  font-size: 15px;
+  line-height: 1.4;
+  field-sizing: content;
+}
+.composer-key-hint {
+  margin: 0;
+  padding: 0 16px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+@media (max-width: 900px) {
+  /* phones: brain on top, chat below, both inside the screen so the message box never leaves view */
+  .home.single.brain-first {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 44svh) minmax(0, 1fr);
+    height: 100svh;
+    min-height: 0;
+  }
+  .home.single.brain-first.chat-hidden {
+    grid-template-rows: 100svh;
+  }
+  .home.single.brain-first .side {
+    border-left: 0 !important;
+    border-top: 1px solid var(--line) !important;
+  }
+  .chat.grok .msgs {
+    padding: 12px 14px;
+  }
+}

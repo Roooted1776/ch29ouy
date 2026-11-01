@@ -8,7 +8,7 @@ import { AGENT, AGENTS, isAgent } from '../data/team';
 import { OUTLINE } from '../data/outline';
 import { buildSkull, skullLines } from '../lib/skull';
 import { buildShell, midline, placeMemory, route, station, surfaceFolds, toWorld, type P3 } from '../lib/geometry';
-import { TYPE_LABEL, agentActivityScores, nodeSize, weight, type Session } from '../lib/memory';
+import { TYPE_LABEL, agentActivityScores, foldSessions, nodeSize, weight, type Session } from '../lib/memory';
 import { PULSE_AFTERGLOW, pulseMs, useMem, useStore, type Pulse } from '../store';
 import { DOT_FRAG, DOT_VERT, RIM_FRAG, RIM_VERT } from '../lib/shaders';
 import { sceneStats } from '../lib/stats';
@@ -446,10 +446,12 @@ function Memories() {
   const list = useMemo(() => mem.entries.filter(e => pos.has(e.id)), [mem.entries, pos]);
 
   const taskNodes = useMemo(() => {
+    // folded: the older tasks and chats this one "earlier" dot stands for (empty for a single task dot)
     const items: {
       session: Session;
       pos: V3;
       parentPos: V3;
+      folded: Session[];
     }[] = [];
     const linkPoints: number[] = [];
 
@@ -474,8 +476,11 @@ function Memories() {
       const parentP3 = toWorld(pos.get(pNode.id)!);
       const parentPos: V3 = [parentP3[0], parentP3[1], parentP3[2]];
 
-      const total = sessions.length;
-      sessions.forEach((s, idx) => {
+      const { shown, folded } = foldSessions(sessions);
+      const dots = shown.map(s => ({ s, folded: [] as Session[] }));
+      if (folded.length) dots.unshift({ s: folded[0], folded });
+      const total = dots.length;
+      dots.forEach(({ s, folded }, idx) => {
         const phi = (idx / Math.max(1, total)) * Math.PI * 2 + 0.35;
         const rad = 0.28 + (idx % 2) * 0.08;
         const taskPos: V3 = [
@@ -483,7 +488,7 @@ function Memories() {
           parentPos[1] + Math.sin(phi) * rad * 0.8,
           parentPos[2] + Math.sin(phi * 2) * 0.12,
         ];
-        items.push({ session: s, pos: taskPos, parentPos });
+        items.push({ session: s, pos: taskPos, parentPos, folded });
         linkPoints.push(...parentPos, ...taskPos);
       });
     }
@@ -630,15 +635,15 @@ function Memories() {
           <lineBasicMaterial color="#38bdf8" transparent opacity={0.35} depthTest={false} depthWrite={false} />
         </lineSegments>
       )}
-      {taskNodes.items.map(({ session: s, pos: tPos }) => {
-        const isViewing = viewing?.id === s.id;
+      {taskNodes.items.map(({ session: s, pos: tPos, folded }) => {
+        const isViewing = folded.length ? folded.some(f => f.id === viewing?.id) : viewing?.id === s.id;
         const isHovered = hoverTask === s.id;
         const showTag = isViewing || isHovered;
         return (
           <group key={s.id} position={tPos}>
             {/* Visual smaller node */}
             <mesh renderOrder={5}>
-              <sphereGeometry args={[0.055, 12, 12]} />
+              <sphereGeometry args={[folded.length ? 0.085 : 0.055, 12, 12]} />
               <meshBasicMaterial
                 color={isViewing ? '#ffffff' : isHovered ? '#7dd3fc' : '#38bdf8'}
                 transparent
@@ -650,7 +655,7 @@ function Memories() {
             <mesh
               onClick={ev => {
                 ev.stopPropagation();
-                viewSession(viewing?.id === s.id ? null : s.id);
+                viewSession(isViewing ? null : s.id);
                 useStore.setState(st => ({
                   tab: 'chat',
                   sceneFocus: { kind: 'memory', id: s.projectId || s.id, sequence: (st.sceneFocus?.sequence || 0) + 1 },
@@ -672,7 +677,11 @@ function Memories() {
             {showTag && (
               <Html center distanceFactor={9} zIndexRange={[25, 0]} style={{ pointerEvents: 'none' }}>
                 <div className={'task-node-tag' + (isViewing ? ' on' : '')}>
-                  {s.q.length > 28 ? s.q.slice(0, 26) + '…' : s.q}
+                  {folded.length
+                    ? `${folded.length} earlier session${folded.length === 1 ? '' : 's'}`
+                    : s.q.length > 28
+                      ? s.q.slice(0, 26) + '…'
+                      : s.q}
                 </div>
               </Html>
             )}
