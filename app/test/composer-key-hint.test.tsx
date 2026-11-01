@@ -33,9 +33,7 @@ describe('no-key hint under the composer', () => {
     useStore.setState({ role: 'admin', keys: {}, busy: false });
     render(<Composer />);
     expect(screen.getByText(ADMIN_HINT)).toBeTruthy();
-    await userEvent
-      .setup()
-      .type(screen.getByLabelText('Task for the team'), 'sk-ant-fake-test-value-not-a-key{Enter}');
+    await userEvent.setup().type(screen.getByLabelText('Task for the team'), 'sk-ant-fake-test-value-not-a-key{Enter}');
     expect(screen.queryByText(ADMIN_HINT)).toBeNull();
   });
 });

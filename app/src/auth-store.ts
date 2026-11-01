@@ -13,7 +13,7 @@ import {
   syncMemoryDatabase,
   writeAudit,
 } from './lib/cloud';
-import { blankMem, sanitizeMem } from './lib/memory';
+import { blankMem, type Mem, sanitizeMem } from './lib/memory';
 import { openChannel, publish, type Hub } from './lib/share';
 import { VaultError, decryptVault, encryptVault, newSecrets, openFor, sealFor, type Secrets } from './lib/vault';
 import { GITHUB_ENTRY, KEYS_KEY, type Keys, openKeys, sealKeys } from './lib/keystore';
@@ -114,6 +114,7 @@ function startMirror() {
     () => document.removeEventListener('visibilitychange', onHide),
   );
 }
+let vaultKeys: Keys = {};
 async function unlock(u: User, kek: CryptoKey) {
   secrets = await openFor(kek, await accountWrap(u.id));
   const s = secrets,
@@ -164,17 +165,19 @@ async function unlock(u: User, kek: CryptoKey) {
       ...onDevice,
     };
     if (Object.keys(fromVault).length || (plainToken && !onDevice[GITHUB_ENTRY])) await sealKeys(ls, kek, u.id, saved);
-    // Re-save the shared vault without keys, so the database copy no longer holds any.
-    if ('keys' in data || 'deviceKeys' in data) {
+    // Keys found only on this device are added to the shared vault, so they follow the admin everywhere.
+    const missing = Object.keys(saved).some(k => saved[k as keyof Keys] !== fromVault[k as keyof Keys]);
+    if (missing) {
       try {
-        const clean = await encryptVault(s, { mem }, counter + 1);
-        revision = await saveVault(clean, revision);
-        counter = clean.n;
+        const next = await encryptVault(s, { mem, keys: saved }, counter + 1);
+        revision = await saveVault(next, revision);
+        counter = next.n;
       } catch {
-        /* tried again on the next save, which also writes memory only */
+        /* tried again on the next save, which also writes the keys */
       }
     }
-    ls.setItem(VAULT_KEY, JSON.stringify(await encryptVault(s, { mem }, counter)));
+    vaultKeys = saved;
+    ls.setItem(VAULT_KEY, JSON.stringify(await encryptVault(s, { mem, keys: saved }, counter)));
   } else if (!ls.getItem(VAULT_KEY)) ls.setItem(VAULT_KEY, JSON.stringify(remote.envelope));
   const { [GITHUB_ENTRY]: githubToken = '', ...providerKeys } = saved;
   useStore.setState(st => ({
@@ -191,17 +194,18 @@ async function unlock(u: User, kek: CryptoKey) {
   setAuditSink((who, what) => writeAudit(u.id, who, what));
   if (s.priv) {
     const epoch = generation;
-    setVault(m => {
-      // Capture now: queued writes must never read a later mutable memory object.
-      const snapshot = structuredClone(m);
+    const saveAll = (m: Mem) => {
+      // Capture now: queued writes must never read a later mutable memory object or key list.
+      const snapshot = structuredClone(m),
+        keysNow = { ...vaultKeys };
       const job = chain.then(async () => {
         if (epoch !== generation) return false;
-        const envelope = await encryptVault(s, { mem: snapshot }, counter + 1);
+        const envelope = await encryptVault(s, { mem: snapshot, keys: keysNow }, counter + 1);
         if (epoch !== generation) return false;
         revision = await saveVault(envelope, revision);
         counter = envelope.n;
         if (epoch !== generation) return false;
-        const local = await encryptVault(s, { mem: snapshot }, envelope.n);
+        const local = await encryptVault(s, { mem: snapshot, keys: keysNow }, envelope.n);
         if (epoch !== generation) return false;
         ls.setItem(VAULT_KEY, JSON.stringify(local));
         return true;
@@ -209,16 +213,20 @@ async function unlock(u: User, kek: CryptoKey) {
       // A failed chain stays failed: later edits must not overwrite a conflicting remote save.
       chain = job;
       return job;
-    });
+    };
+    setVault(saveAll);
     // Keys are sealed one save at a time, so a slower earlier save never overwrites a newer one.
     let keyChain: Promise<void> = Promise.resolve();
     setKeySave(keys => {
       const copy = { ...keys };
+      vaultKeys = copy;
       keyChain = keyChain
         .catch(() => undefined)
         .then(async () => {
           if (epoch === generation) await sealKeys(ls, kek, u.id, copy);
         });
+      // Also save the encrypted shared vault, so the keys reach the admin's other devices.
+      void saveAll(useStore.getState().mem).catch(() => undefined);
       return keyChain;
     });
   } else {
@@ -290,6 +298,7 @@ function leave(keepKey = false) {
   setAuditSink(null);
   setVault(null);
   setKeySave(null);
+  vaultKeys = {};
   if (useStore.getState().busy) useStore.getState().stop(); // a running task is cancelled on lock
   useStore.setState(st => ({
     role: null,
