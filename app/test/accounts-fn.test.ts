@@ -10,6 +10,7 @@ const fake = vi.hoisted(() => {
     tokens: new Map<string, string>(),
     lease: false,
     calls: [] as string[],
+    deleteFails: false,
   };
   function query(table: string) {
     const rows = () => {
@@ -114,6 +115,7 @@ const fake = vi.hoisted(() => {
           return { data: { user: { id } }, error: null };
         },
         async deleteUser(id: string) {
+          if (state.deleteFails) return { error: { message: 'Brain needs at least one admin.' } };
           state.authUsers = state.authUsers.filter(u => u.id !== id);
           state.tables.profiles = (state.tables.profiles || []).filter(p => p.id !== id);
           return { error: null };
@@ -151,6 +153,7 @@ beforeEach(async () => {
   fake.state.tokens = new Map();
   fake.state.lease = false;
   fake.state.calls = [];
+  fake.state.deleteFails = false;
   if (!handler) {
     (globalThis as unknown as { Deno: unknown }).Deno = {
       env: { get: () => 'fake-not-a-real-value' },
@@ -221,5 +224,32 @@ describe('accounts function: admins only', () => {
       ['Owner', 'admin'],
       ['Spare', 'admin'],
     ]);
+  });
+});
+
+describe('accounts function: removing accounts', () => {
+  function seedSpare() {
+    fake.state.tables.profiles.push({ id: 'u2', name: 'Spare', role: 'admin' });
+    fake.state.authUsers.push({ id: 'u2', email: 'spare@users.redeemed.live', password: PASS });
+  }
+
+  it('removes another admin and logs it', async () => {
+    seedLiveBrain();
+    seedSpare();
+    const r = await call({ action: 'remove', id: 'u2' }, 'owner-token');
+    expect(r.status).toBe(200);
+    expect(fake.state.tables.profiles.map(p => p.name)).toEqual(['Owner']);
+    expect(fake.state.tables.audit_log.map(a => a.what)).toEqual(['Removed Spare']);
+  });
+
+  it('when the database refuses the delete (last admin), says so and logs nothing', async () => {
+    seedLiveBrain();
+    seedSpare();
+    fake.state.deleteFails = true;
+    const r = await call({ action: 'remove', id: 'u2' }, 'owner-token');
+    expect(r.status).toBe(409);
+    expect(r.body.error).toBe('Could not remove the account. Nothing was changed.');
+    expect(fake.state.tables.profiles).toHaveLength(2);
+    expect(fake.state.tables.audit_log).toEqual([]);
   });
 });

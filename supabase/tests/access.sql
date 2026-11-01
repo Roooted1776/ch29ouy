@@ -60,6 +60,8 @@ select tests.refused(
 select tests.count_is($$select 1 where public.claim_open_setup()$$, 0, 'setup claimed while admins exist');
 -- Even a non-admin row (only possible with the role check lifted) blocks setup: ANY account counts.
 begin;
+-- Emptying the project needs the last-admin guard off; the rollback below turns it back on.
+alter table public.profiles disable trigger profiles_keep_last_admin;
 delete from auth.users where id <> '22222222-2222-2222-2222-222222222222';
 alter table public.profiles drop constraint profiles_role_check;
 insert into public.profiles (id, name, role) values ('22222222-2222-2222-2222-222222222222', 'Watcher', 'viewer');
@@ -178,6 +180,10 @@ select tests.count_is($$select 1 from public.profiles where id = '33333333-3333-
   'a removed account loses its profile');
 select tests.count_is($$select 1 from public.account_keys where id = '33333333-3333-3333-3333-333333333333'$$, 0,
   'a removed account loses its sealed key');
+select tests.refused($$delete from auth.users where id = '11111111-1111-1111-1111-111111111111'$$,
+  'removing the last admin');
+select tests.count_is($$select 1 from public.profiles where role = 'admin'$$, 1,
+  'the last admin is kept');
 
 -- 5. Every table in the API schema is behind row-level security -------------------------------
 do $$

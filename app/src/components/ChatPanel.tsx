@@ -27,7 +27,6 @@ function BotName({ id, limited, onOpen }: { id: AgentId; limited: AgentId[]; onO
 const nameOf = (id: string) =>
   id.startsWith('mem:') ? 'Memory' : isAgent(id) ? AGENT[id].name : id === 'owner' ? 'You' : 'Brain';
 
-/** Ensures no raw code blocks (```) clutter the live chat, turning them into plain conversational text. */
 /** Chat text with web links made clickable; they open the source in a new tab. */
 function Linked({ text }: { text: string }) {
   return (
@@ -46,6 +45,7 @@ function Linked({ text }: { text: string }) {
     </>
   );
 }
+/** Ensures no raw code blocks (```) clutter the live chat, turning them into plain conversational text. */
 export function cleanChatText(text: string): string {
   if (!text) return '';
   const closed = text.replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, (_m, code) => {

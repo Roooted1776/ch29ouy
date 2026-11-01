@@ -15,6 +15,9 @@ import {
 
 describe('GitHub Connector - Repository Input Parsing', () => {
   it('parses standard owner/repo format', () => {
+    expect(parseRepoInput('../Brain')).toBeNull();
+    expect(parseRepoInput('Roooted1776/..')).toBeNull();
+    expect(parseRepoInput('https://github.com/./repo')).toBeNull();
     expect(parseRepoInput('Roooted1776/Brain')).toEqual({
       owner: 'Roooted1776',
       repo: 'Brain',

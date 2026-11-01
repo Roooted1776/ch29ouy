@@ -276,7 +276,7 @@ function Detail({ e, onSession }: { e: Entry; onSession(id: string): void }) {
                   >
                     {s.label}
                   </button>
-                ) : s.kind === 'github' && s.ref && s.ref.startsWith('https://github.com') ? (
+                ) : s.kind === 'github' && s.ref && s.ref.startsWith('https://github.com/') ? (
                   <a
                     key={`${s.label}-${s.ref}`}
                     href={s.ref}

@@ -171,7 +171,13 @@ async function handle(req: Request) {
       const { data: t } = await db.from('profiles').select('id, name, role').eq('id', b.id).maybeSingle();
       if (!t) throw new Refuse('No such account.', 404);
       if (t.role === 'admin' && (await admins()) <= 1) throw new Refuse('Brain needs at least one admin.', 409);
-      await db.auth.admin.deleteUser(t.id); // the profile goes with it (on delete cascade)
+      // The profile goes with it (on delete cascade). The database refuses to remove the last admin,
+      // even when two removals race past the count above (keep_last_admin migration).
+      const { error } = await db.auth.admin.deleteUser(t.id);
+      if (error) {
+        if (t.role === 'admin' && (await admins()) <= 1) throw new Refuse('Brain needs at least one admin.', 409);
+        throw new Refuse('Could not remove the account. Nothing was changed.', 409);
+      }
       await audit(me, `Removed ${t.name}`);
       return { ok: true };
     }
