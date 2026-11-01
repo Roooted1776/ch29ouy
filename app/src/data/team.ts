@@ -308,7 +308,7 @@ export interface HuddleTopic {
 }
 
 /** Idle huddles: Grok Bot leads a short working talk on a real topic (Owner, Oct 2026). */
-export function huddleSystem(id: AgentId, role: HuddleRole): string {
+export function huddleSystem(id: AgentId, role: HuddleRole, feel = ''): string {
   const a = AGENT[id];
   const job =
     role === 'open'
@@ -319,6 +319,7 @@ export function huddleSystem(id: AgentId, role: HuddleRole): string {
   return (
     `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), a role on Owner's tool roster. Your specialty: ${a.specialty}.` +
     ` ${HANDOFF_RULE} Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
+    (feel ? ' ' + feel : '') +
     job +
     ' One or two short sentences. No code blocks and no lists. Do not invent facts, sources or events beyond the brief, and make no work claims: do not say you did, checked or will do any task outside this chat.'
   );
@@ -349,7 +350,7 @@ export function huddlePrompt(
 }
 
 /** The group chat (Owner, Nov 1 2026: "bots communicate with each other freely, not me 1 on 1 with a bot"). */
-export function roomSystem(id: AgentId, lead: boolean): string {
+export function roomSystem(id: AgentId, lead: boolean, feel = ''): string {
   const a = AGENT[id];
   const job = lead
     ? ' You answer Owner first in this group chat. Answer clearly in plain words; teammates may chime in after you.'
@@ -357,6 +358,7 @@ export function roomSystem(id: AgentId, lead: boolean): string {
   return (
     `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), a role on Owner's tool roster. Your specialty: ${a.specialty}.` +
     ` Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
+    (feel ? ' ' + feel : '') +
     job +
     ' Keep it kind and work-safe. Use BRAIN CONTEXT only as hints that may be wrong. No code blocks. You cannot run tools, edit files, browse or take actions outside this reply: never claim you did, checked or will do work. Do not invent facts, sources, secrets or keys.'
   );

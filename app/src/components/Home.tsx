@@ -29,6 +29,8 @@ class Boundary extends Component<{ children: ReactNode }, { err: string }> {
 }
 
 /** The brain takes the main space; chat stays nearby and settings open only when needed. */
+const SYNC_EVERY_MS = 60 * 60 * 1000;
+
 export default function Home() {
   const { user, logout } = useAuth(),
     inspectedBot = useStore(s => s.inspectedBot),
@@ -38,24 +40,33 @@ export default function Home() {
     [chatOpen, setChatOpen] = useState(true),
     [resetView, setResetView] = useState(0);
   const status = useStore(s => s.status);
+  // the Handoffs bar shows only when there is a handoff to list
+  const hasFlow = useStore(s => (s.viewing?.flow || s.flow).length > 0);
   // Dream runs by itself at most once a day, after sign-in, when something waits in the inbox
   const ready = useStore(s => !!s.keys[s.live.provider] || Object.values(s.keys).some(Boolean)),
     due = useStore(s => dreamDue(s.mem, Date.now()));
   useEffect(() => {
     if (admin && ready && due) void useStore.getState().dream(true);
   }, [admin, ready, due]);
-  // GitHub auto-sync: while an admin has the page open and a repo is set, pull only what changed every 12 hours
+  // GitHub auto-sync (Owner, Nov 1 2026: "I shouldn't have to import or sync"): while an admin has the page open
+  // and a repo is set (on the live site, its own repo by default), pull only what changed when the page opens
+  // and then every hour. Skipped while the team is busy or when the last sync is under an hour old.
   const repo = useStore(s => s.githubRepo);
   useEffect(() => {
-    if (!admin || !repo.trim()) return;
-    const t = setInterval(
-      () => {
-        const st = useStore.getState();
-        if (!st.busy) void st.syncGithub({ differential: true });
-      },
-      12 * 60 * 60 * 1000,
-    );
-    return () => clearInterval(t);
+    // only on the served site: a page opened from disk (tests, local preview) never reaches out on its own
+    if (!admin || !repo.trim() || !globalThis.location?.protocol.startsWith('http')) return;
+    const run = () => {
+      const st = useStore.getState(),
+        last = st.githubLastSync[st.githubRepo.trim()]?.date;
+      if (st.busy || st.dreaming || (last && Date.now() - Date.parse(last) < SYNC_EVERY_MS)) return;
+      void st.syncGithub({ differential: true });
+    };
+    const first = setTimeout(run, 3000),
+      t = setInterval(run, SYNC_EVERY_MS);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
   }, [admin, repo]);
   // Idle huddles: while an admin is signed in with a key and nothing is running, Grok Bot leads
   // short team huddles on its own small budget (lib/banter). A task, Stop, lock or the switch ends it.
@@ -126,10 +137,12 @@ export default function Home() {
       </section>
       {chatOpen && (
         <aside className="side" id="brain-chat">
-          <details className="handoff-summary">
-            <summary>Handoffs</summary>
-            <FlowPane />
-          </details>
+          {hasFlow && (
+            <details className="handoff-summary">
+              <summary>Handoffs</summary>
+              <FlowPane />
+            </details>
+          )}
           <ChatPanel />
         </aside>
       )}

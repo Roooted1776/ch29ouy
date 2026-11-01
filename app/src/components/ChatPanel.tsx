@@ -177,7 +177,7 @@ export default function ChatPanel() {
             <Fragment key={m.id}>
               {showPass && !(typeof m.tag === 'string' && m.tag.startsWith('chat ·')) && (
                 <div className="chat-pass" role="status">
-                  <span className="pass-pill">PASS</span>
+                  <span className="pass-pill">hands to</span>
                   <span className="pass-end" style={{ color: colorOf(passFrom) }}>
                     {isAgent(passFrom) && <BotIcon id={passFrom} size={14} />}
                     <b>{nameOf(passFrom)}</b>
@@ -220,7 +220,7 @@ export default function ChatPanel() {
         })}
         {!currentSession && busy && activePulse && (
           <div className="chat-pass in-flight" role="status">
-            <span className="pass-pill pulse">PASSING</span>
+            <span className="pass-pill pulse">handing to</span>
             <span className="pass-end" style={{ color: colorOf(activePulse.from) }}>
               {isAgent(activePulse.from) && <BotIcon id={activePulse.from as AgentId} size={14} />}
               <b>{nameOf(activePulse.from)}</b>
@@ -232,7 +232,7 @@ export default function ChatPanel() {
               {isAgent(activePulse.to) && <BotIcon id={activePulse.to as AgentId} size={14} />}
               <b>{nameOf(activePulse.to)}</b>
             </span>
-            {activePulse.words ? <small className="pass-words">{activePulse.words}w</small> : null}
+            {activePulse.words ? <small className="pass-words">{activePulse.words} words</small> : null}
           </div>
         )}
         {doing.map(([id]) => (

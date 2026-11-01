@@ -33,6 +33,7 @@ import { importMemoryItems, type RawMemoryItem } from './lib/file-import';
 import {
   testGitHubConnection,
   fetchAndConvertGitHub,
+  siteRepo,
   type GitHubTestResult,
   type GitHubImportOptions,
 } from './lib/github';
@@ -263,6 +264,11 @@ export interface GitHubSyncRecord {
   count: number;
 }
 
+/** The old default named a repository that does not exist; a saved copy of it counts as unset. */
+const OLD_DEFAULT_REPO = 'Roooted1776/Brain';
+/** Brain's own repository: the live site's, or this project's when the page is opened from disk. */
+const defaultRepo = () => siteRepo() || 'Roooted1776/ch29ouy';
+
 function loadGithub(): {
   repo: string;
   token: string;
@@ -274,7 +280,7 @@ function loadGithub(): {
     if (raw) {
       const d = JSON.parse(raw);
       if (d && typeof d === 'object') {
-        const repo = typeof d.repo === 'string' && d.repo ? d.repo : 'Roooted1776/Brain';
+        const repo = typeof d.repo === 'string' && d.repo && d.repo !== OLD_DEFAULT_REPO ? d.repo : defaultRepo();
         const recent = Array.isArray(d.recentRepos)
           ? d.recentRepos.filter((r: unknown): r is string => typeof r === 'string' && !!r.trim())
           : [repo];
@@ -293,7 +299,7 @@ function loadGithub(): {
   } catch {
     /* storage blocked */
   }
-  return { repo: 'Roooted1776/Brain', token: '', recentRepos: ['Roooted1776/Brain'], lastSync: {} };
+  return { repo: defaultRepo(), token: '', recentRepos: [defaultRepo()], lastSync: {} };
 }
 
 /** Saves the repo list and sync times. The token is never written here: it is sealed by keystore.ts. */
