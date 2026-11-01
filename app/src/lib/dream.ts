@@ -6,6 +6,7 @@ import { type Tally, tally, upsert } from './learn';
 import {
   TYPES,
   keepHistory,
+  clipNote,
   link,
   plainNote,
   weight,
@@ -134,10 +135,12 @@ export function parseDream(text: string, nCites: number, deleted: string[] = [])
       if (!p || !['create', 'update', 'stale'].includes(p.op) || !TYPES.includes(p.type)) continue;
       if (typeof p.title !== 'string' || typeof p.note !== 'string') continue;
       const title = redact(p.title.replace(/\[\[|\]\]/g, '').trim()).text.slice(0, 80);
-      const cites = Array.isArray(p.cites) ? [...new Set(p.cites.filter(okCite))] : [];
+      // a mark in the text counts as a cite too, so every [cite:N] maps to a source the page really holds
+      const marked = [...String(p.note).matchAll(/\[cite:\s*(\d+)\]/g)].map(x => +x[1]);
+      const cites = [...new Set([...(Array.isArray(p.cites) ? p.cites : []), ...marked].filter(okCite))];
       if (!title || !cites.length || gone.has(title.toLowerCase())) continue;
       if (plan.pages.some(x => x.title.toLowerCase() === title.toLowerCase())) continue;
-      const raw = String(p.note);
+      const raw = String(p.note).slice(0, 2000);
       const links = [...raw.matchAll(/\[\[([^\]]{1,80})\]\]/g)]
         .map(x => x[1].trim())
         .filter(t => t && t.toLowerCase() !== title.toLowerCase());
@@ -145,7 +148,7 @@ export function parseDream(text: string, nCites: number, deleted: string[] = [])
       // (evidence edges), the way Perplexity Brain pages carry both. Marks pointing at no real cite are dropped.
       const note = redact(
         raw.replace(/\s*\[cite:\s*(\d+)\]/g, (_mk, n) => (okCite(+n) ? ` [cite:${n}]` : '')).trim(),
-      ).text.slice(0, 600);
+      ).text;
       if (p.op !== 'stale' && !note) continue;
       plan.pages.push({ op: p.op, type: p.type, title, note, cites: cites as number[], links: [...new Set(links)] });
       if (plan.pages.length >= DREAM_PAGES) break;
@@ -174,6 +177,8 @@ export function applyDream(m: Mem, plan: DreamPlan, cites: Cite[], now: number):
         return ref ? ` [cite:${ref}]` : '';
       })
       .trim();
+    // cut only after the marks have their final length, so a saved page never goes over the limit and is dropped
+    const pNoteFull = clipNote(pNote);
     const old = byTitle(m, p.title);
     if (p.op === 'stale') {
       if (old && !old.corrected && old.status === 'fresh') {
@@ -191,7 +196,7 @@ export function applyDream(m: Mem, plan: DreamPlan, cites: Cite[], now: number):
         key,
         type: old ? old.type : p.type,
         title: old ? old.title : p.title,
-        note: pNote,
+        note: pNoteFull,
         kws: keywords(p.title + ' ' + plainNote(p.note)).slice(0, 8),
         sources,
       },
@@ -200,12 +205,12 @@ export function applyDream(m: Mem, plan: DreamPlan, cites: Cite[], now: number):
     );
     if (!e) continue;
     // Dream rewrites a page as a whole instead of piling lines up, and keeps the old text in the change log
-    if (!e.corrected && before !== undefined && e.note !== pNote) {
+    if (!e.corrected && before !== undefined && e.note !== pNoteFull) {
       if (before && e.hist?.at(-1)?.note !== before) {
         e.note = before;
         keepHistory(e, 'session', now);
       }
-      e.note = pNote;
+      e.note = pNoteFull;
     }
     pages.push(e);
   }

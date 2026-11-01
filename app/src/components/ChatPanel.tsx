@@ -4,7 +4,7 @@ import { pulseMs, type Pulse } from '../store';
 import { colorOf } from '../data/colors';
 import { AGENT, isAgent, type AgentId } from '../data/team';
 import { useStore } from '../store';
-import { PROV } from '../lib/providers';
+import { PROV, QUOTA_LABEL } from '../lib/providers';
 import { isLegacyApprovalPhrase } from '../lib/approval';
 import BotIcon from './BotIcon';
 import Composer from './Composer';
@@ -17,7 +17,7 @@ function BotName({ id, limited, onOpen }: { id: AgentId; limited: AgentId[]; onO
       type="button"
       className={'link bot-name-btn' + (out ? ' limited' : '')}
       onClick={() => onOpen(id)}
-      title={out ? `${AGENT[id].name} hit its token limit` : AGENT[id].name}
+      title={out ? `${AGENT[id].name}: ${QUOTA_LABEL}` : AGENT[id].name}
     >
       <b>{AGENT[id].name}</b>
     </button>

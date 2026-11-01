@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_SESSIONS,
   blankMem,
+  clipNote,
   keepSessions,
   noteParts,
   plainNote,
@@ -102,5 +103,12 @@ describe('memory page helpers', () => {
     const back = sanitizeMem(JSON.parse(JSON.stringify(m)))!;
     expect(back.sessions.some(x => x.id === 's1')).toBe(true);
     expect(back.entries[0].note).toBe('Small steps [cite:s1].');
+  });
+
+  it('cuts a note without leaving half a mark at the end', () => {
+    const n = 'a'.repeat(590) + ' end [cite:s12345]';
+    expect(clipNote(n)).toBe('a'.repeat(590) + ' end');
+    expect(clipNote('b'.repeat(595) + ' [[Long title]]')).toBe('b'.repeat(595));
+    expect(clipNote('short [cite:s1]')).toBe('short [cite:s1]');
   });
 });
