@@ -672,3 +672,10 @@ export async function fetchAndConvertGitHub(
 
   return { items, repoInfo, summary };
 }
+
+/** On GitHub Pages (owner.github.io/repo/) the site's own repository, so Brain keeps itself in sync with no setup. */
+export function siteRepo(loc: { hostname?: string; pathname?: string } | undefined = globalThis.location): string {
+  const owner = loc?.hostname?.match(/^([\w-]+)\.github\.io$/i)?.[1],
+    repo = loc?.pathname?.split('/').filter(Boolean)[0];
+  return owner && repo && /^[\w.-]+$/.test(repo) ? `${owner}/${repo}` : '';
+}

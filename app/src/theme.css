@@ -625,6 +625,7 @@ textarea:focus {
   field-sizing: content;
 }
 .composer-key-hint {
+  position: static;
   margin: 0;
   padding: 0 16px 12px;
   font-size: 13px;

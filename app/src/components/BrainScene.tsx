@@ -4,7 +4,7 @@ import type React from 'react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { STAGE_COLOR, TYPE_COLOR, colorOf } from '../data/colors';
-import { AGENT, AGENTS, isAgent } from '../data/team';
+import { AGENTS, isAgent } from '../data/team';
 import { OUTLINE } from '../data/outline';
 import { buildSkull, skullLines } from '../lib/skull';
 import { buildShell, midline, placeMemory, route, station, surfaceFolds, toWorld, type P3 } from '../lib/geometry';
@@ -420,9 +420,6 @@ function Agents({ locked }: { locked: boolean }) {
                   title={`${a.name} · Click to inspect`}
                 >
                   {a.name}
-                  {isAgent(a.id) && AGENT[a.id].company && (
-                    <span className="bot-company"> · {AGENT[a.id].company}</span>
-                  )}
                 </button>
               </Html>
             </group>
