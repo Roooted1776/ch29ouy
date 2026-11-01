@@ -24,7 +24,7 @@ describe('no-key hint under the composer', () => {
     expect(container.querySelector('.composer-key-hint')).toBeNull();
   });
   it('with a key set there is no hint', () => {
-    useStore.setState({ role: 'admin', keys: { anthropic: 'sk-ant-abcdefghijklmnopqrstuvwxyz0123' }, busy: false });
+    useStore.setState({ role: 'admin', keys: { anthropic: 'sk-ant-fake-test-value-not-a-key' }, busy: false });
     const { container } = render(<Composer />);
     expect(container.querySelector('.composer-key-hint')).toBeNull();
     expect(screen.queryByText(ADMIN_HINT)).toBeNull();
@@ -35,7 +35,7 @@ describe('no-key hint under the composer', () => {
     expect(screen.getByText(ADMIN_HINT)).toBeTruthy();
     await userEvent
       .setup()
-      .type(screen.getByLabelText('Task for the team'), 'sk-ant-abcdefghijklmnopqrstuvwxyz0123{Enter}');
+      .type(screen.getByLabelText('Task for the team'), 'sk-ant-fake-test-value-not-a-key{Enter}');
     expect(screen.queryByText(ADMIN_HINT)).toBeNull();
   });
 });
