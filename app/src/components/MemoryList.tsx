@@ -1,6 +1,7 @@
 import { AGENT } from '../data/team';
-import { TYPE_LABEL, type Entry, type Mem } from '../lib/memory';
+import { TYPE_LABEL, plainNote, type Entry, type Mem } from '../lib/memory';
 import { useMem, useStore } from '../store';
+import { Detail } from './MemoryPanel';
 
 const stamp = (ts: number) => {
   try {
@@ -22,6 +23,7 @@ function botOf(mem: Mem, e: Entry): string {
 export default function MemoryList() {
   const open = useStore(s => s.memoryOpen),
     close = useStore(s => s.setMemoryOpen),
+    select = useStore(s => s.select),
     mem = useMem();
   if (!open) return null;
   const rows = [...mem.entries].sort((a, b) => b.created - a.created);
@@ -48,8 +50,19 @@ export default function MemoryList() {
             {rows.map(e => (
               <tr key={e.id}>
                 <td>{stamp(e.created)}</td>
-                <td>{e.title}</td>
-                <td>{e.note}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => {
+                      select(e.id);
+                      close(false);
+                    }}
+                  >
+                    {e.title}
+                  </button>
+                </td>
+                <td>{plainNote(e.note)}</td>
                 <td>{TYPE_LABEL[e.type]}</td>
                 <td>{botOf(mem, e)}</td>
               </tr>
@@ -59,5 +72,19 @@ export default function MemoryList() {
         {rows.length === 0 && <p>No memories yet.</p>}
       </div>
     </section>
+  );
+}
+
+/** The open memory page (Perplexity Brain style), over the brain while a memory is selected (Owner, Nov 1 2026). */
+export function MemoryPage() {
+  const selected = useStore(s => s.selected),
+    viewSession = useStore(s => s.viewSession),
+    mem = useMem();
+  const e = selected ? mem.entries.find(x => x.id === selected) : undefined;
+  if (!e) return null;
+  return (
+    <aside className="memory-page" aria-label="Memory page">
+      <Detail key={e.id} e={e} onSession={viewSession} />
+    </aside>
   );
 }

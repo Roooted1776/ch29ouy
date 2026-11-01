@@ -15,7 +15,7 @@ import {
   type HuddleTopic,
 } from '../data/team';
 import type { State } from '../store';
-import { TYPE_LABEL, weight, type Msg } from './memory';
+import { TYPE_LABEL, plainNote, weight, type Msg } from './memory';
 import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, type ProviderId } from './providers';
 import { clip } from './text';
 
@@ -103,7 +103,7 @@ export function pickTopic(s: State, rand: () => number): HuddleTopic {
     return {
       kind,
       text:
-        `A page in Brain's memory — ${TYPE_LABEL[e.type]} · "${e.title}": ${clip(e.note.replace(/\s+/g, ' '), 280)} ` +
+        `A page in Brain's memory — ${TYPE_LABEL[e.type]} · "${e.title}": ${clip(plainNote(e.note).replace(/\s+/g, ' '), 280)} ` +
         'Ask the team: is this still true, what is missing from it, and what should be checked?',
     };
   }

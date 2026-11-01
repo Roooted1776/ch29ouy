@@ -646,3 +646,121 @@ textarea:focus {
     padding: 12px 14px;
   }
 }
+
+/* Memory page, Perplexity Brain style (Owner, Nov 1 2026): one subject per page, [[links]] inline,
+   numbered sources, then the tasks behind it with the route each one took around the team. */
+.detail .note .wiki {
+  all: unset;
+  cursor: pointer;
+  color: var(--accent);
+  border-bottom: 1px dashed currentColor;
+}
+.detail .note .wiki:hover,
+.detail .note .wiki:focus-visible {
+  color: #fff;
+}
+.detail .note .cite {
+  font-size: 16px;
+  vertical-align: baseline;
+  margin-left: 3px;
+  padding: 0 4px;
+  border: 1px solid var(--line, #2a2f3a);
+  border-radius: 4px;
+  color: var(--muted);
+}
+.detail .page-sec {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--line, #2a2f3a);
+  padding-top: 8px;
+}
+.detail .page-sec h5,
+.detail .page-sec summary {
+  margin: 0;
+  font-size: 16px;
+  font-weight: normal;
+  color: var(--muted);
+  cursor: default;
+}
+.detail .page-sec summary {
+  cursor: pointer;
+}
+.detail .task-card {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  font-size: 16px;
+  padding: 6px 8px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.06);
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.detail .task-card:hover,
+.detail .task-card:focus-visible {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
+}
+.detail .task-card b {
+  font-weight: normal;
+  color: #e6ecff;
+}
+.detail .task-card small,
+.detail .page-meta {
+  font-size: 16px;
+  color: var(--muted);
+  margin: 0;
+}
+.detail .task-card .route {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+.detail .task-card .route i {
+  font-style: normal;
+}
+.detail .src-list {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 4px;
+  font-size: 16px;
+}
+.detail .links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+/* the page opens with a short rise, so a click on a node feels answered */
+.detail {
+  animation: page-in 0.22s ease-out;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail {
+    animation: none;
+  }
+}
+/* the page floats over the brain, top left, so the node it belongs to stays in view */
+.memory-page {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 31;
+  width: min(380px, calc(100% - 24px));
+  max-height: calc(100% - 72px);
+  overflow: auto;
+  border-radius: 12px;
+  background: rgba(10, 10, 14, 0.92);
+  backdrop-filter: blur(6px);
+}
+.memory-page .detail {
+  margin: 0;
+}

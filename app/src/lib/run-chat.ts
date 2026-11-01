@@ -3,7 +3,7 @@
 import { TYPE_COLOR } from '../data/colors';
 import { AGENT, AGENTS, roomPrompt, roomSystem, type AgentId } from '../data/team';
 import { BANTER_MAX_TOKENS, SIDE_CHAT_MAX_LINES, SIDE_CHAT_PER_MESSAGE, botProvider } from './banter';
-import type { Flow, Msg, Session } from './memory';
+import { keepSessions, type Flow, type Msg, type Session } from './memory';
 import { PROV, PROVIDERS, ProviderError, QUOTA_LABEL, callModel, isLimitError, type ProviderId } from './providers';
 import { redact } from './redact';
 import { contextBlock, indexTitles, relevant } from './retrieve';
@@ -139,7 +139,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
             msgs: [ownerMsg, ...extra],
           };
           m.sessions.push(sess);
-          if (m.sessions.length > 25) m.sessions.shift();
+          m.sessions = keepSessions(m.sessions, m.entries);
           // Chat stays out of the Dream inbox — casual talk is not trusted wiki fact.
           threadId = sess.id;
         }

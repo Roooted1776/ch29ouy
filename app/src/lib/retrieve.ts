@@ -1,4 +1,4 @@
-import { TYPE_LABEL, weight, type Entry, type Mem } from './memory';
+import { TYPE_LABEL, plainNote, weight, type Entry, type Mem } from './memory';
 import { clip, keywords, stem, words } from './text';
 
 /** Saved entries that share words with a new prompt, best first. Only fresh entries. */
@@ -60,7 +60,7 @@ export function contextBlock(list: Entry[], index: string[] = []): string {
     list
       .map(e => {
         const proj = e.project ? `[Project: ${e.project}] ` : '';
-        const note = clip(e.note.replace(/\s+/g, ' '), 600);
+        const note = clip(plainNote(e.note).replace(/\s+/g, ' '), 600);
         return `- ${proj}${TYPE_LABEL[e.type]} · ${e.title}: ${note}`;
       })
       .join('\n')
