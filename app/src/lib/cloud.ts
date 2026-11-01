@@ -5,6 +5,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AuthError, derivePassword, emailFor, type User } from './auth';
 import { ACCOUNTS_URL, SUPABASE_KEY, SUPABASE_URL } from './config';
 import type { AuditEvent } from './audit';
+import { MAX_CITED_SESSIONS, MAX_SESSIONS, clipNote } from './memory';
 
 export type Db = SupabaseClient;
 let client: Db | null = null,
@@ -195,7 +196,7 @@ export async function syncMemoryDatabase(mem: import('./memory').Mem, d: Db = db
       p_key: cut(e.key, 120),
       p_type: e.type,
       p_title: cut(e.title, 80),
-      p_note: cut(e.note || '', 600),
+      p_note: clipNote(e.note || ''),
       p_project: cut(e.project || (e.type === 'workstream' ? e.title : 'Brain'), 80),
       p_body: {
         links: e.links,
@@ -276,7 +277,11 @@ export async function loadProjectMemory(d: Db = db()): Promise<{ entries: unknow
 export async function loadMemoryDatabase(d: Db = db()): Promise<{ entries: unknown[]; sessions: unknown[] }> {
   const [rows, t] = await Promise.all([
     memoryRows(d),
-    d.from('sessions').select('body').order('ts', { ascending: false }).limit(25),
+    d
+      .from('sessions')
+      .select('body')
+      .order('ts', { ascending: false })
+      .limit(MAX_SESSIONS + MAX_CITED_SESSIONS),
   ]);
   if (t.error) throw new CloudError(`Memory tables could not be read: ${why(t.error)}`);
   return { entries: entriesFromRows(rows), sessions: (t.data || []).map(r => r.body).reverse() };

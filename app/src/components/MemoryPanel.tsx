@@ -272,7 +272,7 @@ export function Detail({ e, onSession }: { e: Entry; onSession(id: string): void
                 <span key={i}>{part.text}</span>
               );
             })}
-            {!/\[cite:/.test(e.note) &&
+            {!noteParts(e.note).some(x => x.cite && e.sources.some(src => src.ref === x.cite)) &&
               e.sources.map((src, i) => (
                 <sup key={`${src.label}-${src.ref ?? src.kind}`} className="cite">
                   {i + 1}

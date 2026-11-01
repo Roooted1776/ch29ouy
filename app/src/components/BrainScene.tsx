@@ -495,6 +495,8 @@ function Memories() {
       }),
     };
   }, [taskNodes, open, sel, pos, mem]);
+  // the spokes from the open node to its task dots, built once per fan (not on every hover re-render)
+  const fanLines = useMemo(() => (fan ? new Float32Array(fan.dots.flatMap(d => [0, 0, 0, ...d.pos])) : null), [fan]);
   const activityScores = useMemo(() => agentActivityScores(mem), [mem]);
   const maxActScore = useMemo(() => {
     let m = 0;
@@ -685,10 +687,7 @@ function Memories() {
         <Bloom key={fan.key} position={fan.anchor}>
           <lineSegments renderOrder={3}>
             <bufferGeometry>
-              <bufferAttribute
-                attach="attributes-position"
-                args={[new Float32Array(fan.dots.flatMap(d => [0, 0, 0, ...d.pos])), 3]}
-              />
+              <bufferAttribute attach="attributes-position" args={[fanLines!, 3]} />
             </bufferGeometry>
             <lineBasicMaterial color="#38bdf8" transparent opacity={0.5} depthTest={false} depthWrite={false} />
           </lineSegments>

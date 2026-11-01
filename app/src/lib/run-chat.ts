@@ -2,7 +2,7 @@
 // (Owner, Nov 1 2026). Saved as a session. Never auto-files wiki memory or the Dream inbox.
 import { TYPE_COLOR } from '../data/colors';
 import { AGENT, AGENTS, roomPrompt, roomSystem, type AgentId } from '../data/team';
-import { BANTER_MAX_TOKENS, SIDE_CHAT_MAX_LINES, SIDE_CHAT_PER_MESSAGE, botProvider } from './banter';
+import { BANTER_MAX_TOKENS, SIDE_CHAT_PER_MESSAGE, botProvider } from './banter';
 import { keepSessions, type Flow, type Msg, type Session } from './memory';
 import { PROV, PROVIDERS, ProviderError, QUOTA_LABEL, callModel, isLimitError, type ProviderId } from './providers';
 import { redact } from './redact';
@@ -47,9 +47,9 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
 
   // Who is in the room: every bot that is switched on and not out of credit. The bot Owner names answers first.
   const room = AGENTS.map(a => a.id).filter(id => !s.inactiveBots.includes(id) && !s.limited.includes(id));
-  const lower = q.toLowerCase();
-  const named = room.find(id => lower.includes(AGENT[id].name.toLowerCase()) || lower.includes('@' + id));
-  const lead: AgentId = named ?? (room.length ? room[Math.floor(Math.random() * room.length)] : 'chatgpt');
+  if (!room.length) return set({ status: 'No bot is on to answer. Turn one on in Settings. Nothing was sent.' });
+  const named = room.find(id => addressed(q, id));
+  const lead: AgentId = named ?? room[Math.floor(Math.random() * room.length)];
   const leadPv = botProvider(s, lead, pv);
   const model = s.live.models[leadPv] || PROV[leadPv].model,
     tag = `chat · ${PROV[leadPv].label} · ${model} · unverified`;
@@ -185,7 +185,8 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
         limited: x.limited.includes(lead) ? x.limited : [...x.limited, lead],
         status: `${AGENT[lead].name}: ${QUOTA_LABEL}`,
       }));
-      persist([]);
+      // a teammate answers in its place, so Owner's message is never left alone
+      persist(await sideChat(lead, ctxBlock, history, said, pv, d, ctl.signal, true));
       return;
     }
     const err = clean(e instanceof Error ? e.message : String(e));
@@ -199,12 +200,22 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
   }
 }
 
+/** Owner addresses a bot by starting with its name ("Muse, …", "Claude Code: …") or writing @id anywhere;
+ * a name in the middle of a sentence ("move the cursor") is not a call. */
+export function addressed(q: string, id: AgentId): boolean {
+  const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return (
+    new RegExp(`^\\s*@?${esc(AGENT[id].name)}\\b`, 'i').test(q) || new RegExp(`(^|\\s)@${esc(id)}\\b`, 'i').test(q)
+  );
+}
+
 const who = (from: string): string => (from === 'owner' ? 'Owner' : (AGENT[from as AgentId]?.name ?? 'Brain'));
 
 /**
  * Side chat: after the lead reply, a couple of teammates chime in, each seeing everything said so far,
- * so they answer Owner or each other freely. Short lines on their own page-load budget (SIDE_CHAT_MAX_LINES),
- * only while banter is on. A failed line ends it quietly; nothing is filled in.
+ * so they answer Owner or each other freely, only while banter is on. Each line is one call inside the
+ * page's call cap (AGENTS.md: the 9-call maximum stays). A failed line ends it quietly; nothing is filled in.
+ * As a stand-in (the lead ran out of credit), one teammate answers Owner instead, whatever the switch says.
  */
 async function sideChat(
   lead: AgentId,
@@ -214,32 +225,39 @@ async function sideChat(
   pv: ProviderId,
   d: TaskDeps,
   signal: AbortSignal,
+  standIn = false,
 ): Promise<Msg[]> {
   const { get, set, say, clean } = d;
   const out: Msg[] = [];
   const bag = AGENTS.map(a => a.id).filter(
     id => id !== lead && !get().inactiveBots.includes(id) && !get().limited.includes(id),
   );
-  for (let i = 0; i < SIDE_CHAT_PER_MESSAGE && bag.length; i++) {
+  for (let i = 0; i < (standIn ? 2 : SIDE_CHAT_PER_MESSAGE) && bag.length; i++) {
     const st = get();
-    if (!st.live.banter || st.stopped || signal.aborted || st.sideLines >= SIDE_CHAT_MAX_LINES) break;
+    if ((!standIn && !st.live.banter) || st.stopped || signal.aborted || st.calls >= st.live.callCap) break;
     const bot = bag.splice(Math.floor(Math.random() * bag.length), 1)[0];
     const bp = botProvider(st, bot, pv);
     const key = st.keys[bp] || st.keys[pv];
     if (!key) break;
     const model = st.live.models[bp] || PROV[bp].model;
-    set(x => ({ sideLines: x.sideLines + 1, active: bot }));
+    set(x => ({ calls: x.calls + 1, active: bot }));
+    let shown = 0;
     try {
       const res = await callModel({
         provider: bp,
         key,
         model,
-        system: roomSystem(bot, false),
+        system: standIn ? CHAT_SYSTEM + roomSystem(bot, true) : roomSystem(bot, false),
         user: roomPrompt(bot, ctx, history, said),
-        maxTokens: Math.min(st.live.maxTokens, BANTER_MAX_TOKENS),
+        maxTokens: Math.min(st.live.maxTokens, standIn ? 900 : BANTER_MAX_TOKENS),
         web: false,
         signal,
-        onDelta: t => set({ draft: { from: bot, text: clean(t) } }),
+        onDelta: t => {
+          const n = performance.now();
+          if (n - shown < 80) return;
+          shown = n;
+          set({ draft: { from: bot, text: clean(t) } });
+        },
       });
       set(x => ({ tin: x.tin + res.tin, tout: x.tout + res.tout }));
       const text = clean(res.text.replace(/\s+/g, ' ').trim());
@@ -248,10 +266,11 @@ async function sideChat(
       say(m);
       out.push(m);
       said.push({ from: AGENT[bot].name, text: m.text });
+      if (standIn) break;
     } catch (e) {
       if (e instanceof ProviderError && e.rejected) set(x => ({ dead: { ...x.dead, [bp]: true } }));
       if (isLimitError(e)) set(x => ({ limited: x.limited.includes(bot) ? x.limited : [...x.limited, bot] }));
-      break;
+      if (!(standIn && isLimitError(e))) break; // a stand-in out of credit hands to one more teammate
     } finally {
       set({ draft: null });
     }

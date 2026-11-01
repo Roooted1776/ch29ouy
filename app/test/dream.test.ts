@@ -145,4 +145,43 @@ describe('Dream (Perplexity-style memory pass)', () => {
     expect(back.entries.map(e => e.title).sort()).toEqual(['Brain', 'Redo']);
     expect(back.archived).toEqual([]);
   });
+
+  it('a long page with cites stays under the limit after its marks get longer, so it survives a reload', () => {
+    const m = blankMem();
+    m.nextSession = 123;
+    const s = session(m, 'Long session');
+    const cites = gatherInbox(m);
+    const note = 'x'.repeat(570) + ' fact [cite:1] more [cite:1]';
+    const plan = parseDream(
+      JSON.stringify({
+        summaries: [],
+        pages: [{ op: 'create', type: 'concept', title: 'Long page', note, cites: [1] }],
+      }),
+      cites.length,
+    );
+    applyDream(m, plan, cites, Date.now());
+    const page = m.entries.find(e => e.title === 'Long page')!;
+    expect(page.note.length).toBeLessThanOrEqual(600);
+    expect(page.note).not.toMatch(/\[cite:[^\]]*$/);
+    const back = sanitizeMem(JSON.parse(JSON.stringify(m)))!;
+    expect(back.entries.some(e => e.title === 'Long page')).toBe(true);
+    expect(s.id).toBe('s123');
+  });
+
+  it('a [cite:N] in the text counts as a cite even when the cites list leaves it out', () => {
+    const m = blankMem();
+    const s = session(m, 'Pick a host');
+    const cites = gatherInbox(m);
+    const plan = parseDream(
+      JSON.stringify({
+        summaries: [],
+        pages: [{ op: 'create', type: 'entity', title: 'Host', note: 'Chosen [cite:1].', cites: [] }],
+      }),
+      cites.length,
+    );
+    applyDream(m, plan, cites, Date.now());
+    const page = m.entries.find(e => e.title === 'Host')!;
+    expect(page.note).toBe(`Chosen [cite:${s.id}].`);
+    expect(page.sources.some(x => x.ref === s.id)).toBe(true);
+  });
 });

@@ -558,6 +558,15 @@ export const plainNote = (note: string): string =>
     .replace(/\s*\[cite:[^\]\s]{1,40}\]/g, '')
     .trim();
 
+/** Cuts a page note to the 600-character limit without leaving half a [[link]] or [cite:…] mark at the end. */
+export function clipNote(note: string, n = 600): string {
+  if (note.length <= n) return note;
+  return note
+    .slice(0, n)
+    .replace(/\s*(\[\[[^\]]*\]?|\[(c|ci|cit|cite|cite:[^\]]*)?)$/, '')
+    .trimEnd();
+}
+
 /** Most tasks a memory page may hold on to past the normal limit, so the vault stays small. */
 export const MAX_CITED_SESSIONS = 60;
 

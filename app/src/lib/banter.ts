@@ -33,8 +33,6 @@ export const BANTER_GAP_MS = 5_000;
 export const BANTER_SESSION_GAP_MS = 5 * 60_000;
 /** Teammates who chime in after the lead reply to one Owner chat message (Owner, Nov 1 2026: "banter and side chat enabled"). */
 export const SIDE_CHAT_PER_MESSAGE = 2;
-/** Side-chat lines per page load, on the huddle-style budget: never touching the task call count. */
-export const SIDE_CHAT_MAX_LINES = 40;
 
 /** The provider a bot speaks through: its own company if that key works, then its free service, then the main one. */
 export function botProvider(s: State, bot: AgentId, main: ProviderId): ProviderId {

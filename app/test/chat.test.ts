@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIVE_TAG, blankMem, sanitizeMem } from '../src/lib/memory';
-import { CHAT_SYSTEM, runChat } from '../src/lib/run-chat';
+import { CHAT_SYSTEM, addressed, runChat } from '../src/lib/run-chat';
+import { AGENTS } from '../src/data/team';
 import { ProviderError, QUOTA_LABEL } from '../src/lib/providers';
 import { SIDE_CHAT_PER_MESSAGE } from '../src/lib/banter';
 
@@ -51,7 +52,6 @@ describe('runChat', () => {
       live: { provider: 'openai', models: {}, callCap: 9, maxTokens: 400, web: false, on: true, banter: false },
       inactiveBots: [],
       limited: [],
-      sideLines: 0,
       busy: false,
       dreaming: false,
       incognito: false,
@@ -119,7 +119,6 @@ describe('runChat', () => {
       },
       inactiveBots: [],
       limited: [],
-      sideLines: 0,
       busy: false,
       dreaming: false,
       incognito: false,
@@ -175,8 +174,8 @@ describe('runChat', () => {
     const bots = state.mem.sessions[0].msgs.filter((m: { from: string }) => m.from !== 'owner');
     expect(bots).toHaveLength(1 + SIDE_CHAT_PER_MESSAGE);
     expect(new Set(bots.map((m: { from: string }) => m.from)).size).toBe(bots.length);
-    expect(state.calls).toBe(1);
-    expect(state.sideLines).toBe(SIDE_CHAT_PER_MESSAGE);
+    // every line is one call inside the page's call cap (AGENTS.md: the 9-call maximum stays)
+    expect(state.calls).toBe(1 + SIDE_CHAT_PER_MESSAGE);
   });
 
   it('lets the bot Owner names answer first', async () => {
@@ -206,6 +205,58 @@ describe('runChat', () => {
   });
 });
 
+describe('group chat fixes from the review', () => {
+  it('a bot is called only by starting with its name or by @id', () => {
+    expect(addressed('Cursor, check the merge', 'cursor')).toBe(true);
+    expect(addressed('move the cursor left', 'cursor')).toBe(false);
+    expect(addressed('what do you think @muse', 'muse')).toBe(true);
+    expect(addressed('Claude Code: plan it', 'claude')).toBe(true);
+  });
+
+  it('with every bot off, nothing is sent', async () => {
+    const { state, deps } = room();
+    state.inactiveBots = AGENTS.map(a => a.id);
+    const f = vi.fn();
+    vi.stubGlobal('fetch', f);
+    await runChat('hello', deps);
+    expect(f).not.toHaveBeenCalled();
+    expect(state.status).toMatch(/No bot is on/);
+  });
+
+  it('teammate lines stay inside the call cap', async () => {
+    const { state, deps } = room();
+    state.live.banter = true;
+    state.calls = state.live.callCap - 1;
+    stubReply();
+    await runChat('hi', deps);
+    expect(state.calls).toBe(state.live.callCap);
+    expect(state.mem.sessions[0].msgs.filter((m: { from: string }) => m.from !== 'owner')).toHaveLength(1);
+  });
+
+  it('when the lead is out of credit, a teammate answers instead', async () => {
+    const { state, deps } = room();
+    let n = 0;
+    const events = [
+      { type: 'response.output_text.delta', delta: 'I can take this one.' },
+      { type: 'response.completed', response: { usage: { input_tokens: 2, output_tokens: 1 } } },
+    ];
+    const body = events.map(e => 'data: ' + JSON.stringify(e) + '\n\n').join('') + 'data: [DONE]\n\n';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        if (n++ === 0) throw new ProviderError('HTTP 402: quota', false, true);
+        return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+      }),
+    );
+    await runChat('Muse, hello', deps);
+    const msgs = state.mem.sessions[0].msgs;
+    expect(state.limited).toContain('muse');
+    expect(msgs.at(-1).from).not.toBe('muse');
+    expect(msgs.at(-1).text).toBe('I can take this one.');
+    expect(msgs.at(-1).tag).toMatch(/^chat · /);
+  });
+});
+
 function room() {
   const mem = blankMem();
   mem.settings.useMemory = false;
@@ -217,7 +268,6 @@ function room() {
     live: { provider: 'openai', models: {}, callCap: 9, maxTokens: 400, web: false, on: true, banter: false },
     inactiveBots: [],
     limited: [],
-    sideLines: 0,
     busy: false,
     dreaming: false,
     incognito: false,
