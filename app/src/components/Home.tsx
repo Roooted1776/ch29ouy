@@ -6,7 +6,7 @@ import AdminPanel from './AdminPanel';
 import AgentInspector from './AgentInspector';
 import ChatPanel from './ChatPanel';
 import FlowPane from './FlowPane';
-import MemoryList from './MemoryList';
+import MemoryList, { MemoryPage } from './MemoryList';
 import SearchBar from './SearchBar';
 
 const BrainScene = lazy(() => import('./BrainScene'));
@@ -80,6 +80,7 @@ export default function Home() {
           </Boundary>
           {admin && <SearchBar />}
           {admin && <MemoryList />}
+          {admin && <MemoryPage />}
           {inspectedBot && <AgentInspector id={inspectedBot} onClose={() => inspectBot(null)} />}
           <div className="view-tools">
             <button
