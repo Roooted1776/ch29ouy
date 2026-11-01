@@ -355,60 +355,6 @@ h2:first-child {
 .workspace > .stage {
   flex: 1;
 }
-.bar .readout {
-  margin-left: auto;
-}
-.workspace {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-.view-switch {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-  background: rgba(6, 8, 18, 0.7);
-}
-.view-switch .view-label {
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--muted);
-}
-.view-switch button {
-  padding: 10px 18px;
-  min-height: 44px;
-  background: #101522;
-  color: #b7c1d8;
-  border-color: #45516b;
-  transition:
-    background 160ms,
-    color 160ms,
-    box-shadow 160ms;
-}
-.view-switch button:hover {
-  background: #26314b;
-  color: #fff;
-}
-.view-switch button[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: #c4ceff;
-  box-shadow:
-    0 0 16px #9aa8ff35,
-    inset 0 -3px 0 #fff;
-  color: #101526;
-}
-.view-switch button:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-.workspace > .stage {
-  flex: 1;
-}
 .stage {
   position: relative;
   min-height: 0;
