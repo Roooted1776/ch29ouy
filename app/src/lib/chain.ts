@@ -1,5 +1,6 @@
 import { AGENT, IOS_RE, LIVE_ORDER, stagePrompt, systemPrompt, type AgentId } from '../data/team';
 import type { Msg } from './memory';
+import { QUOTA_LABEL } from './providers';
 
 // The live handoff chain. Each agent reviews the incoming handoff, does its text task and hands on.
 // A failed stage is marked as failed; nothing is ever filled in with made-up text.
@@ -108,7 +109,7 @@ export async function runChain(
       const errStr = String(e?.message || e);
       const isCredits = e?.outOfCredits || /credit|quota|billing|payment|balance|402/i.test(errStr);
       const msg = isCredits
-        ? `${AGENT[bot].name} (${AGENT[bot].company}) has no credits/inactive: ${clean(errStr)}. Dynamic brain filters it out.`
+        ? `${AGENT[bot].name} did not finish: ${QUOTA_LABEL}. Nothing was made up in its place.`
         : `${AGENT[bot].name} did not finish: ${clean(errStr)}. Nothing was made up in its place.`;
       say({ from: 'brain', tag: 'page', cls: 'warn', text: msg });
       failed.push(bot);

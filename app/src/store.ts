@@ -110,6 +110,8 @@ export interface State {
   bantering: boolean;
   banterSessions: number;
   lastBanterAt: number;
+  /** Teammate lines said after a lead chat reply this page load (lib/banter SIDE_CHAT_MAX_LINES). */
+  sideLines: number;
   incognito: boolean;
   log: LogMsg[];
   viewing: Session | null;
@@ -385,6 +387,7 @@ export const useStore = create<State>()((set, get) => {
     bantering: false,
     banterSessions: 0,
     lastBanterAt: 0,
+    sideLines: 0,
     incognito: false,
     log: [],
     viewing: null,
