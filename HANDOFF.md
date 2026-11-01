@@ -29,7 +29,7 @@ Owner: "push merge main deploy".
 ## Deploy pin (brain-site only; do not touch RedMed)
 - `BUILD_URL`: `https://raw.githubusercontent.com/Roooted1776/ch29ouy/fc9db501cedc6a94f8599565758f3c73de1224cf/index.html`
 - `BUILD_SHA256`: `98e9ebd39a00288857143864faec2a2f128cfe0962371d129ae5364e148f8786`
-- Verify: raw GitHub hash matches; then `curl -sL https://redeemed.live/ | sha256sum` must match after Hostinger recreate.
+- Verify: raw GitHub hash matches; then `curl -sL https://roooted1776.github.io/ch29ouy/ | sha256sum` must match after Hostinger recreate.
 
 ## Git State
 - `origin/main` at `fc9db50`. Working tree clean after this docs note push.
@@ -62,14 +62,14 @@ Owner: make the site synced up; keep persistent memory; only admin can see or us
 - `npm run e2e` **3** passed (~1.1m)
 
 ## Site sync / deploy blocker
-- Live https://redeemed.live still serves SHA `b53ce8c1…` (old pin). Main tip HTML is `98e9ebd3…`.
+- Live https://roooted1776.github.io/ch29ouy/ still serves SHA `b53ce8c1…` (old pin). Main tip HTML is `98e9ebd3…`.
 - This run has **no** `HOSTINGER_API_TOKEN` and no Hostinger MCP. Cannot update `brain-site` compose pin from here.
 - After merge, Hostinger pin: `BUILD_URL=https://raw.githubusercontent.com/Roooted1776/ch29ouy/<main-sha>/index.html`, `BUILD_SHA256=98e9ebd39a00288857143864faec2a2f128cfe0962371d129ae5364e148f8786` (re-hash if a later commit rebuilds HTML).
 
 ## How the Next AI Should Check It
 - `cd app && npm run format && npm run lint && npm run typecheck && npm test && npm run build && npm run e2e`
 - Confirm remote policies: `admins read memories|sessions|projects` only.
-- Deploy: update Hostinger `brain-site` BUILD_URL/SHA only; leave RedMed containers alone. `curl -sL https://redeemed.live/ | sha256sum` must match pin.
+- Deploy: update Hostinger `brain-site` BUILD_URL/SHA only; leave RedMed containers alone. `curl -sL https://roooted1776.github.io/ch29ouy/ | sha256sum` must match pin.
 
 ## Git State
 - Branch `cursor/admin-persistent-memory-a508` (draft PR). Named external reviews not run in this chat; no Grok Bot PASS claimed.
@@ -125,7 +125,7 @@ Owner: build chat mode (single-model talk vs team Task).
 
 ---
 
-# Handoff from Cursor — Oct 25, 2026 (EDT): redeemed.live deployed from main
+# Handoff from Cursor — Oct 25, 2026 (EDT): the GitHub Pages site deployed from main
 
 ## Overview & Request
 Owner finished HOSTINGER_API_TOKEN secret + external action; continue setup and deploy.
@@ -133,7 +133,7 @@ Owner finished HOSTINGER_API_TOKEN secret + external action; continue setup and 
 ## What Changed & Why
 - Authenticated to Hostinger VPS API (`developers.hostinger.com`) with the new secret (Bearer + User-Agent).
 - Replaced **only** `brain-site` compose on VM `2010795` with updated `BUILD_URL` / `BUILD_SHA256`. Did **not** touch `redmed-mcp`, `redmed-store`, traefik, or vpn.
-- Init log: `deployed d6d89231b1664745a44d4a7b2c32c98eca9a2754ad01ba6c2a641951cbc944b4 (was 6c65fac4…)`. Live https://redeemed.live SHA-256 matches main `index.html`.
+- Init log: `deployed d6d89231b1664745a44d4a7b2c32c98eca9a2754ad01ba6c2a641951cbc944b4 (was 6c65fac4…)`. Live https://roooted1776.github.io/ch29ouy/ SHA-256 matches main `index.html`.
 
 ## Pin
 - Commit: `a61b27901fbd56baada40ab22f0c726ddd288105`
@@ -188,7 +188,7 @@ Owner: (old order removed Oct 31; see CLAUDE.md:15)
 - Only remote branch remaining: `main` at `badf52f`.
 
 ## Deploy status (blocker — honest)
-- Live https://redeemed.live still serves older HTML (`6c65fac4…`, 1,639,700 bytes). Main tip `index.html` is `4372d659…` (1,645,010 bytes).
+- Live https://roooted1776.github.io/ch29ouy/ still serves older HTML (`6c65fac4…`, 1,639,700 bytes). Main tip `index.html` is `4372d659…` (1,645,010 bytes).
 - Deploy path: Hostinger VPS 2010795 `brain-site` init pin (`BUILD_URL` + `BUILD_SHA256`). This cloud run has **no** `HOSTINGER_API_TOKEN`, **no** Hostinger-vps MCP, and **no** SSH key to `2.25.249.204` (ports 22/443 reachable; auth denied).
 - Setup actions requested for Owner: add secret `HOSTINGER_API_TOKEN` and attach Hostinger-vps MCP.
 
@@ -196,7 +196,7 @@ Owner: (old order removed Oct 31; see CLAUDE.md:15)
 - Commit: `a353b16` (or `badf52f` — same `index.html` bytes)
 - `BUILD_URL`: `https://raw.githubusercontent.com/Roooted1776/ch29ouy/a353b16/index.html`
 - `BUILD_SHA256`: `4372d659a61d4b1359a9eaa02677a6b5bfd08483f3a8d6caa8c52606005937ac`
-- After Hostinger `vps_docker_create` (same project name `brain-site`): confirm init log `deployed 4372d659…`, then `curl -sL https://redeemed.live/ | sha256sum` must match.
+- After Hostinger `vps_docker_create` (same project name `brain-site`): confirm init log `deployed 4372d659…`, then `curl -sL https://roooted1776.github.io/ch29ouy/ | sha256sum` must match.
 
 ## Files Touched
 - `HANDOFF.md` (this entry)
@@ -313,7 +313,7 @@ Owner: (old order removed Oct 31; see CLAUDE.md:15)
    (Chromium smoke test passing with software WebGL)
 4. **Production Live Check**:
    ```bash
-   curl -s https://redeemed.live | sha256sum && sha256sum index.html
+   curl -s https://roooted1776.github.io/ch29ouy/ | sha256sum && sha256sum index.html
    ```
    (Checksums match: `6a1366ace0c5464ee6bcbba205028168a0d9b07902df8aabb92ecbd777809e75`)
 
@@ -699,7 +699,7 @@ npm run e2e
 - **Grok Bot (in charge)**: Verified real results (17/17 test suites, 93/93 tests passing, production single-file build verified). Result: **PASS**.
 
 ## 5. Open Items For The Next Person
-- No date, branch, head commit, or deploy state was recorded for this work. Confirm whether it is in the build currently live at `https://redeemed.live`.
+- No date, branch, head commit, or deploy state was recorded for this work. Confirm whether it is in the build currently live at `https://roooted1776.github.io/ch29ouy/`.
 - Test counts don't line up with the other entries: this one says 17 suites / 93 tests; the deployment entry below says 18 files / 88 tests. Re-run `npm test` and record the real numbers.
 
 ---
@@ -738,7 +738,7 @@ npm run e2e
      - All 18 unit/UI test files (88 tests) pass.
      - Playwright Chromium real-browser test passed (33.0s).
      - Deployed atomically to Hostinger VPS (`/var/www/redeemed/index.html`).
-     - Verified live production site `https://redeemed.live` returning HTTP 200 with matching build.
+     - Verified live production site `https://roooted1776.github.io/ch29ouy/` returning HTTP 200 with matching build.
 
 ---
 
@@ -771,10 +771,10 @@ npm run e2e
   4. **Live Production Deployment to VPS & Public Verification**:
      - Uploaded and atomically deployed bundle to Hostinger VPS 2010795 (`/var/www/redeemed/index.html`).
      - Previous served version backed up safely in `/var/backups/nodes/`.
-     - Verified live production domain `https://redeemed.live`:
-       - `http://redeemed.live` -> HTTP 308 redirect to HTTPS.
-       - `https://www.redeemed.live` -> HTTP 308 redirect to apex.
-       - `https://redeemed.live` -> HTTP 200 (Caddy + Strict-Transport-Security + CSP + X-Frame-Options: DENY).
+     - Verified live production domain `https://roooted1776.github.io/ch29ouy/`:
+       - `https://roooted1776.github.io/ch29ouy/` -> HTTP 308 redirect to HTTPS.
+       - `https://roooted1776.github.io/ch29ouy/` -> HTTP 308 redirect to apex.
+       - `https://roooted1776.github.io/ch29ouy/` -> HTTP 200 (Caddy + Strict-Transport-Security + CSP + X-Frame-Options: DENY).
        - Live response SHA-256 matches local build byte for byte (`82d76aad9d0a...`).
        - Live browser smoke test via Playwright headless Chromium returned HTTP 200, page title "Brain", access terminal visible, and 0 errors.
 

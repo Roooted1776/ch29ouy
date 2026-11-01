@@ -10,7 +10,7 @@ import { useStore } from '../src/store';
 Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
 afterEach(cleanup);
 
-const KEY = 'sk-ant-abcdefghijklmnopqrstuvwxyz0123';
+const KEY = 'sk-ant-fake-test-value-not-a-key';
 
 describe('pasting a key into the composer', () => {
   it('a non-admin is refused: no "saved" message and the key is not stored', async () => {

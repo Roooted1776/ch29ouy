@@ -13,8 +13,6 @@ const db = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefr
 // (The real gate is the admin check below; this just keeps the endpoint out of other pages' reach.)
 const ORIGINS = new Set([
   'https://roooted1776.github.io',
-  'https://redeemed.live',
-  'https://www.redeemed.live',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'null',

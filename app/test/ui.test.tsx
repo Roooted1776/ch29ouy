@@ -318,32 +318,37 @@ describe('who can do what', () => {
     expect(store.useStore.getState().keys.openai).toBe('sk-test-openai-persisted');
   });
 
-  it('takes keys out of an old shared vault on the admin unlock and keeps them on this device only', async () => {
+  it('keeps keys in the encrypted shared vault so they follow the admin to other devices', async () => {
     const { store, auth, sec } = await asRole('admin', {}, { openai: 'sk-test-old-vault-key' });
     const { decryptVault } = await import('../src/lib/vault');
     expect(store.useStore.getState().keys.openai).toBe('sk-test-old-vault-key');
-    // the re-saved shared vault (the database copy) has no keys, also when opened with only the read keys
-    expect(server.rev).toBe(2);
     const reader = { dek: sec.dek, pub: sec.pub };
-    const shared = (await decryptVault(reader, server.vault)) as Record<string, unknown>;
-    expect(Object.keys(shared)).toEqual(['mem']);
-    expect(JSON.stringify(shared)).not.toContain('sk-test-old-vault-key');
-    const local = (await decryptVault(reader, JSON.parse(localStorage.getItem('brain.vault.v1')!))) as object;
-    expect(Object.keys(local)).toEqual(['mem']);
-    // a key added now is sealed on this device and never reaches the shared vault
+    // the shared vault still holds the key, but only as ciphertext
+    const shared = (await decryptVault(reader, server.vault)) as {
+      keys?: Record<string, string>;
+    };
+    expect(shared.keys?.openai).toBe('sk-test-old-vault-key');
+    expect(JSON.stringify(server.vault)).not.toContain('sk-test');
+    // a key added now is saved in the shared vault and sealed on this device
+    const before = server.rev;
     act(() => store.useStore.getState().setKey('sk-test-new-key', 'anthropic'));
-    await waitFor(() => expect(server.rev).toBe(3));
+    await waitFor(() => expect(server.rev).toBeGreaterThan(before));
     await waitFor(() => expect(localStorage.getItem('brain.keys.v1')).toBeTruthy());
-    const after = (await decryptVault(reader, server.vault)) as Record<string, unknown>;
-    expect(Object.keys(after)).toEqual(['mem']);
-    expect(JSON.stringify(after)).not.toMatch(/sk-test/);
+    const after = (await decryptVault(reader, server.vault)) as {
+      keys?: Record<string, string>;
+    };
+    expect(after.keys).toEqual({
+      openai: 'sk-test-old-vault-key',
+      anthropic: 'sk-test-new-key',
+    });
     const everything = Object.keys(localStorage)
       .map(k => localStorage.getItem(k))
       .join('\n');
-    expect(everything).not.toMatch(/sk-test/); // sealed, never plain
-    // lock and unlock on the same device: the keys come back from the device copy
+    expect(everything).not.toMatch(/sk-test/); // never plain in the browser
+    // a new device: no local copy, the keys come back from the shared vault
     act(() => auth.useAuth.getState().logout());
     expect(store.useStore.getState().keys).toEqual({});
+    localStorage.removeItem('brain.keys.v1');
     await act(async () => {
       await auth.useAuth.getState().login('Owner', 'correct horse battery');
     });
@@ -376,7 +381,8 @@ describe('who can do what', () => {
     await new Promise(r => setTimeout(r, 50));
     expect(dump()).not.toContain('ghp_');
     const shared = (await decryptVault({ dek: sec.dek, pub: sec.pub }, server.vault)) as Record<string, unknown>;
-    expect(JSON.stringify(shared)).not.toContain('ghp_');
+    expect(JSON.stringify(server.vault)).not.toContain('ghp_'); // ciphertext only
+    expect(JSON.stringify(shared)).toContain('ghp_typedNewToken'); // the decrypted vault carries it to other devices
     act(() => auth.useAuth.getState().logout());
     expect(store.useStore.getState().githubToken).toBe('');
     await act(async () => {

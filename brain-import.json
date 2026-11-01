@@ -38,11 +38,11 @@
       "title": "The Nodes team",
       "type": "entity",
       "project": "Nodes",
-      "note": "Nine-agent AI team visualised as a 3D brain at redeemed.live. Grok Bot leads; members Grok, Claude, Cursor, Gemini, Codex, Perplexity, Xcode, and Muse (Ren). Tones are fixed per agent: serious, balanced, or casual.",
+      "note": "Nine-agent AI team visualised as a 3D brain at the GitHub Pages site. Grok Bot leads; members Grok, Claude, Cursor, Gemini, Codex, Perplexity, Xcode, and Muse (Ren). Tones are fixed per agent: serious, balanced, or casual.",
       "kws": [
         "nodes",
         "team",
-        "redeemed.live",
+        "the GitHub Pages site",
         "hive"
       ]
     },
@@ -127,7 +127,7 @@
       "title": "Hostinger VPS",
       "type": "entity",
       "project": "Infrastructure",
-      "note": "VPS 2010795, srv2010795.hstgr.cloud, 2.25.249.204, Ubuntu 24.04 with Docker and Traefik. Serves redeemed.live and redmed.live. Hostinger connector connected and verified 2026-10-25.",
+      "note": "VPS 2010795, srv2010795.hstgr.cloud, 2.25.249.204, Ubuntu 24.04 with Docker and Traefik. Serves the GitHub Pages site and redmed.live. Hostinger connector connected and verified 2026-10-25.",
       "kws": [
         "hostinger",
         "vps",
@@ -539,13 +539,13 @@
       ]
     },
     {
-      "title": "redeemed.live first admin",
+      "title": "the GitHub Pages site first admin",
       "type": "workstream",
       "project": "Nodes",
-      "note": "Owner-only step: first-admin registration at redeemed.live is still pending. It gates admin features in Brain until Maximilian does it.",
+      "note": "Owner-only step: first-admin registration at the GitHub Pages site is still pending. It gates admin features in Brain until Maximilian does it.",
       "kws": [
         "admin",
-        "redeemed.live",
+        "the GitHub Pages site",
         "setup",
         "owner"
       ]
