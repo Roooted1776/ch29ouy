@@ -315,7 +315,7 @@ export function huddleSystem(id: AgentId, role: HuddleRole): string {
       ? ' You called this team huddle: put the topic brief to the team as ONE real working question. Set it up in one or two short sentences and say what you want the team to weigh in on.'
       : role === 'close'
         ? ' You led this huddle: close it with ONE line that collects what the team surfaced — the finding, any disagreement, and what it means for Owner. Add no new claims.'
-        : ' You are answering in a team huddle led by Grok Bot: say what you actually know about the topic from the brief, what you would check next, and where you disagree with a teammate if you do. Substantive, not small talk.';
+        : ' You are answering in a team huddle led by Grok Bot: say what you actually know about the topic from the brief, what you would check next, and where you disagree with a teammate if you do. Talk to your teammates by name, not only to Grok Bot: react to the last line, tease, agree or push back. Banter and a quick side comment are welcome; keep it kind and work-safe.';
   return (
     `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), a role on Owner's tool roster. Your specialty: ${a.specialty}.` +
     ` ${HANDOFF_RULE} Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
@@ -344,7 +344,31 @@ export function huddlePrompt(
     );
   return (
     head +
-    `Answer the huddle topic as ${AGENT[id].name}: what you know about it from the brief, what you would check, where you disagree. One or two short sentences, in your voice, plain words, no code blocks.`
+    `Answer the huddle topic as ${AGENT[id].name}: react to a teammate above by name, then say what you know from the brief, what you would check, where you disagree. Banter is fine. One or two short sentences, in your voice, plain words, no code blocks.`
+  );
+}
+
+/** The group chat (Owner, Nov 1 2026: "bots communicate with each other freely, not me 1 on 1 with a bot"). */
+export function roomSystem(id: AgentId, lead: boolean): string {
+  const a = AGENT[id];
+  const job = lead
+    ? ' You answer Owner first in this group chat. Answer clearly in plain words; teammates may chime in after you.'
+    : ' You are chiming in on a group chat with Owner and teammates. Reply to whoever you like by name — Owner or a teammate: add something new, push back, or banter. A side comment off the main point is fine. One or two short sentences, no lists.';
+  return (
+    `You are ${a.name} (${a.company}) (${a.role.toLowerCase()}), a role on Owner's tool roster. Your specialty: ${a.specialty}.` +
+    ` Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
+    job +
+    ' Keep it kind and work-safe. Use BRAIN CONTEXT only as hints that may be wrong. No code blocks. You cannot run tools, edit files, browse or take actions outside this reply: never claim you did, checked or will do work. Do not invent facts, sources, secrets or keys.'
+  );
+}
+
+/** The user message for one group-chat line: what Brain knows, the thread so far, and who just spoke. */
+export function roomPrompt(id: AgentId, ctx: string, history: string, room: { from: string; text: string }[]): string {
+  const said = room.map(l => `${l.from}: ${l.text}`).join('\n');
+  return (
+    (ctx ? ctx + '\n\n' : '') +
+    (history ? `EARLIER IN THIS CHAT:\n${history}\n\n` : '') +
+    `GROUP CHAT NOW:\n${said}\n\nReply as ${AGENT[id].name}, in your voice. Plain words, no code blocks.`
   );
 }
 

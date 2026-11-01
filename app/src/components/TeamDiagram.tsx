@@ -185,7 +185,7 @@ export default function TeamDiagram() {
             }}
             title={
               isInactive
-                ? `${a.name} (${a.company}) · Inactive / No Credits · Click to inspect`
+                ? `${a.name} (${a.company}) · Disabled · Click to inspect`
                 : `${a.name} (${a.company}) · ${a.specialty} · Click to inspect`
             }
           >
@@ -195,7 +195,7 @@ export default function TeamDiagram() {
               {a.company && <small className="bot-co">{a.company}</small>}
             </b>
             <span>{a.role}</span>
-            {isInactive && <span className="badge-nocredit">No Credits</span>}
+            {isInactive && <span className="badge-nocredit">Disabled</span>}
             {st && !isInactive && (
               <i className="dot" style={{ background: on ? 'var(--live)' : DOT[st] }} role="img" aria-label={st} />
             )}

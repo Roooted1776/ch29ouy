@@ -289,7 +289,7 @@ export default function ChatPanel() {
   );
 }
 
-/** The huddle switch, right by the chat: on, Grok Bot leads team huddles when idle; off, the room stays quiet. */
+/** The banter switch, right by the chat: on, teammates chime in on chat replies and Grok Bot leads huddles when idle; off, one bot answers and the room stays quiet. */
 function BanterBar() {
   const on = useStore(s => s.live.banter),
     setLive = useStore(s => s.setLive),
@@ -299,7 +299,7 @@ function BanterBar() {
     <div className="banter-bar">
       <label className="sw">
         <input type="checkbox" checked={on} onChange={e => setLive({ banter: e.target.checked })} />
-        <span>Team huddles when idle</span>
+        <span>Banter &amp; side chat</span>
       </label>
       {on && bantering ? (
         <>

@@ -94,7 +94,7 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
     notes: Object.fromEntries(
       LIVE_ORDER.filter(b => !bots.includes(b)).map(b => [
         b,
-        s.inactiveBots.includes(b) ? 'Inactive / no credits' : IOS_RE.test(q) ? 'Not used' : 'Not an iOS task',
+        s.inactiveBots.includes(b) ? 'Disabled' : IOS_RE.test(q) ? 'Not used' : 'Not an iOS task',
       ]),
     ),
     status: `Live: ${PROV[pv].label} · ${model}`,

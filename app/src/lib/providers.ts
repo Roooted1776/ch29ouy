@@ -84,6 +84,9 @@ export function isCreditOrQuotaError(msg: string, status?: number): boolean {
 }
 
 /** A token, rate or credit limit (as opposed to a bad key or a network problem). */
+/** What a bot out of credit shows instead of the raw provider error (Owner, Nov 1 2026). */
+export const QUOTA_LABEL = 'Disabled · Reached Credit Quota, Wait Until Reset';
+
 export function isLimitError(e: unknown): boolean {
   if (e instanceof ProviderError && e.outOfCredits) return true;
   const m = e instanceof Error ? e.message : String(e);

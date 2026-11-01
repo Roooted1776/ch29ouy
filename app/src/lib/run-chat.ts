@@ -1,7 +1,10 @@
-// Chat mode: one real model reply. Saved as a session. Never auto-files wiki memory or the Dream inbox.
+// Chat mode: a group chat. One bot answers Owner, then teammates chime in and talk to each other
+// (Owner, Nov 1 2026). Saved as a session. Never auto-files wiki memory or the Dream inbox.
 import { TYPE_COLOR } from '../data/colors';
+import { AGENT, AGENTS, roomPrompt, roomSystem, type AgentId } from '../data/team';
+import { BANTER_MAX_TOKENS, SIDE_CHAT_MAX_LINES, SIDE_CHAT_PER_MESSAGE, botProvider } from './banter';
 import { keepSessions, type Flow, type Msg, type Session } from './memory';
-import { PROV, PROVIDERS, ProviderError, callModel, type ProviderId } from './providers';
+import { PROV, PROVIDERS, ProviderError, QUOTA_LABEL, callModel, isLimitError, type ProviderId } from './providers';
 import { redact } from './redact';
 import { contextBlock, indexTitles, relevant } from './retrieve';
 import { clip } from './text';
@@ -42,8 +45,14 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
   ctls.forEach(c => c.abort());
   ctls.clear();
 
-  const model = s.live.models[pv] || PROV[pv].model,
-    tag = `chat · ${PROV[pv].label} · ${model} · unverified`;
+  // Who is in the room: every bot that is switched on and not out of credit. The bot Owner names answers first.
+  const room = AGENTS.map(a => a.id).filter(id => !s.inactiveBots.includes(id) && !s.limited.includes(id));
+  const lower = q.toLowerCase();
+  const named = room.find(id => lower.includes(AGENT[id].name.toLowerCase()) || lower.includes('@' + id));
+  const lead: AgentId = named ?? (room.length ? room[Math.floor(Math.random() * room.length)] : 'chatgpt');
+  const leadPv = botProvider(s, lead, pv);
+  const model = s.live.models[leadPv] || PROV[leadPv].model,
+    tag = `chat · ${PROV[leadPv].label} · ${model} · unverified`;
   const matchProj = q.match(/^\[([^\]]+)\]/);
   const assignedProj = matchProj ? matchProj[1].trim() : s.activeProject || 'Brain';
 
@@ -54,7 +63,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
     used.push(...hits.map(h => h.e.id));
     set({ used });
     hits.forEach((h, i) =>
-      addPulse('mem:' + h.e.id, 'chatgpt', TYPE_COLOR[h.e.type], {
+      addPulse('mem:' + h.e.id, lead, TYPE_COLOR[h.e.type], {
         dur: 900,
         delay: 60 * i,
         words: words(h.e.title + ' ' + h.e.note),
@@ -64,7 +73,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
       set(x => ({
         flow: [
           ...x.flow,
-          ['memory', 'chatgpt', hits.reduce((n, h) => n + (words(h.e.title + ' ' + h.e.note) || 0), 0)] as Flow,
+          ['memory', lead, hits.reduce((n, h) => n + (words(h.e.title + ' ' + h.e.note) || 0), 0)] as Flow,
         ].slice(-40),
       }));
     ctxBlock = contextBlock(
@@ -78,10 +87,10 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
     stopped: false,
     viewing: null,
     tab: 'chat',
-    active: 'chatgpt',
+    active: lead,
     draft: null,
     calls: s.calls + 1,
-    status: `Chat: ${PROV[pv].label} · ${model}`,
+    status: `Chat: ${AGENT[lead].name} · ${PROV[leadPv].label} · ${model}`,
   });
 
   const ownerMsg: Msg = { from: 'owner', tag: '', text: q };
@@ -93,24 +102,24 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
   const history = prior
     ? prior.msgs
         .slice(-12)
-        .map(m => `${m.from === 'owner' ? 'Owner' : 'Assistant'}: ${clip(m.text, 500)}`)
+        .map(m => `${who(m.from)}: ${clip(m.text, 500)}`)
         .join('\n')
     : '';
 
-  const user = (ctxBlock ? ctxBlock + '\n\n' : '') + (history ? `RECENT CHAT:\n${history}\n\n` : '') + `Owner: ${q}`;
+  const said: { from: string; text: string }[] = [{ from: 'Owner', text: q }];
 
   const ctl = new AbortController();
   ctls.add(ctl);
   const t0 = performance.now();
   let shown = 0;
 
-  const persist = (extra: Msg) => {
+  const persist = (extra: Msg[]) => {
     let threadId = prior?.id || null;
     if (get().mem.settings.brain) {
       get().commit(m => {
         const existing = prior ? m.sessions.find(x => x.id === prior.id) : null;
         if (existing) {
-          existing.msgs = [...existing.msgs, ownerMsg, extra].slice(-40);
+          existing.msgs = [...existing.msgs, ownerMsg, ...extra].slice(-40);
           existing.ts = Date.now();
           existing.q = clip(q, 300);
           if (used.length) existing.used = Array.from(new Set([...(existing.used || []), ...used])).slice(0, 12);
@@ -127,7 +136,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
             uncovered: [],
             used,
             learned: false,
-            msgs: [ownerMsg, extra],
+            msgs: [ownerMsg, ...extra],
           };
           m.sessions.push(sess);
           m.sessions = keepSessions(m.sessions, m.entries);
@@ -141,11 +150,11 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
 
   try {
     const res = await callModel({
-      provider: pv,
-      key: s.keys[pv]!,
+      provider: leadPv,
+      key: s.keys[leadPv] || s.keys[pv]!,
       model,
-      system: CHAT_SYSTEM,
-      user,
+      system: CHAT_SYSTEM + roomSystem(lead, true),
+      user: roomPrompt(lead, ctxBlock, history, said),
       maxTokens: Math.min(s.live.maxTokens, 900),
       web: false,
       signal: ctl.signal,
@@ -153,29 +162,99 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
         const n = performance.now();
         if (n - shown < 80) return;
         shown = n;
-        set({ draft: { from: 'chatgpt', text: clean(t) } });
+        set({ draft: { from: lead, text: clean(t) } });
       },
     });
     const text = clean(res.text.trim());
     if (!text) throw new Error(res.why ? `no text (${res.why})` : 'an empty reply');
-    const reply: Msg = { from: 'chatgpt', tag, text: text.slice(0, 4000) };
+    const reply: Msg = { from: lead, tag, text: text.slice(0, 4000) };
     say(reply);
+    said.push({ from: AGENT[lead].name, text: reply.text });
     set(x => ({
       tin: x.tin + res.tin,
       tout: x.tout + res.tout,
-      timing: { ...x.timing, chatgpt: Math.round(performance.now() - t0) },
-      status: `Chat answered by ${PROV[pv].label}. Not filed to wiki memory.`,
+      timing: { ...x.timing, [lead]: Math.round(performance.now() - t0) },
+      status: `Chat answered by ${AGENT[lead].name}. Not filed to wiki memory.`,
     }));
-    persist(reply);
+    const lines = [reply, ...(await sideChat(lead, ctxBlock, history, said, pv, d, ctl.signal))];
+    persist(lines);
   } catch (e: unknown) {
-    if (e instanceof ProviderError && e.rejected) set(x => ({ dead: { ...x.dead, [pv]: true } }));
+    if (e instanceof ProviderError && e.rejected) set(x => ({ dead: { ...x.dead, [leadPv]: true } }));
+    if (isLimitError(e)) {
+      set(x => ({
+        limited: x.limited.includes(lead) ? x.limited : [...x.limited, lead],
+        status: `${AGENT[lead].name}: ${QUOTA_LABEL}`,
+      }));
+      persist([]);
+      return;
+    }
     const err = clean(e instanceof Error ? e.message : String(e));
     const fail: Msg = { from: 'brain', tag: 'page', text: 'Chat failed: ' + clip(err, 200) };
     say({ ...fail, cls: 'warn' });
-    persist(fail);
+    persist([fail]);
     set({ status: 'Chat failed. Your message was kept. Nothing was made up.' });
   } finally {
     ctls.delete(ctl);
     set({ busy: false, active: null, draft: null });
   }
+}
+
+const who = (from: string): string => (from === 'owner' ? 'Owner' : (AGENT[from as AgentId]?.name ?? 'Brain'));
+
+/**
+ * Side chat: after the lead reply, a couple of teammates chime in, each seeing everything said so far,
+ * so they answer Owner or each other freely. Short lines on their own page-load budget (SIDE_CHAT_MAX_LINES),
+ * only while banter is on. A failed line ends it quietly; nothing is filled in.
+ */
+async function sideChat(
+  lead: AgentId,
+  ctx: string,
+  history: string,
+  said: { from: string; text: string }[],
+  pv: ProviderId,
+  d: TaskDeps,
+  signal: AbortSignal,
+): Promise<Msg[]> {
+  const { get, set, say, clean } = d;
+  const out: Msg[] = [];
+  const bag = AGENTS.map(a => a.id).filter(
+    id => id !== lead && !get().inactiveBots.includes(id) && !get().limited.includes(id),
+  );
+  for (let i = 0; i < SIDE_CHAT_PER_MESSAGE && bag.length; i++) {
+    const st = get();
+    if (!st.live.banter || st.stopped || signal.aborted || st.sideLines >= SIDE_CHAT_MAX_LINES) break;
+    const bot = bag.splice(Math.floor(Math.random() * bag.length), 1)[0];
+    const bp = botProvider(st, bot, pv);
+    const key = st.keys[bp] || st.keys[pv];
+    if (!key) break;
+    const model = st.live.models[bp] || PROV[bp].model;
+    set(x => ({ sideLines: x.sideLines + 1, active: bot }));
+    try {
+      const res = await callModel({
+        provider: bp,
+        key,
+        model,
+        system: roomSystem(bot, false),
+        user: roomPrompt(bot, ctx, history, said),
+        maxTokens: Math.min(st.live.maxTokens, BANTER_MAX_TOKENS),
+        web: false,
+        signal,
+        onDelta: t => set({ draft: { from: bot, text: clean(t) } }),
+      });
+      set(x => ({ tin: x.tin + res.tin, tout: x.tout + res.tout }));
+      const text = clean(res.text.replace(/\s+/g, ' ').trim());
+      if (!text || get().stopped || signal.aborted) break;
+      const m: Msg = { from: bot, tag: `chat · ${PROV[bp].label} · ${model} · unverified`, text: text.slice(0, 1000) };
+      say(m);
+      out.push(m);
+      said.push({ from: AGENT[bot].name, text: m.text });
+    } catch (e) {
+      if (e instanceof ProviderError && e.rejected) set(x => ({ dead: { ...x.dead, [bp]: true } }));
+      if (isLimitError(e)) set(x => ({ limited: x.limited.includes(bot) ? x.limited : [...x.limited, bot] }));
+      break;
+    } finally {
+      set({ draft: null });
+    }
+  }
+  return out;
 }

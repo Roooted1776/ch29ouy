@@ -373,7 +373,7 @@ export default function AdminPanel() {
                     set={val => s.setBotActive(a.id, val)}
                     label={`${a.name} (${a.company}) — ${a.role}`}
                   />
-                  <span className={`pill ${active ? 'ok' : 'warn'}`}>{active ? 'Active' : 'No Credits'}</span>
+                  <span className={`pill ${active ? 'ok' : 'warn'}`}>{active ? 'Active' : 'Disabled'}</span>
                 </div>
               );
             })}
