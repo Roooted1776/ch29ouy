@@ -7,6 +7,7 @@ import {
   TYPES,
   keepHistory,
   link,
+  plainNote,
   weight,
   type Entry,
   type EntryType,
@@ -140,11 +141,10 @@ export function parseDream(text: string, nCites: number, deleted: string[] = [])
       const links = [...raw.matchAll(/\[\[([^\]]{1,80})\]\]/g)]
         .map(x => x[1].trim())
         .filter(t => t && t.toLowerCase() !== title.toLowerCase());
+      // [[links]] stay in the text (context edges); [cite:N] marks stay too and are tied to a source on write
+      // (evidence edges), the way Perplexity Brain pages carry both. Marks pointing at no real cite are dropped.
       const note = redact(
-        raw
-          .replace(/\[\[([^\]]{1,80})\]\]/g, '$1')
-          .replace(/\s*\[cite:\s*\d+\]/g, '')
-          .trim(),
+        raw.replace(/\s*\[cite:\s*(\d+)\]/g, (_mk, n) => (okCite(+n) ? ` [cite:${n}]` : '')).trim(),
       ).text.slice(0, 600);
       if (p.op !== 'stale' && !note) continue;
       plan.pages.push({ op: p.op, type: p.type, title, note, cites: cites as number[], links: [...new Set(links)] });
@@ -167,6 +167,13 @@ export function applyDream(m: Mem, plan: DreamPlan, cites: Cite[], now: number):
   }
   for (const p of plan.pages) {
     const sources = p.cites.map(n => cites[n - 1].source);
+    // each [cite:N] now names its source by id, so the page can number it against its own source list
+    const pNote = p.note
+      .replace(/\s*\[cite:(\d+)\]/g, (_mk, n) => {
+        const ref = cites[+n - 1]?.source.ref;
+        return ref ? ` [cite:${ref}]` : '';
+      })
+      .trim();
     const old = byTitle(m, p.title);
     if (p.op === 'stale') {
       if (old && !old.corrected && old.status === 'fresh') {
@@ -184,8 +191,8 @@ export function applyDream(m: Mem, plan: DreamPlan, cites: Cite[], now: number):
         key,
         type: old ? old.type : p.type,
         title: old ? old.title : p.title,
-        note: p.note,
-        kws: keywords(p.title + ' ' + p.note).slice(0, 8),
+        note: pNote,
+        kws: keywords(p.title + ' ' + plainNote(p.note)).slice(0, 8),
         sources,
       },
       t,
@@ -193,12 +200,12 @@ export function applyDream(m: Mem, plan: DreamPlan, cites: Cite[], now: number):
     );
     if (!e) continue;
     // Dream rewrites a page as a whole instead of piling lines up, and keeps the old text in the change log
-    if (!e.corrected && before !== undefined && e.note !== p.note) {
+    if (!e.corrected && before !== undefined && e.note !== pNote) {
       if (before && e.hist?.at(-1)?.note !== before) {
         e.note = before;
         keepHistory(e, 'session', now);
       }
-      e.note = p.note;
+      e.note = pNote;
     }
     pages.push(e);
   }

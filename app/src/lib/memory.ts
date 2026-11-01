@@ -314,43 +314,43 @@ export function sanitizeMem(d: any, fromBackup = false): Mem | null {
     .filter((e, i, a) => a.findIndex(x => x.id === e.id) === i)
     .slice(-MAX_ENTRIES)
     .map(e => ({ ...e, title: scrub(String(e.title).slice(0, 80)), note: scrub(String(e.note).slice(0, 600)) }));
-  m.sessions = sessions
-    .filter(
+  m.sessions = keepSessions(
+    sessions.filter(
       s => s && typeof s.id === 'string' && /^s\d{1,9}$/.test(s.id) && typeof s.q === 'string' && isLiveSession(s),
-    )
-    .slice(-MAX_SESSIONS)
-    .map(s => ({
-      id: s.id,
-      ts: okTs(s.ts),
-      q: scrub(s.q.slice(0, 300)),
-      kws: Array.isArray(s.kws)
-        ? s.kws
-            .filter((k: unknown) => typeof k === 'string')
-            .slice(0, 12)
-            .map((k: string) => scrub(k.slice(0, 30)))
-        : [],
-      accepted: [],
-      uncovered: [],
-      learned: s.learned !== false,
-      cover: cleanCover(s.cover),
-      flow: cleanFlow(s.flow),
-      ms: cleanMs(s.ms),
-      project: typeof s.project === 'string' ? scrub(s.project.slice(0, 80)) : undefined,
-      ...(typeof s.sum === 'string' ? { sum: scrub(s.sum.slice(0, 300)) } : {}),
-      projectId: typeof s.projectId === 'string' ? scrub(s.projectId.slice(0, 40)) : undefined,
-      ...(s.kind === 'chat' || s.kind === 'task' ? { kind: s.kind as SessionKind } : {}),
-      used: Array.isArray(s.used)
-        ? s.used.filter((u: unknown) => typeof u === 'string' && ids.has(u as string)).slice(0, 12)
-        : [],
-      msgs: (s.msgs as Msg[])
-        .filter(x => x && SPEAKER_RE.test(x.from) && typeof x.text === 'string')
-        .slice(0, 40)
-        .map(x => ({
-          from: x.from,
-          text: scrub(x.text.slice(0, 4000)),
-          tag: typeof x.tag === 'string' && TAG_RE.test(x.tag) && (!fromBackup || !LIVE_TAG.test(x.tag)) ? x.tag : '',
-        })),
-    }));
+    ),
+    m.entries,
+  ).map(s => ({
+    id: s.id,
+    ts: okTs(s.ts),
+    q: scrub(s.q.slice(0, 300)),
+    kws: Array.isArray(s.kws)
+      ? s.kws
+          .filter((k: unknown) => typeof k === 'string')
+          .slice(0, 12)
+          .map((k: string) => scrub(k.slice(0, 30)))
+      : [],
+    accepted: [],
+    uncovered: [],
+    learned: s.learned !== false,
+    cover: cleanCover(s.cover),
+    flow: cleanFlow(s.flow),
+    ms: cleanMs(s.ms),
+    project: typeof s.project === 'string' ? scrub(s.project.slice(0, 80)) : undefined,
+    ...(typeof s.sum === 'string' ? { sum: scrub(s.sum.slice(0, 300)) } : {}),
+    projectId: typeof s.projectId === 'string' ? scrub(s.projectId.slice(0, 40)) : undefined,
+    ...(s.kind === 'chat' || s.kind === 'task' ? { kind: s.kind as SessionKind } : {}),
+    used: Array.isArray(s.used)
+      ? s.used.filter((u: unknown) => typeof u === 'string' && ids.has(u as string)).slice(0, 12)
+      : [],
+    msgs: (s.msgs as Msg[])
+      .filter(x => x && SPEAKER_RE.test(x.from) && typeof x.text === 'string')
+      .slice(0, 40)
+      .map(x => ({
+        from: x.from,
+        text: scrub(x.text.slice(0, 4000)),
+        tag: typeof x.tag === 'string' && TAG_RE.test(x.tag) && (!fromBackup || !LIVE_TAG.test(x.tag)) ? x.tag : '',
+      })),
+  }));
   if (fromBackup) m.sessions = m.sessions.filter(isLiveSession); // a pasted backup cannot claim live replies
   m.blocked = (Array.isArray(d.blocked) ? d.blocked : [])
     .filter((b: unknown) => typeof b === 'string')
@@ -536,12 +536,44 @@ export function routeOf(x: Session): string[] {
   return out;
 }
 
-/** Splits a page note into plain text and [[Title]] wiki links, the way Brain pages link each other. */
-export function noteParts(note: string): { text: string; link?: boolean }[] {
+/** Splits a page note into plain text, [[Title]] wiki links and [cite:ref] marks, the way Brain pages carry
+ * context edges (links to other pages) and evidence edges (a claim pointing at its source). */
+export function noteParts(note: string): { text: string; link?: boolean; cite?: string }[] {
   return note
-    .split(/(\[\[[^\]]{1,80}\]\])/)
+    .split(/(\[\[[^\]]{1,80}\]\]|\s*\[cite:[^\]\s]{1,40}\])/)
     .filter(Boolean)
-    .map(t => (/^\[\[.*\]\]$/.test(t) ? { text: t.slice(2, -2).trim(), link: true } : { text: t }));
+    .map(t =>
+      /^\[\[.*\]\]$/.test(t)
+        ? { text: t.slice(2, -2).trim(), link: true }
+        : /^\s*\[cite:/.test(t)
+          ? { text: '', cite: t.trim().slice(6, -1) }
+          : { text: t },
+    );
+}
+
+/** A page note as plain words: link brackets and cite marks removed (for tables, search and prompts). */
+export const plainNote = (note: string): string =>
+  note
+    .replace(/\[\[([^\]]{1,80})\]\]/g, '$1')
+    .replace(/\s*\[cite:[^\]\s]{1,40}\]/g, '')
+    .trim();
+
+/** Most tasks a memory page may hold on to past the normal limit, so the vault stays small. */
+export const MAX_CITED_SESSIONS = 60;
+
+/**
+ * Which tasks survive: every task a memory page cites as its source (newest MAX_CITED_SESSIONS of them),
+ * then the newest of the rest up to MAX_SESSIONS. Oldest first, as stored. Before this, the oldest task was
+ * dropped at 26 even when a page still pointed at it (Owner, Nov 1 2026: "persistence").
+ */
+export function keepSessions<T extends { id: string; ts: number }>(sessions: T[], entries: Entry[]): T[] {
+  const cited = new Set(entries.flatMap(e => e.sources.filter(x => x.kind === 'session' && x.ref).map(x => x.ref)));
+  const newest = [...sessions].sort((a, b) => b.ts - a.ts);
+  const keep = new Set([
+    ...newest.filter(x => cited.has(x.id)).slice(0, MAX_CITED_SESSIONS),
+    ...newest.filter(x => !cited.has(x.id)).slice(0, MAX_SESSIONS),
+  ]);
+  return sessions.filter(x => keep.has(x));
 }
 
 export function agentActivityScores(m: Mem): Map<string, number> {
@@ -679,12 +711,12 @@ export function saveImportedListAsTask(
   };
 
   m.sessions.push(sess);
-  if (m.sessions.length > 25) m.sessions.shift();
 
   if (!targetNode.sources.some(src => src.ref === sess.id)) {
     targetNode.sources.push({ kind: 'session', label: `Task: ${clip(sess.q, 40)}`, ref: sess.id });
     if (targetNode.sources.length > 8) targetNode.sources.shift();
   }
+  m.sessions = keepSessions(m.sessions, m.entries);
   targetNode.seen = now;
   targetNode.strength = Math.min(9, targetNode.strength + 1);
 

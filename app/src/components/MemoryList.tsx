@@ -1,5 +1,5 @@
 import { AGENT } from '../data/team';
-import { TYPE_LABEL, type Entry, type Mem } from '../lib/memory';
+import { TYPE_LABEL, plainNote, type Entry, type Mem } from '../lib/memory';
 import { useMem, useStore } from '../store';
 import { Detail } from './MemoryPanel';
 
@@ -62,7 +62,7 @@ export default function MemoryList() {
                     {e.title}
                   </button>
                 </td>
-                <td>{e.note}</td>
+                <td>{plainNote(e.note)}</td>
                 <td>{TYPE_LABEL[e.type]}</td>
                 <td>{botOf(mem, e)}</td>
               </tr>

@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { blankMem, noteParts, routeOf, sessionsFor, type Entry, type Session } from '../src/lib/memory';
+import {
+  MAX_SESSIONS,
+  blankMem,
+  keepSessions,
+  noteParts,
+  plainNote,
+  routeOf,
+  sanitizeMem,
+  sessionsFor,
+  type Entry,
+  type Session,
+} from '../src/lib/memory';
 
 const mk = (id: string, ts: number, extra: Partial<Session> = {}): Session => ({
   id,
@@ -46,5 +57,50 @@ describe('memory page helpers', () => {
       { text: 'NFC band', link: true },
       { text: '.' },
     ]);
+  });
+
+  it('reads [cite:ref] marks as evidence and strips both kinds of marks for plain text', () => {
+    expect(noteParts('Picked it [cite:s4].')).toEqual([{ text: 'Picked it' }, { text: '', cite: 's4' }, { text: '.' }]);
+    expect(plainNote('Uses [[RedMed]] daily [cite:s4].')).toBe('Uses RedMed daily.');
+  });
+
+  it('never drops a task a memory page cites, even past the normal limit', () => {
+    const many = Array.from({ length: MAX_SESSIONS + 10 }, (_, i) => mk('s' + (i + 1), i + 1));
+    const page = { id: 'e1', sources: [{ kind: 'session', label: 'first', ref: 's1' }] } as unknown as Entry;
+    const kept = keepSessions(many, [page]);
+    expect(kept.map(x => x.id)).toContain('s1');
+    expect(kept.filter(x => x.id !== 's1')).toHaveLength(MAX_SESSIONS);
+    expect(kept.at(-1)?.id).toBe('s' + (MAX_SESSIONS + 10));
+    expect(keepSessions(many, []).map(x => x.id)).not.toContain('s1');
+  });
+
+  it('keeps a cited task across a save and reload', () => {
+    const m = blankMem();
+    m.entries.push({
+      id: 'e1',
+      key: 'ai:concept:ship small',
+      type: 'concept',
+      title: 'Ship small',
+      note: 'Small steps [cite:s1].',
+      sources: [{ kind: 'session', label: 'Task: plan the launch', ref: 's1' }],
+      strength: 1,
+      status: 'fresh',
+      created: 1,
+      seen: 1,
+      links: [],
+      corrected: false,
+      skill: false,
+      prog: null,
+      corpusId: null,
+      kws: null,
+      manual: false,
+    });
+    for (let i = 1; i <= MAX_SESSIONS + 5; i++)
+      m.sessions.push(
+        mk('s' + i, i, { msgs: [{ from: 'gemini', tag: 'live · OpenAI · gpt · unverified', text: 'hi' }] }),
+      );
+    const back = sanitizeMem(JSON.parse(JSON.stringify(m)))!;
+    expect(back.sessions.some(x => x.id === 's1')).toBe(true);
+    expect(back.entries[0].note).toBe('Small steps [cite:s1].');
   });
 });
