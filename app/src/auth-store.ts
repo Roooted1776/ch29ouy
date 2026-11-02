@@ -282,19 +282,21 @@ async function unlock(u: User, kek: CryptoKey) {
     setKeySave(null);
   }
   enter(u);
+  const notes: string[] = [];
+  if (restored) {
+    notes.push(`Memory restored from the database backup (${restored} items).`);
+    useStore.getState().commit(); // write it back into the encrypted vault
+  }
   // Nodes for tools Brain no longer uses are archived, reversibly, on every sign-in.
   if (u.role === 'admin') {
     const next = structuredClone(useStore.getState().mem);
     const cleaned = archiveRetiredToolNodes(next);
     if (cleaned) {
       useStore.getState().commit(m => Object.assign(m, next));
-      useStore.setState({ status: `Cleaned up ${cleaned} node(s) for removed tools; they stay in the archive.` });
+      notes.push(`Cleaned up ${cleaned} node(s) for removed tools; they stay in the archive.`);
     }
   }
-  if (restored) {
-    useStore.setState({ status: `Memory restored from the database backup (${restored} items).` });
-    useStore.getState().commit(); // write it back into the encrypted vault
-  }
+  if (notes.length) useStore.setState({ status: notes.join(' ') });
 }
 // ---------- while signed in: live sharing, idle lock, panic lock, privacy blur ----------
 let stop: (() => void)[] = [];
