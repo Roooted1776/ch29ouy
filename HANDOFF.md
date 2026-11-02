@@ -16,6 +16,43 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Cursor — Nov 2, 2026, 2:46 AM America/New_York: squash leftover branch, sync, deploy
+
+## Overview & Request
+Owner: squash merge all to main, remove other branches, sync git and local, deploy.
+
+## What Changed & Why
+- Local `main` was behind `origin/main` by 1 (#68); fast-forwarded.
+- Leftover remote `claude/claude-key-open-spot` had one unique commit (Anthropic key card label → `Anthropic (Claude)`, matching Google’s Gemini label). No PR existed. Brought onto current `main` as this PR and squash-merged.
+- Deleted leftover remote feature branch after merge. Only `main` remains.
+- Deploy is GitHub Pages from `main`; verified after merge.
+
+## Files Touched
+- `app/src/components/AdminPanel.tsx`
+- `app/dist/index.html`, `index.html` (rebuild)
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `npm run format` — ok
+- `npm run lint` — 39 warnings, 0 errors (baseline)
+- `npm run typecheck` — ok
+- `npm test` — 266 passed, 3 skipped
+- `npm run build` — single-file root `index.html`
+- `npm run e2e` — 3 passed (~1.1m)
+
+## How the Next AI Should Check It
+```bash
+gh pr list --state open
+git ls-remote --heads origin
+curl -sL https://roooted1776.github.io/ch29ouy/ | sha256sum
+curl -sL https://raw.githubusercontent.com/Roooted1776/ch29ouy/main/index.html | sha256sum
+```
+
+## Git State
+Squash-merged to `main` per Owner. Extra branches removed. Local synced to `origin/main`.
+
+---
+
 # Handoff from Cursor — Nov 2, 2026, 2:24 AM America/New_York: Pages cutover finished
 
 ## Overview & Request
