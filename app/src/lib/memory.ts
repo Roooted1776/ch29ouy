@@ -1,6 +1,7 @@
 import { isAgent } from '../data/team';
 import { PROV, PROVIDERS } from './providers';
 import { redact } from './redact';
+import { RETIRED_CHAT_LABELS } from './retired-tools';
 import { clip } from './text';
 
 // Same storage format as the earlier single-file page (brain.mem.v2), so saved memory carries over.
@@ -150,9 +151,7 @@ export const blankMem = (): Mem => ({
 
 // Current provider labels plus read-only compatibility for saved replies from a retired provider.
 const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const LABELS = [...new Set([...PROVIDERS.map(p => PROV[p].label), 'Freebuff (free)', 'Cerebras (free)'])]
-  .map(esc)
-  .join('|');
+const LABELS = [...new Set([...PROVIDERS.map(p => PROV[p].label), ...RETIRED_CHAT_LABELS])].map(esc).join('|');
 export const LIVE_TAG = new RegExp(`^(live|chat) · (${LABELS}) · `);
 const TAG_RE = new RegExp(`^((live|chat) · (${LABELS}) · [A-Za-z0-9._:/-]{1,80}(?: · unverified)?|page|page checks)$`);
 const SPEAKER_RE = /^(owner|brain|queue|grok|grokbot|claude|cursor|gemini|chatgpt|copilot|perplexity|xcode|muse)$/;

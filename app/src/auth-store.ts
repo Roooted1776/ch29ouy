@@ -13,8 +13,8 @@ import {
   syncMemoryDatabase,
   writeAudit,
 } from './lib/cloud';
-import { absorbMemory } from './lib/absorb';
-import { archiveRetiredToolNodes } from './lib/project-sync';
+import { applyMemorySyncPull } from './lib/memory-pull';
+import { archiveRetiredToolNodes, hasRetiredToolNode } from './lib/project-sync';
 import { blankMem, type Mem, sanitizeMem } from './lib/memory';
 import { openChannel, publish, type Hub } from './lib/share';
 import { VaultError, decryptVault, encryptVault, newSecrets, openFor, sealFor, type Secrets } from './lib/vault';
@@ -123,22 +123,15 @@ function startMirror() {
       if (!back || useStore.getState().busy) return;
       if (got.latest) since = got.latest;
       const cur = useStore.getState().mem;
-      const next = structuredClone(cur);
-      const r = absorbMemory(next, back);
-      const cleaned = archiveRetiredToolNodes(next); // another agent may still hold nodes for removed tools
-      if (
-        !(r.added || r.updated || r.sessions || cleaned) &&
-        (next.nextSession > cur.nextSession || next.nextId > cur.nextId)
-      )
+      const { next, status, bumpIdsOnly } = applyMemorySyncPull(cur, back); // also archives removed-tool nodes
+      if (bumpIdsOnly)
         useStore.getState().commit(m => {
           m.nextSession = Math.max(m.nextSession, next.nextSession);
           m.nextId = Math.max(m.nextId, next.nextId);
         });
-      if (r.added || r.updated || r.sessions || cleaned) {
+      if (status) {
         useStore.getState().commit(m => Object.assign(m, next));
-        useStore.setState({
-          status: `Memory sync: absorbed ${r.added} new, ${r.updated} updated, ${r.sessions} session(s) from other agents.`,
-        });
+        useStore.setState({ status });
       }
     } catch (e) {
       useStore.setState({
@@ -288,7 +281,8 @@ async function unlock(u: User, kek: CryptoKey) {
     useStore.getState().commit(); // write it back into the encrypted vault
   }
   // Nodes for tools Brain no longer uses are archived, reversibly, on every sign-in.
-  if (u.role === 'admin') {
+  // Skip the full memory copy when nothing matches a retired tool title.
+  if (u.role === 'admin' && hasRetiredToolNode(useStore.getState().mem)) {
     const next = structuredClone(useStore.getState().mem);
     const cleaned = archiveRetiredToolNodes(next);
     if (cleaned) {

@@ -1,4 +1,5 @@
 import { MAX_ENTRIES, cleanSources, keepHistory, mkEntry, type Entry, type Mem, type Source } from './memory';
+import { RETIRED_TOOL_TITLES } from './retired-tools';
 
 export interface ProjectMirrorResult {
   applied: number;
@@ -11,8 +12,13 @@ const isSource = (e: Entry) =>
   e.key.startsWith('source:') || e.sources.some(s => s.kind === 'tool' && s.label === SOURCE_LABEL);
 
 /** Tools Brain no longer uses; a node titled exactly like one is archived. */
-const RETIRED_TOOLS = new Set(['freebuff', 'archil', 'comet', 'cerebras']);
+const RETIRED_TOOLS = new Set<string>(RETIRED_TOOL_TITLES);
 const isRetiredTool = (e: Entry) => e.type === 'entity' && RETIRED_TOOLS.has(e.title.trim().toLowerCase());
+
+/** True when sign-in cleanup would move at least one node (skip the memory copy when false). */
+export function hasRetiredToolNode(mem: Mem): boolean {
+  return mem.entries.some(e => !e.corrected && !(isSource(e) && e.note.trim()) && isRetiredTool(e));
+}
 
 /** Moves matching nodes to the archive (reversible) and drops links to them. */
 function archiveWhere(mem: Mem, pick: (e: Entry) => boolean): number {
@@ -21,7 +27,8 @@ function archiveWhere(mem: Mem, pick: (e: Entry) => boolean): number {
   const removed = new Set(moved.map(e => e.id));
   mem.entries = mem.entries.filter(e => !removed.has(e.id));
   for (const entry of mem.entries) entry.links = entry.links.filter(id => !removed.has(id));
-  mem.archived = [...mem.archived.filter(a => !moved.some(e => e.id === a.id && e.key === a.key)), ...moved];
+  // Drop any older archived copy with the same id (key may differ); never leave duplicate ids.
+  mem.archived = [...mem.archived.filter(a => !removed.has(a.id)), ...moved];
   return moved.length;
 }
 
