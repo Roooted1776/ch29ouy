@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { blankMem, mkEntry, sanitizeMem, type Entry, type Mem } from '../src/lib/memory';
 import { addNote } from '../src/lib/learn';
-import { archiveEmptyAndRetiredNodes, archiveRetiredToolNodes, mergeProjectMirror } from '../src/lib/project-sync';
+import {
+  archiveEmptyAndRetiredNodes,
+  archiveRetiredToolNodes,
+  hasRetiredToolNode,
+  mergeProjectMirror,
+} from '../src/lib/project-sync';
 
 function add(mem: Mem, key: string, project: string, seen = 1000, extra: Partial<Entry> = {}): Entry {
   const e = mkEntry(
@@ -192,9 +197,51 @@ describe('sign-in and sync cleanup', () => {
       note: 'Old key.',
     });
     addNote(mem, { type: 'concept', title: 'Call dentist', note: '' }, 1000);
+    expect(hasRetiredToolNode(mem)).toBe(true);
     expect(archiveRetiredToolNodes(mem)).toBe(1);
     expect(mem.entries.map(e => e.title)).toEqual(['Call dentist']);
     expect(mem.archived.map(e => e.id)).toEqual([tool.id]);
+    expect(hasRetiredToolNode(mem)).toBe(false);
     expect(archiveRetiredToolNodes(mem)).toBe(0);
+  });
+
+  it('drops an older archived copy by id only, so mem.archived never holds duplicate ids', () => {
+    const mem = blankMem();
+    const tool = add(mem, 'note:cerebras', '', 1000, {
+      type: 'entity',
+      title: 'Cerebras',
+      sources: [],
+      note: 'Current key.',
+    });
+    mem.archived.push({
+      ...structuredClone(tool),
+      key: 'note:cerebras-old',
+      title: 'Cerebras',
+      note: 'Stale archived copy with the same id.',
+    });
+    expect(archiveRetiredToolNodes(mem)).toBe(1);
+    expect(mem.archived.filter(e => e.id === tool.id)).toHaveLength(1);
+    expect(mem.archived.find(e => e.id === tool.id)).toMatchObject({
+      key: 'note:cerebras',
+      note: 'Current key.',
+    });
+  });
+
+  it('hasRetiredToolNode is false for a title-only owner note and for non-exact titles', () => {
+    const mem = blankMem();
+    addNote(mem, { type: 'concept', title: 'Call dentist', note: '' }, 1000);
+    add(mem, 'note:cerebras-cloud', '', 1000, {
+      type: 'entity',
+      title: 'Cerebras Cloud',
+      sources: [],
+      note: 'Not an exact match.',
+    });
+    add(mem, 'note:cerebras-concept', '', 1000, {
+      type: 'concept',
+      title: 'Cerebras',
+      sources: [],
+      note: 'Wrong type.',
+    });
+    expect(hasRetiredToolNode(mem)).toBe(false);
   });
 });
