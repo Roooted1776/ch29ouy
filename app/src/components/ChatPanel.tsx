@@ -8,6 +8,7 @@ import { PROV, QUOTA_LABEL } from '../lib/providers';
 import { isLegacyApprovalPhrase } from '../lib/approval';
 import BotIcon from './BotIcon';
 import Composer from './Composer';
+import StreamSteps from './StreamSteps';
 
 /** A bot's name in its node colour; red while it is out of tokens. Click to see its profile. */
 function BotName({ id, limited, onOpen }: { id: AgentId; limited: AgentId[]; onOpen(id: AgentId): void }) {
@@ -126,6 +127,7 @@ export default function ChatPanel() {
   return (
     <section className="panel chat grok" aria-label="Live chat">
       {!currentSession && <Handoff />}
+      {!currentSession && <StreamSteps />}
       {currentSession && !log.length && (
         <div
           className="session-banner"

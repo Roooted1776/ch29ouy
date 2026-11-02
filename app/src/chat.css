@@ -563,3 +563,75 @@
   padding: 4px 8px;
   border-bottom: 1px solid #444;
 }
+
+/* Perplexity-style sources and steps on top of the live chat */
+.chat.grok .stream-steps {
+  display: grid;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(154, 163, 180, 0.25);
+  border-radius: 6px;
+  margin: 4px 0;
+  font-size: 11px;
+}
+.chat.grok .stream-steps ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.chat.grok .stream-steps .ss-head {
+  display: block;
+  opacity: 0.7;
+  margin-bottom: 3px;
+}
+.chat.grok .ss-src {
+  border: 1px solid var(--c);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 1px 6px;
+  cursor: pointer;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat.grok .ss-src b {
+  color: var(--c);
+}
+.chat.grok .ss-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid rgba(154, 163, 180, 0.25);
+  border-radius: 4px;
+  opacity: 0.55;
+}
+.chat.grok .ss-step.working,
+.chat.grok .ss-step.done {
+  opacity: 1;
+  border-color: var(--c);
+}
+.chat.grok .ss-step.failed {
+  opacity: 1;
+  border-color: #d96570;
+}
+.chat.grok .ss-step.working .ss-mark {
+  color: var(--c);
+  animation: ss-blink 1s ease-in-out infinite;
+}
+@keyframes ss-blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat.grok .ss-step.working .ss-mark {
+    animation: none;
+  }
+}
