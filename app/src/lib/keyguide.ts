@@ -63,17 +63,6 @@ export const KEY_GUIDE: Record<ProviderId, KeyGuide> = {
       'The free plan has daily limits; nothing is charged',
     ],
   },
-  cerebras: {
-    site: 'Cerebras Cloud',
-    url: 'https://cloud.cerebras.ai',
-    prefix: 'csk-',
-    steps: [
-      'Sign in at cloud.cerebras.ai (free tier)',
-      'Open API Keys and create a key',
-      'Copy the key and paste it here',
-      "The free tier has daily limits; check the page for today's numbers",
-    ],
-  },
   openrouter: {
     site: 'OpenRouter',
     url: 'https://openrouter.ai/keys',
@@ -116,7 +105,6 @@ export function guessProvider(key: string): ProviderId | null {
   if (k.startsWith('sk-or-')) return 'openrouter';
   if (k.startsWith('xai-')) return 'xai';
   if (k.startsWith('gsk_')) return 'groq';
-  if (k.startsWith('csk-')) return 'cerebras';
   if (k.startsWith('AIza') || k.startsWith('AQ.')) return 'google';
   if (k.startsWith('sk-')) return 'openai';
   return null;

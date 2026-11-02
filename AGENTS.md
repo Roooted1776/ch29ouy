@@ -118,5 +118,5 @@ Wording checked against the live article on 2026-10-21 (it says it was last modi
 - **Brain view:** the 3D brain hides stale pages, repeat GitHub feed items (commits, PRs, issues, releases) and repeated titles, and its blue task dots show real tasks only, one per question (`app/src/lib/brain-view.ts`). Everything stays in the Memory list.
 - **No manual upkeep:** Dream files the inbox by itself about once an hour; GitHub syncs hourly. Banter is always on (no switch).
 - **One chat pane:** a message is group chat; `task: …` or `Task for <bot>: …` runs the full team task.
-- **Credits:** free keys (Groq, Cerebras) are used first, then each bot's own company, then the main provider.
+- **Credits:** free keys (Groq, OpenRouter, OpenCode Zen) are used first, then each bot's own company, then the main provider.
 - **Huddles:** casual, 2–6 lines, 20–40 s apart, mixed bots who answer each other; moods shuffle on some days; teammates may use web search when it is on in Settings.

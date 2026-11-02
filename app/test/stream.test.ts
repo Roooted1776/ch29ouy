@@ -54,9 +54,6 @@ const EVENTS: Record<ProviderId, unknown[]> = {
       x_groq: { usage: { prompt_tokens: 11, completion_tokens: 3 } },
     },
   ],
-  get cerebras() {
-    return this.groq;
-  },
   get openrouter() {
     return this.groq;
   },
@@ -83,7 +80,7 @@ describe('streaming replies', () => {
   });
 
   it('refuses retired or unknown providers before a key can reach another service', async () => {
-    for (const provider of ['freebuff', 'toString', 'unknown']) {
+    for (const provider of ['freebuff', 'cerebras', 'toString', 'unknown']) {
       const fetchImpl = vi.fn();
       await expect(callModel({ ...base, provider: provider as ProviderId, fetchImpl })).rejects.toThrow(
         /provider is no longer supported/,
@@ -103,14 +100,13 @@ describe('streaming replies', () => {
     expect((g.body as any).reasoning_effort).toBe('low');
     expect((buildRequest({ provider: 'openai', ...base }).body as any).stream).toBeUndefined();
   });
-  it('Cerebras, OpenRouter, OpenCode Zen and Muse use the chat format at their own addresses', () => {
+  it('OpenRouter, OpenCode Zen and Muse use the chat format at their own addresses', () => {
     const urls: Record<string, string> = {
-      cerebras: 'https://api.cerebras.ai/v1/chat/completions',
       openrouter: 'https://openrouter.ai/api/v1/chat/completions',
       opencode: 'https://opencode.ai/zen/v1/chat/completions',
       muse: 'https://api.meta.ai/v1/chat/completions',
     };
-    for (const p of ['cerebras', 'openrouter', 'opencode', 'muse'] as ProviderId[]) {
+    for (const p of ['openrouter', 'opencode', 'muse'] as ProviderId[]) {
       const r = buildRequest({ provider: p, ...base, model: 'm' }, true);
       expect(r.url).toBe(urls[p]);
       expect(r.headers.authorization).toBe('Bearer k-123');
@@ -118,7 +114,7 @@ describe('streaming replies', () => {
       expect((r.body as any).stream).toBe(true);
     }
   });
-  for (const p of ['anthropic', 'openai', 'xai', 'google', 'groq', 'cerebras', 'muse'] as ProviderId[])
+  for (const p of ['anthropic', 'openai', 'xai', 'google', 'groq', 'muse'] as ProviderId[])
     it(`${p}: text grows as it arrives and the totals are kept`, async () => {
       const seen: string[] = [];
       const r = await callModel({ provider: p, ...base, fetchImpl: sse(EVENTS[p]) as any, onDelta: t => seen.push(t) });
@@ -198,7 +194,7 @@ describe('web search', () => {
     expect((buildRequest({ provider: 'groq', ...base, model: 'openai/gpt-oss-120b' }).body as any).tools[0].type).toBe(
       'browser_search',
     );
-    expect((buildRequest({ provider: 'cerebras', ...base }).body as any).tools).toBeUndefined();
+    expect((buildRequest({ provider: 'openrouter', ...base }).body as any).tools).toBeUndefined();
     expect((buildRequest({ provider: 'anthropic', ...base, web: false }).body as any).tools).toBeUndefined();
   });
 });

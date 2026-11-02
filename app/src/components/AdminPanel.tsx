@@ -130,7 +130,7 @@ export default function AdminPanel() {
         </Card>
         <Card
           title="API keys"
-          hint="Paste a key for any company, then press Test. Free keys (Groq, Cerebras) are used first to save credits, then each bot's own company. Keys are saved encrypted."
+          hint="Paste a key for any company, then press Test. Free keys (Groq, OpenRouter, OpenCode Zen) are used first to save credits, then each bot's own company. Keys are saved encrypted."
           wide
         >
           {s.status && (

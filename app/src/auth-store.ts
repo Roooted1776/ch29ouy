@@ -14,6 +14,7 @@ import {
   writeAudit,
 } from './lib/cloud';
 import { absorbMemory } from './lib/absorb';
+import { archiveRetiredToolNodes } from './lib/project-sync';
 import { blankMem, type Mem, sanitizeMem } from './lib/memory';
 import { openChannel, publish, type Hub } from './lib/share';
 import { VaultError, decryptVault, encryptVault, newSecrets, openFor, sealFor, type Secrets } from './lib/vault';
@@ -124,12 +125,16 @@ function startMirror() {
       const cur = useStore.getState().mem;
       const next = structuredClone(cur);
       const r = absorbMemory(next, back);
-      if (!(r.added || r.updated || r.sessions) && (next.nextSession > cur.nextSession || next.nextId > cur.nextId))
+      const cleaned = archiveRetiredToolNodes(next); // another agent may still hold nodes for removed tools
+      if (
+        !(r.added || r.updated || r.sessions || cleaned) &&
+        (next.nextSession > cur.nextSession || next.nextId > cur.nextId)
+      )
         useStore.getState().commit(m => {
           m.nextSession = Math.max(m.nextSession, next.nextSession);
           m.nextId = Math.max(m.nextId, next.nextId);
         });
-      if (r.added || r.updated || r.sessions) {
+      if (r.added || r.updated || r.sessions || cleaned) {
         useStore.getState().commit(m => Object.assign(m, next));
         useStore.setState({
           status: `Memory sync: absorbed ${r.added} new, ${r.updated} updated, ${r.sessions} session(s) from other agents.`,
@@ -277,10 +282,21 @@ async function unlock(u: User, kek: CryptoKey) {
     setKeySave(null);
   }
   enter(u);
+  const notes: string[] = [];
   if (restored) {
-    useStore.setState({ status: `Memory restored from the database backup (${restored} items).` });
+    notes.push(`Memory restored from the database backup (${restored} items).`);
     useStore.getState().commit(); // write it back into the encrypted vault
   }
+  // Nodes for tools Brain no longer uses are archived, reversibly, on every sign-in.
+  if (u.role === 'admin') {
+    const next = structuredClone(useStore.getState().mem);
+    const cleaned = archiveRetiredToolNodes(next);
+    if (cleaned) {
+      useStore.getState().commit(m => Object.assign(m, next));
+      notes.push(`Cleaned up ${cleaned} node(s) for removed tools; they stay in the archive.`);
+    }
+  }
+  if (notes.length) useStore.setState({ status: notes.join(' ') });
 }
 // ---------- while signed in: live sharing, idle lock, panic lock, privacy blur ----------
 let stop: (() => void)[] = [];
