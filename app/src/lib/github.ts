@@ -75,6 +75,8 @@ export interface GitHubImportOptions {
   issueState?: 'open' | 'closed' | 'all';
   since?: string;
   differential?: boolean;
+  /** Read the full commit history even on a differential sync (first sync after the per-bot logs). */
+  allCommits?: boolean;
 }
 
 export interface GitHubRawMemoryItem {
@@ -686,7 +688,11 @@ export async function fetchAndConvertGitHub(
       ? fetchGitHubIssues(repoInput, { token, state: options?.issueState, limit: options?.maxIssues, since }, fetchImpl)
       : Promise.resolve([]),
     includeCommits
-      ? fetchGitHubCommits(repoInput, { token, limit: options?.maxCommits, since }, fetchImpl)
+      ? fetchGitHubCommits(
+          repoInput,
+          { token, limit: options?.maxCommits, since: options?.allCommits ? undefined : since },
+          fetchImpl,
+        )
       : Promise.resolve([]),
     includeReleases
       ? fetchGitHubReleases(repoInput, { token, limit: options?.maxReleases }, fetchImpl)

@@ -16,6 +16,33 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Claude Code — Nov 2, 2026: commits under bots, task steps on the brain, 150-word cap
+
+## Request (Owner)
+"Not every commit gets saved; put them under the colour node they represent." "Max 150 words a bot can post on the Brain site." "Tasks are supposed to be on the brain; only banter, chat and the review are in the chat box." Then: "make everything look modern and theme it like the background", then "prepare the handoff".
+
+## Already on main (merged and live)
+- #50, #51 (key pills, bot-card buttons, Google `AQ.` keys), #52 (live task path), #54 (every commit kept, one growing log per bot, drawn under the bot's colour node).
+
+## On branch `claude/confident-mccarthy-qanphy` (draft PR, not merged)
+1. **Every commit read once** (`app/src/store.ts`, `app/src/lib/github.ts`, `app/src/components/Home.tsx`): auto-sync was differential, so commits from before #54 never reached the per-bot logs. The sync record gains `commitsV: 2`; the first sync after this update reads the full commit history once, then goes back to new-only.
+2. **Task steps on the brain** (`app/src/components/BrainScene.tsx` `TaskBubble`, `app/src/components/ChatPanel.tsx`, `app/src/styles.css` `.task-bubble`): the step being written, or the last one finished, shows in a bubble at that bot's node. The chat box keeps the question, chat turns, banter, Grok Bot's review and any "did not finish" rows.
+3. **150-word cap** (`app/src/lib/text.ts` `WORD_CAP`/`capWords`, `app/src/data/team.ts`, `app/src/lib/run-chat.ts`, `app/src/lib/search.ts`, `app/src/store.ts` `say`): every bot prompt says 150 words or fewer, and `say` cuts any bot message longer than that.
+- Tests: `app/test/github.test.ts`, `app/test/ui.test.tsx` updated and added.
+
+## Checks (local, this branch)
+format, lint (39 warnings, no errors), typecheck, test (250 passed, 3 skipped), build, e2e (3 passed, run with the machine's pre-installed Chromium). GitHub CI result: see the PR.
+
+## Not done / next
+- **Modern theme like the background (Owner's last ask): not started.** Background is black with thin white/grey wave lines (`app/src/tidal-bg.ts`, `tidal.css`). Restyle panels, buttons, chat, settings, bot card and the new `.task-bubble` to match: dark translucent glass, thin light borders, monochrome with bot colours as accents. Do not change the brain or the background themselves.
+- **Bug seen in a screenshot:** the review text in the chat box is clipped on the right edge (long lines overflow the side column). Fix in that theme pass.
+- The task bubble sits a little left of and over the bot's node; check its offset by eye in a real browser.
+- Gemini review: not done for any of this work (Owner said skip Gemini on the commits task). Muse and Grok Bot decisions: not done.
+- Branch cleanup: `claude/dazzling-lovelace-dhqqi4` holds nothing that is not in main; this session cannot delete branches.
+- RedMed: read-only look only. RedMed-ios already has a git-ignored `owner/Config/Supabase.xcconfig` slot for the Supabase host and publishable key; Owner fills it on the Mac. Stripe and Hostinger secrets must never go in the app. No RedMed files were changed.
+
+---
+
 # Handoff from Cursor — Oct 30, 2026 (EDT): push merge main; deploy blocked on Hostinger token
 
 ## Overview & Request

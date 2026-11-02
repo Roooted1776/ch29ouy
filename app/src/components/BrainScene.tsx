@@ -4,7 +4,8 @@ import type React from 'react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { STAGE_COLOR, TYPE_COLOR, colorOf } from '../data/colors';
-import { AGENTS, LIVE_ORDER, isAgent } from '../data/team';
+import { AGENT, AGENTS, LIVE_ORDER, isAgent } from '../data/team';
+import { capWords } from '../lib/text';
 import { OUTLINE } from '../data/outline';
 import { buildSkull, skullLines } from '../lib/skull';
 import { brainEntries, brainTasks, taskPath } from '../lib/brain-view';
@@ -1060,6 +1061,40 @@ function TaskPath() {
     </>
   );
 }
+/** A team task's work shows on the brain itself (Owner, Nov 2 2026): the step being written, or the last one
+ *  finished, sits in a bubble at that bot's node. Grok Bot's review stays in the chat box. */
+function TaskBubble() {
+  const log = useStore(s => s.log),
+    draft = useStore(s => s.draft),
+    stages = useStore(s => s.stages);
+  const step = useMemo(() => {
+    if (draft && isAgent(draft.from) && draft.from !== 'grokbot' && stages[draft.from] === 'working')
+      return { from: draft.from, text: draft.text, live: true };
+    for (let i = log.length - 1; i >= 0; i--) {
+      const m = log[i];
+      if (m.from === 'owner') return null;
+      if (isAgent(m.from) && m.from !== 'grokbot' && m.tag.startsWith('live'))
+        return { from: m.from, text: m.text, live: false };
+    }
+    return null;
+  }, [log, draft, stages]);
+  const at = step ? station(step.from) : null;
+  if (!step || !at) return null;
+  return (
+    <group position={toWorld(at)}>
+      <Html distanceFactor={9} zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
+        <div
+          className={'task-bubble' + (step.live ? ' live' : '')}
+          style={{ '--c': colorOf(step.from) } as React.CSSProperties}
+          aria-live="off"
+        >
+          <b>{AGENT[step.from].name}</b>
+          <p>{capWords(step.text)}</p>
+        </div>
+      </Html>
+    </group>
+  );
+}
 const Transits = () => {
   const pulses = useStore(s => s.pulses);
   return (
@@ -1137,6 +1172,7 @@ export default function BrainScene({ locked = false, resetView = 0 }: { locked?:
         {!locked && <Memories />}
         {!locked && <History />}
         {!locked && <TaskPath />}
+        {!locked && <TaskBubble />}
         <Transits />
         <Outline />
         {/* biome-ignore lint/a11y/noStaticElementInteractions: three.js mesh; the memory list also opens from the search bar */}

@@ -1,7 +1,7 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { dreamDue } from '../lib/dream';
 import { useAuth } from '../auth-store';
-import { useStore } from '../store';
+import { COMMITS_V, useStore } from '../store';
 import AdminPanel from './AdminPanel';
 import AgentInspector from './AgentInspector';
 import ChatPanel from './ChatPanel';
@@ -64,7 +64,8 @@ export default function Home() {
     if (!admin || !repo.trim() || !globalThis.location?.protocol.startsWith('http')) return;
     const run = () => {
       const st = useStore.getState(),
-        last = st.githubLastSync[st.githubRepo.trim()]?.date;
+        rec = st.githubLastSync[st.githubRepo.trim()],
+        last = rec?.commitsV === COMMITS_V ? rec.date : undefined;
       if (st.busy || st.dreaming || (last && Date.now() - Date.parse(last) < SYNC_EVERY_MS)) return;
       void st.syncGithub({ differential: true });
     };

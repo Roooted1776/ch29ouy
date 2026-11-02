@@ -481,6 +481,38 @@ h2:first-child {
   text-shadow: 0 0 3px #000;
   pointer-events: none;
 }
+/* A task step on the brain: the bot's words sit just under its node (Owner, Nov 2 2026). */
+.task-bubble {
+  transform: translate(-50%, 18px);
+  width: 260px;
+  max-height: 170px;
+  overflow: hidden;
+  padding: 6px 9px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--c, #9aa8ff) 60%, transparent);
+  border-left-width: 3px;
+  background: rgba(8, 10, 18, 0.9);
+  color: #e6e6ec;
+  font: 13px / 1.4 var(--font, ui-monospace, monospace);
+  text-shadow: none;
+  pointer-events: none;
+}
+.task-bubble b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--c, #9aa8ff);
+  font-weight: 600;
+}
+.task-bubble p {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.task-bubble.live {
+  border-color: var(--c, #9aa8ff);
+}
 .task-node-tag.on {
   color: #ffffff;
   border-color: #38bdf8;
