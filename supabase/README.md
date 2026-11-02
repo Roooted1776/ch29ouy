@@ -6,46 +6,40 @@ The Brain project is `iihjcqiiavleyheqzotl`, in us-east-1. This deployment uses 
 - `20261024200000_tighten_access.sql` closes the remaining client paths: access-log rows are stamped by the database (author and time, so a member cannot name or backdate somebody else), removing an account finally works (the log kept a `not null` user id while its foreign key tried to null it), nothing in the `private` schema is callable by a client except the two role checks policies need, `anon` has no table grant at all, the GraphQL resolver is closed, and new tables are no longer auto-granted to `anon`.
 - `functions/accounts/` creates, resets, and removes accounts after checking the caller. Setup only works while Brain has no accounts at all; once any account exists it is refused and the vault is never touched. Deploy with JWT verification off because the function validates authenticated requests itself and setup/status must work before sign-in. Browser calls are answered only for Brain's own origins (`redeemed.live`, `www.redeemed.live`, local dev and the built file's `null` origin).
 - Only the owner can finish first-admin setup on the deployed site. Only admins create subsequent accounts; dates of birth are checked and discarded. No admin is created by tests.
-- Public sign-up is off in `config.toml` and must stay off in the dashboard. Even if it were enabled, a sign-up could not create a Brain profile or a sealed memory key, and could not read the database vault.
+- Public sign-up is off in `config.toml` (`auth.enable_signup = false`) and in the live dashboard, and must stay off in both. Even if it were enabled, a sign-up could not create a Brain profile or a sealed memory key, and could not read the database vault.
 - Provider keys are sealed on the device and never uploaded to the database.
 - Recovery: keep a spare admin login that only the owner uses. A lone admin who forgets the passcode cannot reopen memory any other way.
 
 ## Config (`config.toml`)
 
-`supabase/config.toml` is the source of truth for the settings that are not SQL. It is written to keep
-Brain's surface small:
+`supabase/config.toml` holds only the settings below. Everything else (site address, redirect addresses, token expiry, password length, rate limits, email and MFA) lives only in the dashboard. Do not run `config push`; sign-in settings are changed only in the dashboard.
 
 | Setting | Value | Why |
 | --- | --- | --- |
-| `auth.enable_signup`, `auth.email.enable_signup`, `auth.sms.enable_signup` | `false` | Accounts exist only when an admin makes one through the accounts function. |
-| `auth.enable_anonymous_sign_ins`, `auth.enable_manual_linking` | `false` | No anonymous or linked identities. |
-| `auth.minimum_password_length` | `32` | The page sends a 43-character PBKDF2 password; anything shorter did not come from Brain. |
+| `auth.enable_signup` | `false` | Accounts exist only when an admin makes one through the accounts function. |
+| `auth.email.enable_signup` | `true` | This turns on email sign-in, which is the only way in. New sign-ups are still refused by `auth.enable_signup`. |
+| `auth.sms.enable_signup`, `auth.enable_anonymous_sign_ins` | `false` | No phone or anonymous sign-in. |
 | `auth.email.enable_confirmations` | `true` | Accounts are created already confirmed, so a hand-made auth user is not a usable back door. |
-| `auth.site_url`, `additional_redirect_urls` | `https://roooted1776.github.io/ch29ouy/` | Exact URLs only. |
-| `auth.jwt_expiry` | `3600` | Short-lived tokens, rotated refresh tokens. |
+| `auth.sms.enable_confirmations` | `true` | Phone sign-in is off. This only matters if it's ever turned on. |
 | `api.schemas` | `["public"]` | No `graphql_public`: Brain has no GraphQL client, and the resolver is revoked in SQL too. |
 | `api.auto_expose_new_tables` | `false` | New tables need an explicit grant instead of the cloud default of granting first. |
 | `api.max_rows` | `200` | The page reads at most 60 log rows and a handful of profiles. |
-| `storage.*` | `false` | Brain stores no files; the vault is a row, and remembered keys never leave the device. |
-| `functions.accounts.verify_jwt` | `false` | The function checks every admin caller itself (`getUser` + `profiles.role`). |
 
-Apply it to the project from the repo root, reviewing the diff first:
+Don't run `config push`. It replaces the whole sign-in section on the live project, so any setting this file leaves out falls back to Supabase's default. Change live sign-in settings in the dashboard instead. To compare this file with the live project without changing anything, use `config diff`. `db push` applies migrations to the live database, so it goes through the build chain and Director's publish step.
 
 ```bash
 supabase login                                  # once, with a scoped personal access token
-supabase config diff --project-ref iihjcqiiavleyheqzotl
-supabase config push --project-ref iihjcqiiavleyheqzotl
-supabase db push --project-ref iihjcqiiavleyheqzotl    # the tighten_access migration
+supabase config diff --project-ref iihjcqiiavleyheqzotl   # read-only comparison
+supabase db push --project-ref iihjcqiiavleyheqzotl       # changes the live database; build chain and Director only
 ```
 
-`config push` only writes the properties this file declares; anything it does not support is reported
-and left alone. Settings that exist only in the dashboard and are **not** in `config.toml`:
+Settings that live only in the dashboard and aren't in `config.toml`:
 
 1. **Auth → Passwords → leaked password protection**: enable it (checks new passwords against Have I
    Been Pwned). Brain's derived passwords never match, so it costs nothing.
 2. **Database → Network restrictions**: once `supabase db push` is no longer run from Owner's own
    network, allow **no** CIDRs. The page and the Edge Function reach Postgres only over HTTPS.
-3. **Auth → Rate limits**: confirm the email and sign-in limits shown in `config.toml`.
+3. **Auth → Rate limits**: check the email and sign-in limits in the dashboard. This file doesn't set any.
 4. **Backups**: confirm the plan's daily backups are on. Losing every admin passcode still loses the
    memory, so the encrypted offline backup in the Admin tab stays the real recovery path.
 
