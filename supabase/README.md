@@ -62,4 +62,6 @@ only, no Supabase account) and then asserts the access rules: `anon` gets nothin
 and keeps its history, and every table in `public` has row-level security. Run it after any change to
 `supabase/`.
 
+`bash supabase/tests/run-local-stack.sh` reruns `app/test/local-supabase.test.ts` (refused direct sign-up, spare-admin reset, refused setup) on a local `supabase start` stack only, from a scratch copy of `supabase/` with migrations on; it refuses non-localhost URLs, never prints keys, and stops the stack at the end.
+
 See [DEPLOYMENT.md](../DEPLOYMENT.md) for deployment, rollback, verification, and review status.

@@ -205,7 +205,7 @@ describe('accounts function: setup can never wipe a live Brain', () => {
 });
 
 describe('accounts function: status (setupNeeded)', () => {
-  it('reports setupNeeded true only while no account exists', async () => {
+  it('reports setupNeeded true when no profiles exist', async () => {
     const r = await call({ action: 'status' });
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ setupNeeded: true });
