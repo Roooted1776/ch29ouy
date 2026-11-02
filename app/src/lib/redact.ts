@@ -7,6 +7,7 @@ const SECRET_RES = [
   /\bAKIA[0-9A-Z]{16}\b/g,
   /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
   /\bAIza[0-9A-Za-z_-]{30,}/g,
+  /\bAQ\.[0-9A-Za-z_-]{20,}/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}/g,
   /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi,
   /:\/\/[^/\s:@]+:[^/\s@]+@/g,
