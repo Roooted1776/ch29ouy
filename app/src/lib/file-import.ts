@@ -18,6 +18,8 @@ export interface RawMemoryItem {
   project?: string;
   kws?: string[];
   sources?: Source[];
+  /** Replace the stored note instead of adding to it. */
+  replace?: boolean;
 }
 
 const VALID_TYPES = new Set<EntryType>(['concept', 'entity', 'workstream']);
@@ -262,7 +264,11 @@ export function importMemoryItems(
           .map(e => e.note)
           .join('')
       : '';
-    const fullNote = previous && !previous.includes(note) ? `${previous}\n\n${note}` : previous || note;
+    const fullNote = it.replace
+      ? note
+      : previous && !previous.includes(note)
+        ? `${previous}\n\n${note}`
+        : previous || note;
     const sources = cleanSources(it.sources);
     const attribution: Source[] = sources.length
       ? sources

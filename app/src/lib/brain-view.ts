@@ -49,3 +49,26 @@ export function brainTasks(sessions: Session[]): Session[] {
   }
   return out;
 }
+
+export type LegState = 'done' | 'working' | 'failed' | 'waiting';
+/**
+ * The path the current task's data takes, leg by leg: Owner → each agent in chain order → Brain.
+ * A leg takes the state of the agent it arrives at; the last leg into Brain is done once Grok Bot is.
+ */
+export function taskPath(
+  order: readonly string[],
+  stages: Partial<Record<string, string>>,
+): { from: string; to: string; state: LegState }[] {
+  const bots = order.filter(id => stages[id] && stages[id] !== 'skipped');
+  if (!bots.length) return [];
+  const legState = (id: string): LegState => {
+    const s = stages[id];
+    return s === 'done' || s === 'working' || s === 'failed' ? s : 'waiting';
+  };
+  const ends = ['owner', ...bots, 'brain'];
+  return ends.slice(1).map((to, i) => ({
+    from: ends[i],
+    to,
+    state: to === 'brain' ? (legState(bots[bots.length - 1]) === 'done' ? 'done' : 'waiting') : legState(to),
+  }));
+}
