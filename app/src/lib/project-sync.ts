@@ -28,6 +28,20 @@ export function archiveEmptyAndRetiredNodes(mem: Mem): number {
   return moved.length;
 }
 
+/** Single GitHub commits saved one per memory by older Brain versions: archived (reversibly), the digest replaces them. */
+export function archiveCommitNodes(mem: Mem): number {
+  const one = /\bcommit [0-9a-f]{7}\b/i;
+  const moved = mem.entries.filter(
+    e => !e.corrected && one.test(e.title) && e.sources.length > 0 && e.sources.every(s => s.kind === 'github'),
+  );
+  if (!moved.length) return 0;
+  const removed = new Set(moved.map(e => e.id));
+  mem.entries = mem.entries.filter(e => !removed.has(e.id));
+  for (const entry of mem.entries) entry.links = entry.links.filter(id => !removed.has(id));
+  mem.archived = [...mem.archived.filter(a => !removed.has(a.id)), ...moved];
+  return moved.length;
+}
+
 const projectOf = (e: Entry, incoming: Mem): string =>
   e.project?.trim() ||
   incoming.entries.find(p => p.key.startsWith('project:') && e.links.includes(p.id))?.title.trim() ||

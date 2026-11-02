@@ -4,10 +4,10 @@ import type React from 'react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { STAGE_COLOR, TYPE_COLOR, colorOf } from '../data/colors';
-import { AGENTS, isAgent } from '../data/team';
+import { AGENTS, LIVE_ORDER, isAgent } from '../data/team';
 import { OUTLINE } from '../data/outline';
 import { buildSkull, skullLines } from '../lib/skull';
-import { brainEntries, brainTasks } from '../lib/brain-view';
+import { brainEntries, brainTasks, taskPath } from '../lib/brain-view';
 import { buildShell, midline, placeMemory, route, station, surfaceFolds, toWorld, type P3 } from '../lib/geometry';
 import {
   TASK_FAN,
@@ -1011,6 +1011,55 @@ function History() {
     </>
   );
 }
+// ---------- the current task's path: Owner → each agent in order → Brain, lit as the task moves ----------
+const LEG_OPACITY = { done: 0.75, working: 0.9, failed: 0.8, waiting: 0.12 } as const;
+function TaskPath() {
+  const live = useStore(s => s.stages),
+    mem = useMem();
+  // Nothing running yet: show the path the last saved task took.
+  const stages = useMemo(() => {
+    if (Object.keys(live).length) return live;
+    const last = [...mem.sessions].reverse().find(x => x.kind !== 'chat' && x.cover);
+    return Object.fromEntries(Object.entries(last?.cover || {}).map(([k, v]) => [k, v.s])) as Record<string, string>;
+  }, [live, mem.sessions]);
+  const legs = useMemo(
+    () =>
+      taskPath(LIVE_ORDER, stages)
+        .map(l => {
+          const r = route(l.from, l.to);
+          if (!r || r.length < 2) return null;
+          const raw = r.map(q => new THREE.Vector3(...toWorld(q)));
+          const pts = raw.length > 2 ? new THREE.CatmullRomCurve3(raw, false, 'centripetal').getSpacedPoints(31) : raw;
+          return { ...l, pts: pts.map(v => [v.x, v.y, v.z] as V3) };
+        })
+        .filter(l => !!l),
+    [stages],
+  );
+  const working = useRef<{ material: THREE.Material & { opacity: number } } | null>(null);
+  useFrame(({ clock }) => {
+    if (working.current) working.current.material.opacity = 0.45 + 0.45 * Math.abs(Math.sin(clock.elapsedTime * 3));
+  });
+  return (
+    <>
+      {legs.map(l => (
+        <Line
+          key={l.from + '>' + l.to}
+          ref={l.state === 'working' ? (working as never) : undefined}
+          points={l.pts}
+          color={l.state === 'failed' ? '#d96570' : l.state === 'waiting' ? '#9aa3b4' : colorOf(l.to)}
+          lineWidth={l.state === 'waiting' ? 1 : 2}
+          dashed={l.state === 'waiting'}
+          dashSize={0.05}
+          gapSize={0.05}
+          transparent
+          opacity={LEG_OPACITY[l.state]}
+          depthTest={false}
+          renderOrder={5}
+        />
+      ))}
+    </>
+  );
+}
 const Transits = () => {
   const pulses = useStore(s => s.pulses);
   return (
@@ -1087,6 +1136,7 @@ export default function BrainScene({ locked = false, resetView = 0 }: { locked?:
         <Agents locked={locked} />
         {!locked && <Memories />}
         {!locked && <History />}
+        {!locked && <TaskPath />}
         <Transits />
         <Outline />
         {/* biome-ignore lint/a11y/noStaticElementInteractions: three.js mesh; the memory list also opens from the search bar */}
