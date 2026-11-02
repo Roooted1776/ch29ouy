@@ -14,6 +14,7 @@ describe('key guide', () => {
     expect(guessProvider('AIzaSyX')).toBe('google');
     expect(guessProvider('AQ.Ab8RN6x')).toBe('google');
     expect(guessProvider('xai-123')).toBe('xai');
+    expect(guessProvider('sk-or-v1-abc')).toBe('openrouter');
     expect(guessProvider('hello')).toBeNull();
   });
   it('each handoff carries the real text that was passed on', async () => {

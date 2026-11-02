@@ -57,6 +57,12 @@ const EVENTS: Record<ProviderId, unknown[]> = {
   get cerebras() {
     return this.groq;
   },
+  get openrouter() {
+    return this.groq;
+  },
+  get opencode() {
+    return this.groq;
+  },
   get muse() {
     return this.groq;
   },
@@ -97,12 +103,14 @@ describe('streaming replies', () => {
     expect((g.body as any).reasoning_effort).toBe('low');
     expect((buildRequest({ provider: 'openai', ...base }).body as any).stream).toBeUndefined();
   });
-  it('Cerebras and Muse use the chat format at their own addresses', () => {
+  it('Cerebras, OpenRouter, OpenCode Zen and Muse use the chat format at their own addresses', () => {
     const urls: Record<string, string> = {
       cerebras: 'https://api.cerebras.ai/v1/chat/completions',
+      openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+      opencode: 'https://opencode.ai/zen/v1/chat/completions',
       muse: 'https://api.meta.ai/v1/chat/completions',
     };
-    for (const p of ['cerebras', 'muse'] as ProviderId[]) {
+    for (const p of ['cerebras', 'openrouter', 'opencode', 'muse'] as ProviderId[]) {
       const r = buildRequest({ provider: p, ...base, model: 'm' }, true);
       expect(r.url).toBe(urls[p]);
       expect(r.headers.authorization).toBe('Bearer k-123');

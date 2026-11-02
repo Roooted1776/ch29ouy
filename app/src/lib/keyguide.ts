@@ -74,6 +74,28 @@ export const KEY_GUIDE: Record<ProviderId, KeyGuide> = {
       "The free tier has daily limits; check the page for today's numbers",
     ],
   },
+  openrouter: {
+    site: 'OpenRouter',
+    url: 'https://openrouter.ai/keys',
+    prefix: 'sk-or-',
+    steps: [
+      'Sign in at openrouter.ai',
+      'Open Keys and press Create Key',
+      'Copy the key. It is shown only once',
+      'Models ending in :free cost nothing but have daily limits',
+    ],
+  },
+  opencode: {
+    site: 'OpenCode Zen',
+    url: 'https://opencode.ai/zen',
+    prefix: '',
+    steps: [
+      'Sign in at opencode.ai/zen',
+      'Create an API key',
+      'Copy the key and paste it here',
+      'Free models have limits; paid models need billing',
+    ],
+  },
   muse: {
     site: 'Meta Model API',
     url: 'https://dev.meta.ai',
@@ -91,6 +113,7 @@ export const KEY_GUIDE: Record<ProviderId, KeyGuide> = {
 export function guessProvider(key: string): ProviderId | null {
   const k = key.trim();
   if (k.startsWith('sk-ant-')) return 'anthropic';
+  if (k.startsWith('sk-or-')) return 'openrouter';
   if (k.startsWith('xai-')) return 'xai';
   if (k.startsWith('gsk_')) return 'groq';
   if (k.startsWith('csk-')) return 'cerebras';
