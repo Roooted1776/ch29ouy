@@ -49,17 +49,24 @@ describe('a real task, streamed', () => {
     useStore.setState({ keys: { openai: 'sk-test' } });
     await useStore.getState().send('task: write a plan');
     const s = useStore.getState();
-    expect(f).toHaveBeenCalledTimes(9); // 8 bots, then Grok Bot files memory
+    expect(f).toHaveBeenCalledTimes(11); // 10 bots, then Grok Bot files memory
     expect(JSON.parse((f.mock.calls[0] as any)[1].body).stream).toBe(true);
     expect(s.draft).toBeNull();
     expect(s.busy).toBe(false);
     expect(s.flow[0]).toEqual(['owner', 'gemini', 3]); // the owner's task, three words
     expect(s.flow).toContainEqual(['gemini', 'muse', 6]); // "HANDOFF FROM Gemini:" + the three streamed words
     expect(s.flow).toContainEqual(['grokbot', 'brain', 3]);
-    expect(Object.keys(s.timing).length).toBe(8);
+    expect(Object.keys(s.timing).length).toBe(10);
+    expect(Object.keys(s.stageTokens || {}).length).toBe(10);
+    expect(s.stageTokens?.gemini).toEqual({ in: 5, out: 3 });
+    expect(Object.keys(s.transitLatencies || {}).length).toBe(10);
+    expect(typeof s.transitLatencies?.gemini).toBe('number');
+    expect(s.transitLatencies?.gemini).toBeGreaterThanOrEqual(0);
     const sess = s.mem.sessions.at(-1)!;
     expect(sess.flow).toEqual(s.flow);
     expect(sess.ms).toEqual(s.timing);
+    expect(sess.stageTokens).toEqual(s.stageTokens);
+    expect(sess.transitLatencies).toEqual(s.transitLatencies);
     expect(sess.project).toBe('Brain');
     expect(s.log.filter(m => m.from === 'gemini')[0].text).toBe('one two three');
     expect(s.mem.entries.map(e => e.key)).toContain('project:brain');

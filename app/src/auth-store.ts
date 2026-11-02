@@ -220,15 +220,20 @@ async function unlock(u: User, kek: CryptoKey) {
     vaultKeys = saved;
     ls.setItem(VAULT_KEY, JSON.stringify(await encryptVault(s, { mem, keys: saved }, counter)));
   } else if (!ls.getItem(VAULT_KEY)) ls.setItem(VAULT_KEY, JSON.stringify(remote.envelope));
-  const { [GITHUB_ENTRY]: githubToken = '', ...providerKeys } = saved;
+  const { [GITHUB_ENTRY]: rawGithub = '', ...providerKeys } = saved;
+  const githubToken = rawGithub || (saved as any).github || '';
+  const effectiveKeys = {
+    ...providerKeys,
+    ...(githubToken ? { github: githubToken } : {}),
+  };
   useStore.setState(st => ({
     role: u.role,
     who: u.name,
     mem,
     rev: st.rev + 1,
-    keys: u.role === 'admin' ? providerKeys : {},
+    keys: u.role === 'admin' ? effectiveKeys : {},
     githubToken: u.role === 'admin' ? githubToken : '',
-    live: u.role === 'admin' && Object.keys(providerKeys).length > 0 ? { ...st.live, remember: true } : st.live,
+    live: u.role === 'admin' && Object.keys(effectiveKeys).length > 0 ? { ...st.live, remember: true } : st.live,
     storageOk: true,
     projectSync: { checkedAt: 0, projects: 0, records: 0, error: '' },
   }));

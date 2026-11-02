@@ -142,6 +142,8 @@ export interface State {
   task: string;
   draft: { from: AgentId; text: string } | null;
   timing: Partial<Record<AgentId, number>>;
+  stageTokens?: Partial<Record<AgentId, { in: number; out: number }>>;
+  transitLatencies?: Partial<Record<AgentId, number>>;
   flow: Flow[];
   inactiveBots: AgentId[];
   /** Bots that hit a token, rate or credit limit. Their name shows red in the chat until they answer again. */
@@ -206,6 +208,15 @@ export interface State {
   syncGithub(options?: GitHubImportOptions): Promise<{ added: number; updated: number; total: number }>;
 }
 
+/** Selects the most recent non-memory pulse without allocating new arrays on each render. */
+export const selectActivePulse = (s: State): Pulse | undefined => {
+  for (let i = s.pulses.length - 1; i >= 0; i--) {
+    const p = s.pulses[i];
+    if (!p.from.startsWith('mem:')) return p;
+  }
+  return undefined;
+};
+
 let logN = 0,
   pulseN = 0;
 const ctls = new Set<AbortController>();
@@ -226,7 +237,7 @@ function loadLive(): { live: LiveCfg; keys: Partial<Record<ProviderId, string>> 
     maxTokens: 220,
     web: true,
     banter: true,
-    callCap: 9,
+    callCap: 10,
     remember: true,
   };
   const keys: Partial<Record<ProviderId, string>> = {};
@@ -240,7 +251,7 @@ function loadLive(): { live: LiveCfg; keys: Partial<Record<ProviderId, string>> 
         live.maxTokens = Math.max(20, Math.min(400, Math.round(d.maxTokens)));
       if (typeof d.web === 'boolean') live.web = d.web;
       // banter is always on (Owner, Nov 1 2026: "banter should auto happen, I should have no role"): an old saved "off" is ignored
-      if (Number.isFinite(d.callCap)) live.callCap = Math.max(1, Math.min(9, Math.round(d.callCap)));
+      if (Number.isFinite(d.callCap)) live.callCap = Math.max(1, Math.min(10, Math.round(d.callCap)));
       for (const p of PROVIDERS)
         if (typeof d.models?.[p] === 'string' && MODEL_RE.test(d.models[p]) && !RETIRED.has(d.models[p]))
           live.models[p] = d.models[p];
@@ -436,6 +447,8 @@ export const useStore = create<State>()((set, get) => {
     task: '',
     draft: null,
     timing: {},
+    stageTokens: {},
+    transitLatencies: {},
     flow: [],
     inactiveBots: [],
     limited: [],
@@ -519,6 +532,7 @@ export const useStore = create<State>()((set, get) => {
       set(s => ({
         keys,
         dead,
+        ...(p === 'github' ? { githubToken: val } : {}),
         ...(s.autoUpdateBots && val ? { inactiveBots: s.inactiveBots.filter(b => AGENT[b]?.provider !== p) } : {}),
       }));
       saveLive(get().live, keys);
@@ -534,11 +548,11 @@ export const useStore = create<State>()((set, get) => {
         delete keys[prov];
         const dead = { ...get().dead };
         delete dead[prov];
-        set({ keys, dead });
+        set({ keys, dead, ...(prov === 'github' ? { githubToken: '' } : {}) });
         saveLive(get().live, keys);
         get().commit();
       } else {
-        set({ keys: {}, dead: {} });
+        set({ keys: {}, dead: {}, githubToken: '' });
         saveLive({ ...get().live, remember: false }, {});
         set(s => ({ live: { ...s.live, remember: false } }));
         get().commit();
@@ -909,7 +923,20 @@ export const useStore = create<State>()((set, get) => {
       }
       const nextRepo = cfg.repo !== undefined ? cfg.repo.trim() : get().githubRepo;
       const nextToken = cfg.token !== undefined ? cfg.token.trim() : get().githubToken;
-      set({ githubRepo: nextRepo, githubToken: nextToken });
+      set(st => ({
+        githubRepo: nextRepo,
+        githubToken: nextToken,
+        keys:
+          cfg.token !== undefined
+            ? nextToken
+              ? { ...st.keys, github: nextToken }
+              : (() => {
+                  const k = { ...st.keys };
+                  delete k.github;
+                  return k;
+                })()
+            : st.keys,
+      }));
       saveGithub({
         repo: nextRepo,
         recentRepos: get().githubRecentRepos,

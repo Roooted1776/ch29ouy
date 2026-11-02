@@ -75,8 +75,18 @@ export interface Msg {
   tag: string;
 }
 export type Cover = 'done' | 'failed' | 'skipped';
+export type FlowTuple = [string, string, number];
+export interface FlowMetric {
+  from: string;
+  to: string;
+  words: number;
+  tokensIn?: number;
+  tokensOut?: number;
+  transitMs?: number;
+  durationMs?: number;
+}
 /** What really passed in one handoff: sender, receiver and the number of words. 'memory' and 'brain' are Brain's own ends. */
-export type Flow = [string, string, number];
+export type Flow = FlowTuple;
 /** task = full team run; chat = single-model talk (not auto-filed to wiki). */
 export type SessionKind = 'task' | 'chat';
 export interface Session {
@@ -92,6 +102,8 @@ export interface Session {
   cover?: Record<string, { s: Cover; why?: string }>;
   flow?: Flow[];
   ms?: Record<string, number>;
+  stageTokens?: Record<string, { in: number; out: number }>;
+  transitLatencies?: Record<string, number>;
   project?: string;
   projectId?: string;
   nodeId?: string;
@@ -339,6 +351,8 @@ export function sanitizeMem(d: any, fromBackup = false): Mem | null {
     cover: cleanCover(s.cover),
     flow: cleanFlow(s.flow),
     ms: cleanMs(s.ms),
+    stageTokens: cleanStageTokens(s.stageTokens),
+    transitLatencies: cleanTransitLatencies(s.transitLatencies),
     project: typeof s.project === 'string' ? scrub(s.project.slice(0, 80)) : undefined,
     ...(typeof s.sum === 'string' ? { sum: scrub(s.sum.slice(0, 300)) } : {}),
     projectId: typeof s.projectId === 'string' ? scrub(s.projectId.slice(0, 40)) : undefined,
@@ -391,18 +405,45 @@ export function sanitizeMem(d: any, fromBackup = false): Mem | null {
 }
 
 const END = (x: unknown) => typeof x === 'string' && (isAgent(x) || x === 'owner' || x === 'memory' || x === 'brain');
-function cleanFlow(f: unknown): Flow[] | undefined {
+export function cleanFlow(f: unknown): Flow[] | undefined {
   if (!Array.isArray(f)) return undefined;
   return f
     .filter(x => Array.isArray(x) && x.length === 3 && END(x[0]) && END(x[1]) && Number.isFinite(x[2]) && x[2] >= 0)
     .slice(0, 40)
     .map(x => [x[0], x[1], Math.min(100000, Math.round(x[2]))] as Flow);
 }
-function cleanMs(m: unknown): Record<string, number> | undefined {
+export function cleanMs(m: unknown): Record<string, number> | undefined {
   if (!m || typeof m !== 'object') return undefined;
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(m as Record<string, unknown>))
     if (isAgent(k) && Number.isFinite(v) && (v as number) >= 0) out[k] = Math.min(600000, Math.round(v as number));
+  return out;
+}
+export function cleanStageTokens(st: unknown): Record<string, { in: number; out: number }> | undefined {
+  if (!st || typeof st !== 'object') return undefined;
+  const out: Record<string, { in: number; out: number }> = {};
+  for (const [k, v] of Object.entries(st as Record<string, unknown>)) {
+    if (isAgent(k) && v && typeof v === 'object') {
+      const tin = (v as Record<string, unknown>).in;
+      const tout = (v as Record<string, unknown>).out;
+      if (Number.isFinite(tin) && (tin as number) >= 0 && Number.isFinite(tout) && (tout as number) >= 0) {
+        out[k] = {
+          in: Math.min(1000000, Math.round(tin as number)),
+          out: Math.min(1000000, Math.round(tout as number)),
+        };
+      }
+    }
+  }
+  return out;
+}
+export function cleanTransitLatencies(tl: unknown): Record<string, number> | undefined {
+  if (!tl || typeof tl !== 'object') return undefined;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(tl as Record<string, unknown>)) {
+    if (isAgent(k) && Number.isFinite(v) && (v as number) >= 0) {
+      out[k] = Math.min(600000, Math.round(v as number));
+    }
+  }
   return out;
 }
 function cleanCover(c: unknown): Session['cover'] {

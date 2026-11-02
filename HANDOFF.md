@@ -16,6 +16,119 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Claude — Nov 2, 2026: All agents involved in every task
+
+## Overview & Request
+User: "i want all agent involved"
+Ensured all 10 agents from Max's standing team (`gemini`, `muse`, `chatgpt`, `claude`, `cursor`, `copilot`, `perplexity`, `grok`, `xcode`, `grokbot`) are actively and unconditionally involved on every single task, without Xcode sitting out on non-iOS tasks or being filtered by keyword regex.
+
+## What Changed & Why
+1. **Unconditional 10-Agent Chain (`app/src/lib/chain.ts`)**:
+   - Updated `chainFor`: returns all 10 agents (`LIVE_ORDER`) for any task, only skipping agents explicitly marked disabled in `inactiveBots`.
+   - Removed iOS regex filter (`id !== 'xcode' || IOS_RE.test(task)`) and removed the chat notice `"Xcode sits this one out because it is not an iOS task."`.
+   - Updated default per-task cap in `runChain`: `opts.perTaskCap ?? 10` so all 10 agents execute without early budget truncation.
+2. **Xcode Review Scope Expanded (`app/src/data/team.ts`)**:
+   - Updated Xcode's stage description to `PLATFORM & BUILD CHECK. Review client platforms, device targets (iOS, macOS, web, mobile, desktop), build constraints, performance and deployment feasibility. Do not claim to run builds.`
+   - Updated Xcode's task instruction to `Review platform compatibility, device targets, build constraints, and deployment feasibility.`
+   - Xcode now delivers meaningful platform architecture and deployment reviews for any project task rather than claiming non-applicability.
+3. **Execution Caps & Memory Filing Budget (`app/src/lib/run-task.ts`, `app/src/store.ts`)**:
+   - `DEFAULT_LIVE.callCap` set to 10 (matching the 10 agents).
+   - In `runTask`: `cap = st.live.callCap + (isStage ? 0 : 1)`, ensuring all 10 agent stages complete and Grok Bot has budget for the 11th call (memory filing).
+   - Status notes map updated to label disabled bots as `'Disabled'` and unused bots as `'Not used'` (removed `'Not an iOS task'`).
+4. **Test Suite & Build Updates (`app/test/*`, `index.html`)**:
+   - Updated `test/chain.test.ts` to assert all 10 agents are in the execution chain for generic tasks.
+   - Updated `test/live-default.test.ts` to assert default `callCap` is 10.
+   - Updated `test/task-flow.test.ts` to assert 11 provider calls (10 bots + 1 memory filing) and 10 timing entries.
+   - Rebuilt single-file `index.html` with CSP SHA-256 hash pinning.
+
+## Files Touched
+- `app/src/data/team.ts`
+- `app/src/lib/chain.ts`
+- `app/src/lib/run-task.ts`
+- `app/src/store.ts`
+- `app/test/chain.test.ts`
+- `app/test/live-default.test.ts`
+- `app/test/task-flow.test.ts`
+- `app/dist/index.html`
+- `index.html`
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `npm run format`: clean (119 files)
+- `npm run lint`: 0 errors (40 warnings, baseline preserved)
+- `npm run typecheck`: clean (0 errors)
+- `npm test`: 42 test suites passed, 1 skipped (268 passed, 3 skipped)
+- `npm run build`: built in 311ms; single-file `index.html` (1739 KB)
+- `npm run e2e`: 3 passed in 39.0s (all 10 bots logged and verified in browser)
+
+## How the Next AI Should Check It
+1. Run `cd app && npm test` to verify all 268 tests pass.
+2. Run `npm run typecheck` and `npm run lint` in `app/`.
+3. Run `npm run e2e` to verify full Playwright browser suite with all 10 bots.
+4. Send any generic task (e.g. `task: plan features`) and verify all 10 bots participate sequentially without Xcode skipping.
+
+---
+
+# Handoff from Claude — Nov 2, 2026: Incorporate all agents and all API keys
+
+## Overview & Request
+User: "incorporate all agents, all api keys"
+Fully incorporated all 10 agents from Max's standing team (`gemini`, `muse`, `chatgpt`, `claude`, `cursor`, `copilot`, `perplexity`, `grok`, `xcode`, `grokbot`) into the live review chain, task timeline, coverage bar, and 3D brain task path. Added first-class API key providers for Perplexity (`sonar`, `pplx-`) and GitHub Models / Copilot (`gpt-4o`, `ghp_` / `github_pat_`), complete with key guide documentation, automatic key prefix detection, bidirectional credential syncing, and Content Security Policy domain whitelisting.
+
+## What Changed & Why
+1. **All 10 Agents in Live Execution (`app/src/data/team.ts`, `app/src/lib/chain.ts`, `app/src/lib/run-task.ts`)**:
+   - Added `copilot` into `LIVE_ORDER` in sequence: `gemini` -> `muse` -> `chatgpt` -> `claude` -> `cursor` -> `copilot` -> `perplexity` -> `grok` -> `xcode` -> `grokbot`.
+   - Assigned dedicated providers: `copilot` -> `'github'`, `perplexity` -> `'perplexity'`.
+   - Updated `chain.ts` and `run-task.ts` task budget caps to accommodate all 10 agents on iOS tasks and all 9 agents on non-iOS tasks without halting before Grok Bot's final situation report.
+2. **First-Class API Key Providers for Perplexity & GitHub (`app/src/lib/providers.ts`, `app/src/lib/keyguide.ts`)**:
+   - Added `'perplexity'` and `'github'` to `ProviderId`, `PROV`, and `CHAT_URL`.
+   - Enabled native web search citations for Perplexity (`CAN_SEARCH.add('perplexity')`).
+   - Added step-by-step API key retrieval guides and linkouts (`KEY_GUIDE['perplexity']`, `KEY_GUIDE['github']`).
+   - Enhanced `guessProvider` to identify `pplx-` as Perplexity and `ghp_` / `github_pat_` as GitHub.
+3. **Seamless Credential Sync & Admin UI (`app/src/store.ts`, `app/src/auth-store.ts`, `app/src/components/AdminPanel.tsx`)**:
+   - Integrated GitHub provider keys with the encrypted keystore: entering a token under GitHub Copilot syncs to repository connector `githubToken` and vice versa.
+   - Updated AdminPanel cards to label `Google (Gemini)`, `Anthropic (Claude)`, and `GitHub (Copilot)`.
+   - Updated web search capability toggle label in AdminPanel.
+4. **Security & CSP Domain Pinning (`app/scripts/publish.mjs`)**:
+   - Whitelisted `https://api.perplexity.ai` and `https://models.inference.ai.azure.com` in `connect-src` CSP header.
+5. **Full Test Suite & Single-File Production Build (`index.html`)**:
+   - Updated vitest assertions across `team.test.ts`, `chain.test.ts`, `keyguide.test.ts`, `stream.test.ts`, and `task-flow.test.ts`.
+   - Rebuilt single-file `index.html` with verified SHA-256 script hash pinning.
+
+## Files Touched
+- `app/src/data/team.ts`
+- `app/src/lib/providers.ts`
+- `app/src/lib/keyguide.ts`
+- `app/src/lib/chain.ts`
+- `app/src/lib/run-task.ts`
+- `app/src/store.ts`
+- `app/src/auth-store.ts`
+- `app/src/components/AdminPanel.tsx`
+- `app/scripts/publish.mjs`
+- `app/test/team.test.ts`
+- `app/test/chain.test.ts`
+- `app/test/keyguide.test.ts`
+- `app/test/stream.test.ts`
+- `app/test/task-flow.test.ts`
+- `app/dist/index.html`
+- `index.html`
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `npm run format`: clean (120 files)
+- `npm run lint`: 0 errors (40 warnings, baseline preserved)
+- `npm run typecheck`: clean (0 errors)
+- `npm test`: 42 test suites passed, 1 skipped (268 passed, 3 skipped)
+- `npm run build`: built in 308ms; single-file `index.html` (1740 KB)
+- `npm run e2e`: 3 passed in 30.3s (all Playwright browser tests green with all 10 bots running)
+
+## How the Next AI Should Check It
+1. Run `npm test` in `app/` to verify all 268 unit and integration tests pass.
+2. Run `npm run typecheck` and `npm run lint` in `app/` to ensure zero compilation or linter errors.
+3. Open `index.html` in browser, verify Settings -> API keys shows cards for all providers including Perplexity and GitHub (Copilot), and run a task to verify the full 10-agent pipeline.
+
+---
+
 # Handoff from Claude — Nov 2, 2026: UI overhaul & capabilities upgrade
 
 ## Overview & Request

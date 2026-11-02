@@ -68,7 +68,7 @@ describe('Live AI default', () => {
     const state = useStore.getState();
     expect(state.live.provider).toBe('openai');
     expect(state.live.models).not.toHaveProperty('freebuff');
-    expect(state.live.callCap).toBe(9);
+    expect(state.live.callCap).toBe(10);
     expect(state.keys).not.toHaveProperty('freebuff');
     expect(fetchSpy).not.toHaveBeenCalled();
     delete (globalThis as any).localStorage;

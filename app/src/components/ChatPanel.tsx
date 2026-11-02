@@ -1,6 +1,6 @@
 import { splitLinks } from '../lib/search';
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { pulseMs, type Pulse } from '../store';
+import { pulseMs, selectActivePulse, type Pulse } from '../store';
 import { TYPE_COLOR, colorOf } from '../data/colors';
 import { AGENT, isAgent, type AgentId } from '../data/team';
 import { useStore } from '../store';
@@ -176,21 +176,31 @@ export default function ChatPanel() {
   const inspectBot = useStore(s => s.inspectBot);
   const end = useRef<HTMLDivElement>(null),
     msgsRef = useRef<HTMLDivElement>(null),
+    isProgrammaticScroll = useRef(false),
     [autoScroll, setAutoScroll] = useState(true),
     draft = useStore(s => s.draft),
     flow = useStore(s => s.flow),
-    activePulse = useStore(s => s.pulses.filter(p => !p.from.startsWith('mem:')).at(-1));
+    activePulse = useStore(selectActivePulse);
 
   const scrollToBottom = (smooth = false) => {
     const el = msgsRef.current;
-    if (el) {
-      if (smooth && typeof el.scrollTo === 'function') {
-        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-      } else {
-        el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    isProgrammaticScroll.current = true;
+    requestAnimationFrame(() => {
+      const container = msgsRef.current;
+      if (!container) {
+        isProgrammaticScroll.current = false;
+        return;
       }
-    }
-    end.current?.scrollIntoView?.({ block: 'end', behavior: smooth ? 'smooth' : 'auto' });
+      if (smooth && typeof container.scrollTo === 'function') {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      } else {
+        container.scrollTop = container.scrollHeight;
+      }
+      requestAnimationFrame(() => {
+        isProgrammaticScroll.current = false;
+      });
+    });
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: these values trigger the scroll into view
@@ -201,6 +211,7 @@ export default function ChatPanel() {
   }, [log.length, viewing, draft?.text, draft?.from, flow.length, stages, autoScroll, busy]);
 
   const onScroll = () => {
+    if (isProgrammaticScroll.current) return;
     const el = msgsRef.current;
     if (!el) return;
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
@@ -533,7 +544,7 @@ function BanterBar() {
 
 /** The handoff in flight: a light moves from the sender to the receiver in the same time as the 3D view. */
 function Handoff() {
-  const p: Pulse | undefined = useStore(s => s.pulses.filter(x => !x.from.startsWith('mem:')).at(-1));
+  const p: Pulse | undefined = useStore(selectActivePulse);
   if (!p) return null;
   return (
     <div

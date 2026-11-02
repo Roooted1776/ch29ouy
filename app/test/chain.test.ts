@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chainFor, runChain } from '../src/lib/chain';
+import { buildChainDigest, chainFor, runChain } from '../src/lib/chain';
 import { buildRequest, callModel, parseReply, ProviderError } from '../src/lib/providers';
 
 const hooks = () => {
@@ -20,15 +20,17 @@ const hooks = () => {
 };
 
 describe('live chain', () => {
-  it('runs the three checks then the lead, skipping Xcode for non-iOS tasks', () => {
+  it('runs all agents in review order then the lead', () => {
     expect(chainFor('write a plan')).toEqual([
       'gemini',
       'muse',
       'chatgpt',
       'claude',
       'cursor',
+      'copilot',
       'perplexity',
       'grok',
+      'xcode',
       'grokbot',
     ]);
     expect(chainFor('ship the iPhone app')).toContain('xcode');
@@ -46,18 +48,28 @@ describe('live chain', () => {
       h,
       { brainContext: 'BRAIN CONTEXT: x', brainContextShort: 'BRAIN CONTEXT: short' },
     );
-    expect(r.completed).toBe(9);
+    expect(r.completed).toBe(10);
     expect(prompts[1]).toContain('HANDOFF FROM Gemini');
-    expect(prompts[8]).toContain('HANDOFF FROM Gemini');
-    expect(prompts[8]).toContain('HANDOFF FROM Xcode');
-    expect(prompts[8]).toMatch(/FINAL SITUATION REPORT/);
+    expect(prompts[9]).toContain('HANDOFF FROM Gemini');
+    expect(prompts[9]).toContain('HANDOFF FROM Xcode');
+    expect(prompts[9]).toMatch(/FINAL SITUATION REPORT/);
     expect(prompts[0]).toContain('BRAIN CONTEXT');
     expect(prompts.every(p => p.includes('BRAIN CONTEXT'))).toBe(true); // every agent reads memory
     expect(prompts[1]).toContain('BRAIN CONTEXT: short');
-    expect(prompts[8]).toContain('BRAIN CONTEXT');
+    expect(prompts[9]).toContain('BRAIN CONTEXT');
+    // Upstream milestone propagation to intermediate stages
+    // Cursor (stage 4) receives Claude's proposal as incoming, plus Gemini and Muse in upstream progress
+    expect(prompts[4]).toContain('HANDOFF FROM Claude Code');
+    expect(prompts[4]).toContain('UPSTREAM CHAIN PROGRESS');
+    expect(prompts[4]).toContain('Gemini - Check 1 Context & Requirements');
+    expect(prompts[4]).toContain('Muse - Check 2 Adversarial Audit & Risks');
+    expect(prompts[4]).toContain('Claude Code - Check 3 Builder Architecture Proposal');
+    // Grok (stage 7) has full visibility into Claude's architecture and Gemini's scope
+    expect(prompts[7]).toContain('Claude Code - Check 3 Builder Architecture Proposal');
+    expect(prompts[7]).toContain('Gemini - Check 1 Context & Requirements');
     expect(hand[0]).toBe('owner>gemini');
     expect(hand).toContain('xcode>grokbot');
-    expect(log.filter(m => m.tag === 'live · OpenAI · m').length).toBe(9);
+    expect(log.filter(m => m.tag === 'live · OpenAI · m').length).toBe(10);
   });
   it('a failed stage is marked failed and never filled with made-up text', async () => {
     const { h, log } = hooks();
@@ -90,6 +102,17 @@ describe('live chain', () => {
     );
     expect(n).toBe(3);
     expect(r.completed).toBe(3);
+  });
+  it('buildChainDigest formats milestones with role labels and handles empty or failed states', () => {
+    expect(buildChainDigest([])).toBe('');
+    const digest = buildChainDigest([
+      { id: 'gemini', name: 'Gemini', text: 'Requirements identified.' },
+      { id: 'muse', name: 'Muse', text: 'Risks audited.' },
+      { id: 'chatgpt', name: 'ChatGPT', text: 'Tool plan ready.', failed: true },
+    ]);
+    expect(digest).toContain('[Gemini - Check 1 Context & Requirements]\nRequirements identified.');
+    expect(digest).toContain('[Muse - Check 2 Adversarial Audit & Risks]\nRisks audited.');
+    expect(digest).toContain('[ChatGPT - Check 3 Strategy & Execution Plan [INCOMPLETE/FAILED]]\nTool plan ready.');
   });
 });
 

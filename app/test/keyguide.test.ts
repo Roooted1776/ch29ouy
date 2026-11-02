@@ -15,6 +15,9 @@ describe('key guide', () => {
     expect(guessProvider('AQ.Ab8RN6x')).toBe('google');
     expect(guessProvider('xai-123')).toBe('xai');
     expect(guessProvider('sk-or-v1-abc')).toBe('openrouter');
+    expect(guessProvider('pplx-test-key-123')).toBe('perplexity');
+    expect(guessProvider('ghp_testgithubpat123')).toBe('github');
+    expect(guessProvider('github_pat_testgithubpat123')).toBe('github');
     expect(guessProvider('hello')).toBeNull();
   });
   it('each handoff carries the real text that was passed on', async () => {

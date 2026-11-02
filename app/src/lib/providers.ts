@@ -1,7 +1,17 @@
 import { HANDOFF_RULE } from '../data/team';
 import { redact } from './redact';
 
-export type ProviderId = 'anthropic' | 'openai' | 'google' | 'xai' | 'groq' | 'openrouter' | 'opencode' | 'muse';
+export type ProviderId =
+  | 'anthropic'
+  | 'openai'
+  | 'google'
+  | 'xai'
+  | 'groq'
+  | 'openrouter'
+  | 'opencode'
+  | 'muse'
+  | 'perplexity'
+  | 'github';
 export interface Provider {
   label: string;
   model: string;
@@ -66,6 +76,20 @@ export const PROV: Record<ProviderId, Provider> = {
     color: '#ff5fb8',
     roles: 'Muse',
   },
+  perplexity: {
+    label: 'Perplexity',
+    model: 'sonar',
+    hint: 'key starts with pplx-',
+    color: '#22d3ee',
+    roles: 'Perplexity',
+  },
+  github: {
+    label: 'GitHub (Copilot)',
+    model: 'gpt-4o',
+    hint: 'key starts with ghp_ or github_pat_',
+    color: '#fb923c',
+    roles: 'Copilot',
+  },
 };
 export const PROVIDERS = Object.keys(PROV) as ProviderId[];
 /** Model ids the providers have shut down or redirected (checked Oct 2026). A saved setting with one of these moves to the current default. */
@@ -84,6 +108,8 @@ const CHAT_URL: Partial<Record<ProviderId, string>> = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   opencode: 'https://opencode.ai/zen/v1/chat/completions',
   muse: 'https://api.meta.ai/v1/chat/completions',
+  perplexity: 'https://api.perplexity.ai/chat/completions',
+  github: 'https://models.inference.ai.azure.com/chat/completions',
 };
 const isChat = (p: ProviderId) => p in CHAT_URL;
 export const MODEL_RE = /^[A-Za-z0-9._:-]{1,80}$/;
@@ -119,6 +145,7 @@ export interface CallResult {
   why: string;
   tin: number;
   tout: number;
+  ttftMs?: number;
 }
 export interface CallOpts {
   provider: ProviderId;
@@ -149,7 +176,7 @@ function httpMessage(status: number, body: string, key: string) {
 
 /** Build the request for one provider. Exported for tests. */
 /** Providers whose own API can search the web. Checked Oct 2026 against each company's docs; see WEB_TOOL. */
-export const CAN_SEARCH = new Set<ProviderId>(['anthropic', 'openai', 'xai', 'google', 'groq']);
+export const CAN_SEARCH = new Set<ProviderId>(['anthropic', 'openai', 'xai', 'google', 'groq', 'perplexity']);
 export function buildRequest(
   o: Pick<CallOpts, 'provider' | 'key' | 'model' | 'system' | 'user' | 'maxTokens' | 'web'>,
   stream = false,
@@ -325,10 +352,12 @@ async function readStream(
   res: Response,
   onDelta: (t: string) => void,
   key: string,
+  t0?: number,
 ): Promise<CallResult> {
   let acc: CallResult = { text: '', why: '', tin: 0, tout: 0 },
     buf = '',
     last = '';
+  let ttftMs: number | undefined;
   const reader = res.body!.getReader(),
     dec = new TextDecoder();
   const take = (line: string) => {
@@ -343,6 +372,9 @@ async function readStream(
     }
     acc = foldEvent(provider, acc, ev);
     if (acc.text !== last) {
+      if (ttftMs === undefined && t0 !== undefined) {
+        ttftMs = Math.round(performance.now() - t0);
+      }
       last = acc.text;
       onDelta(redact(acc.text, [key]).text);
     }
@@ -359,7 +391,7 @@ async function readStream(
       break;
     }
   }
-  return acc;
+  return { ...acc, ttftMs };
 }
 
 /** One call to one provider. The key goes only to that provider and is never logged. */
@@ -370,6 +402,7 @@ export async function callModel(o: CallOpts): Promise<CallResult> {
   const timer = setTimeout(() => ctl.abort(), wait);
   const onStop = () => ctl.abort();
   o.signal?.addEventListener('abort', onStop);
+  const t0 = performance.now();
   let res: Response,
     raw = '',
     streamed: CallResult | null = null;
@@ -381,7 +414,7 @@ export async function callModel(o: CallOpts): Promise<CallResult> {
       signal: ctl.signal,
     });
     if (res.ok && o.onDelta && res.body && /event-stream/i.test(res.headers.get('content-type') || ''))
-      streamed = await readStream(o.provider, res, o.onDelta, o.key);
+      streamed = await readStream(o.provider, res, o.onDelta, o.key, t0);
     else raw = await res.text();
   } catch (e: unknown) {
     if (e instanceof ProviderError) throw e;
@@ -397,7 +430,7 @@ export async function callModel(o: CallOpts): Promise<CallResult> {
     clearTimeout(timer);
     o.signal?.removeEventListener('abort', onStop);
   }
-  if (streamed) return streamed;
+  if (streamed) return { ...streamed, ttftMs: streamed.ttftMs ?? Math.round(performance.now() - t0) };
   if (!res.ok) {
     const rejected =
       res.status === 401 ||
@@ -417,7 +450,7 @@ export async function callModel(o: CallOpts): Promise<CallResult> {
   } catch {
     throw new ProviderError('the reply was not JSON');
   }
-  return parseReply(o.provider, data);
+  return { ...parseReply(o.provider, data), ttftMs: Math.round(performance.now() - t0) };
 }
 
 /** Free services (Groq, OpenRouter, OpenCode Zen): tried first so paid keys are spent only when no free one works. */
