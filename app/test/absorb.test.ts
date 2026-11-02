@@ -57,6 +57,33 @@ describe('absorbing memory other agents saved', () => {
     expect(absorbMemory(mem, db)).toEqual({ added: 0, updated: 0, sessions: 0, projects: 0 });
     expect(mem).toEqual(again);
   });
+  it("moves this tab's own session when another device used the same id, so neither is lost", () => {
+    const mem = blankMem();
+    const mine = { ...session('s5', 1000), q: 'my task' };
+    mem.sessions.push(mine);
+    mem.nextSession = 6;
+    add(mem, 'ai:concept:mine', 'From my task.', 1000, { sources: [{ kind: 'session', label: 'x', ref: 's5' }] });
+    mem.inbox.push({ kind: 'session', ref: 's5' });
+    const db = blankMem();
+    db.sessions.push({ ...session('s5', 2000), q: 'other device task' });
+    absorbMemory(mem, db);
+    const other = mem.sessions.find(x => x.q === 'other device task')!;
+    const moved = mem.sessions.find(x => x.q === 'my task')!;
+    expect(other.id).toBe('s5');
+    expect(moved.id).not.toBe('s5');
+    expect(mem.entries[0].sources[0].ref).toBe(moved.id);
+    expect(mem.inbox[0].ref).toBe(moved.id);
+    expect(mem.nextSession).toBeGreaterThan(Number(moved.id.slice(1)));
+  });
+  it('moves counters past database ids even when nothing new arrives', () => {
+    const mem = blankMem();
+    const s = session('s40', 1000);
+    mem.sessions.push(s);
+    const db = blankMem();
+    db.sessions.push(structuredClone(s));
+    absorbMemory(mem, db);
+    expect(mem.nextSession).toBeGreaterThan(40);
+  });
   it('does not report sessions the local cap drops again', () => {
     const mem = blankMem();
     const db = blankMem();

@@ -234,13 +234,23 @@ export async function syncMemoryDatabase(mem: import('./memory').Mem, d: Db = db
  * Read memory back from the admin-only database mirror (the copy `syncMemoryDatabase` keeps).
  * Shaped for `sanitizeMem`. Only admins have SELECT on these tables.
  */
-async function memoryRows(d: Db, sourcesOnly = false) {
-  const rows = [];
+async function memoryRows(d: Db, sourcesOnly = false, since = '') {
+  const rows: {
+    id: string;
+    key: string;
+    type: string;
+    title: string;
+    note: string;
+    project: string;
+    body: unknown;
+    updated_at?: string;
+  }[] = [];
   // The project API caps a response at 200 rows. Paginate instead of silently
   // losing every project/memory beyond the first page.
   for (let offset = 0; offset < 10000; offset += 200) {
-    let q = d.from('memories').select('id, key, type, title, note, project, body').eq('archived', false);
+    let q = d.from('memories').select('id, key, type, title, note, project, body, updated_at').eq('archived', false);
     if (sourcesOnly) q = q.like('key', 'source:%');
+    if (since) q = q.gte('updated_at', since);
     const { data, error } = await q.order('id', { ascending: true }).range(offset, offset + 199);
     if (error) throw new CloudError(`Memory tables could not be read: ${why(error)}`);
     rows.push(...(data || []));
@@ -274,15 +284,22 @@ export async function loadProjectMemory(d: Db = db()): Promise<{ entries: unknow
   return { entries: entriesFromRows(await memoryRows(d, true)), sessions: [] };
 }
 
-export async function loadMemoryDatabase(d: Db = db()): Promise<{ entries: unknown[]; sessions: unknown[] }> {
+/**
+ * Read the database copy. With `since` (a database timestamp) only rows changed at or after it come back.
+ * `latest` is the newest change time seen, by the database's clock, for the next call.
+ */
+export async function loadMemoryDatabase(
+  d: Db = db(),
+  since = '',
+): Promise<{ entries: unknown[]; sessions: unknown[]; latest: string }> {
+  let sq = d.from('sessions').select('body, ts');
+  if (since) sq = sq.gte('ts', since);
   const [rows, t] = await Promise.all([
-    memoryRows(d),
-    d
-      .from('sessions')
-      .select('body')
-      .order('ts', { ascending: false })
-      .limit(MAX_SESSIONS + MAX_CITED_SESSIONS),
+    memoryRows(d, false, since),
+    sq.order('ts', { ascending: false }).limit(MAX_SESSIONS + MAX_CITED_SESSIONS),
   ]);
   if (t.error) throw new CloudError(`Memory tables could not be read: ${why(t.error)}`);
-  return { entries: entriesFromRows(rows), sessions: (t.data || []).map(r => r.body).reverse() };
+  const stamps = [...rows.map(r => r.updated_at || ''), ...(t.data || []).map(r => String(r.ts || ''))].filter(Boolean);
+  const latest = stamps.reduce((a, b) => (Date.parse(b) > Date.parse(a) ? b : a), since);
+  return { entries: entriesFromRows(rows), sessions: (t.data || []).map(r => r.body).reverse(), latest };
 }

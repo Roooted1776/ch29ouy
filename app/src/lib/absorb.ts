@@ -30,6 +30,40 @@ export function absorbMemory(mem: Mem, incoming: Mem): AbsorbResult {
   const sessionIds = new Set(next.sessions.map(x => x.id));
   const sessionMap = new Map<string, string>();
   const addedSessions: string[] = [];
+  // Ids already taken here or in the database copy.
+  const taken = new Set([...sessionIds, ...incoming.sessions.map(x => x.id)]);
+  const fresh = () => {
+    for (const id of taken) {
+      const k = Number(/^s(\d+)$/.exec(id)?.[1]);
+      if (Number.isFinite(k) && k >= next.nextSession) next.nextSession = k + 1;
+    }
+    const id = 's' + next.nextSession++;
+    taken.add(id);
+    return id;
+  };
+  // Each device numbers its own sessions, so two devices can both make "s5" for different tasks.
+  // The database copy keeps its id; this tab's own session moves to a new id, so the next push
+  // saves it as a new row instead of overwriting the other device's task.
+  const localRename = new Map<string, string>();
+  const incomingSigs = new Set(incoming.sessions.map(sessionSig));
+  for (const s of incoming.sessions) {
+    if (sigs.has(sessionSig(s))) continue;
+    const mine = next.sessions.find(x => x.id === s.id);
+    // Only when the database does not also hold this tab's session under that id.
+    if (!mine || incomingSigs.has(sessionSig(mine))) continue;
+    const id = fresh();
+    localRename.set(mine.id, id);
+    mine.id = id;
+    sigs.set(sessionSig(mine), id);
+  }
+  if (localRename.size) {
+    const swap = (ref: string) => localRename.get(ref) || ref;
+    for (const e of next.entries)
+      e.sources = e.sources.map(x => (x.kind === 'session' && x.ref ? { ...x, ref: swap(x.ref) } : x));
+    next.inbox = next.inbox.map(x => (x.kind === 'session' ? { ...x, ref: swap(x.ref) } : x));
+    sessionIds.clear();
+    for (const x of next.sessions) sessionIds.add(x.id);
+  }
   for (const s of incoming.sessions) {
     const sig = sessionSig(s);
     const known = sigs.get(sig);
@@ -37,18 +71,15 @@ export function absorbMemory(mem: Mem, incoming: Mem): AbsorbResult {
       sessionMap.set(s.id, known);
       continue;
     }
-    let id = s.id;
-    if (sessionIds.has(id)) {
-      while (sessionIds.has('s' + next.nextSession)) next.nextSession++;
-      id = 's' + next.nextSession++;
-    }
+    const id = sessionIds.has(s.id) ? fresh() : s.id;
     sessionIds.add(id);
+    taken.add(id);
     sigs.set(sig, id);
     sessionMap.set(s.id, id);
     next.sessions.push({ ...structuredClone(s), id });
     addedSessions.push(id);
   }
-  for (const id of sessionIds) {
+  for (const id of taken) {
     const k = Number(/^s(\d+)$/.exec(id)?.[1]);
     if (Number.isFinite(k) && k >= next.nextSession) next.nextSession = k + 1;
   }
@@ -125,6 +156,12 @@ export function absorbMemory(mem: Mem, incoming: Mem): AbsorbResult {
   // Count only sessions that survive the local cap; the database keeps older ones this copy already dropped.
   const kept = new Set(next.sessions.map(x => x.id));
   out.sessions = addedSessions.filter(id => kept.has(id)).length;
+  out.sessions += localRename.size;
   if (out.added || out.updated || out.sessions) Object.assign(mem, next);
+  else {
+    // Still move the counters past the database's ids, so the next new session or entry never reuses one.
+    mem.nextSession = Math.max(mem.nextSession, next.nextSession);
+    mem.nextId = Math.max(mem.nextId, next.nextId);
+  }
   return out;
 }

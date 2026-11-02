@@ -31,6 +31,8 @@ export async function runChain(
   hooks: ChainHooks,
   opts: {
     brainContext?: string;
+    /** A shorter copy of the memory context for the middle stages, to save tokens. */
+    brainContextShort?: string;
     perTaskCap?: number;
     clean?: (t: string) => string;
     inactiveBots?: ReadonlySet<AgentId> | AgentId[];
@@ -81,7 +83,10 @@ export async function runChain(
     const incomingFrom = i === 0 ? 'Owner' : AGENT[bots[i - 1]].name;
     const incoming = bot === 'grokbot' ? handoffs.join('\n\n') || previous : previous;
     // Every agent reads Brain's memory, so the whole team works from what all agents learned before.
-    const ctx = opts.brainContext || '';
+    const ctx =
+      bot === bots[0] || bot === 'grokbot'
+        ? opts.brainContext || ''
+        : (opts.brainContextShort ?? opts.brainContext) || '';
     hooks.active(bot);
     try {
       let r: { text: string; why: string };

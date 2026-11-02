@@ -107,16 +107,28 @@ function startMirror() {
   });
   const tick = setInterval(() => dirty && !running && void run(), 30_000);
   // Pull too: absorb what other agents and devices saved, so every copy of Brain learns from all of them.
-  let pulling = false;
+  let pulling = false,
+    pulls = 0,
+    since = '';
   const pull = async () => {
     const st = useStore.getState();
     if (pulling || st.role !== 'admin' || st.busy || !st.mem.settings.brain) return;
     pulling = true;
     try {
-      const back = sanitizeMem(await loadMemoryDatabase());
+      // Only rows changed since the last pull; a full read every 10th pull fills in links to older rows.
+      const full = !since || ++pulls % 10 === 0;
+      const got = await loadMemoryDatabase(undefined, full ? '' : since);
+      const back = sanitizeMem(got);
       if (!back || useStore.getState().busy) return;
-      const next = structuredClone(useStore.getState().mem);
+      if (got.latest) since = got.latest;
+      const cur = useStore.getState().mem;
+      const next = structuredClone(cur);
       const r = absorbMemory(next, back);
+      if (!(r.added || r.updated || r.sessions) && (next.nextSession > cur.nextSession || next.nextId > cur.nextId))
+        useStore.getState().commit(m => {
+          m.nextSession = Math.max(m.nextSession, next.nextSession);
+          m.nextId = Math.max(m.nextId, next.nextId);
+        });
       if (r.added || r.updated || r.sessions) {
         useStore.getState().commit(m => Object.assign(m, next));
         useStore.setState({
