@@ -16,6 +16,35 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Cursor — Nov 2, 2026, 1:48 AM America/New_York: #59/#62 live errors closed
+
+## Overview & Request
+Owner: fix errors for #62 / https://github.com/Roooted1776/ch29ouy/pull/59 (redeemed.live login “Cannot reach Brain's server”, stale Hostinger pin).
+
+## What Changed & Why
+- Confirmed PRs **#59** and **#62** already merged to `main`.
+- Confirmed Supabase `accounts` v15 already serves CORS for `https://redeemed.live` and `https://www.redeemed.live` (`setupNeeded` POST returns 200 with allow-origin).
+- Recreated Hostinger `brain-site` only (left `redmed-*`, traefik, vpn alone) pinned to main tip `f5e0401`; fixed www→apex Traefik redirect (broken over-escaped regex from prior compose copy).
+- Updated `DEPLOYMENT.md` so it no longer says redeemed.live is retired.
+
+## Files Touched
+- `DEPLOYMENT.md`
+- `HANDOFF.md`
+
+## Live verification
+- tip / Pages / redeemed.live SHA-256: `3c86922e07108dac6e817c676791a82549caa057aa2fdef2a338f070732a33c4`
+- `www.redeemed.live` → `308` to `https://redeemed.live/`
+- OPTIONS/POST accounts with Origin `https://redeemed.live` → `access-control-allow-origin: https://redeemed.live`
+- Hostinger action `docker_compose_up` success; RedMed containers still Up
+
+## Checks
+Docs-only; app format/lint/typecheck/test/build/e2e not re-run.
+
+## Git State
+Branch `cursor/redeemed-live-deploy-docs-939b` → draft PR. Owner/Director merge after Audits/Security.
+
+---
+
 # Handoff from Claude Code — Nov 2, 2026: commits under bots, task steps on the brain, 150-word cap
 
 ## Request (Owner)
