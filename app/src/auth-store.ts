@@ -13,6 +13,7 @@ import {
   syncMemoryDatabase,
   writeAudit,
 } from './lib/cloud';
+import { absorbMemory } from './lib/absorb';
 import { blankMem, type Mem, sanitizeMem } from './lib/memory';
 import { openChannel, publish, type Hub } from './lib/share';
 import { VaultError, decryptVault, encryptVault, newSecrets, openFor, sealFor, type Secrets } from './lib/vault';
@@ -21,7 +22,8 @@ import { setKeySave, setVault, takePlainGithubToken, useStore } from './store';
 
 export const VAULT_KEY = 'brain.vault.v1',
   HIDE_LOCK_MS = 60_000,
-  PANIC_MS = 600;
+  PANIC_MS = 600,
+  PULL_MS = 60_000;
 export type Phase = 'setup' | 'login' | 'app';
 interface Listed extends User {
   created: number;
@@ -104,12 +106,53 @@ function startMirror() {
     }
   });
   const tick = setInterval(() => dirty && !running && void run(), 30_000);
+  // Pull too: absorb what other agents and devices saved, so every copy of Brain learns from all of them.
+  let pulling = false,
+    pulls = 0,
+    since = '';
+  const pull = async () => {
+    const st = useStore.getState();
+    if (pulling || st.role !== 'admin' || st.busy || !st.mem.settings.brain) return;
+    pulling = true;
+    try {
+      // Only rows changed since the last pull; a full read every 10th pull fills in links to older rows.
+      const full = !since || ++pulls % 10 === 0;
+      const got = await loadMemoryDatabase(undefined, full ? '' : since);
+      const back = sanitizeMem(got);
+      if (!back || useStore.getState().busy) return;
+      if (got.latest) since = got.latest;
+      const cur = useStore.getState().mem;
+      const next = structuredClone(cur);
+      const r = absorbMemory(next, back);
+      if (!(r.added || r.updated || r.sessions) && (next.nextSession > cur.nextSession || next.nextId > cur.nextId))
+        useStore.getState().commit(m => {
+          m.nextSession = Math.max(m.nextSession, next.nextSession);
+          m.nextId = Math.max(m.nextId, next.nextId);
+        });
+      if (r.added || r.updated || r.sessions) {
+        useStore.getState().commit(m => Object.assign(m, next));
+        useStore.setState({
+          status: `Memory sync: absorbed ${r.added} new, ${r.updated} updated, ${r.sessions} session(s) from other agents.`,
+        });
+      }
+    } catch (e) {
+      useStore.setState({
+        status: `Memory sync could not read other agents' memory: ${String((e as Error)?.message || e).slice(0, 120)}`,
+      });
+    } finally {
+      pulling = false;
+    }
+  };
+  const pullTick = setInterval(() => void pull(), PULL_MS);
+  const firstPull = setTimeout(() => void pull(), 2000);
   const onHide = () => document.hidden && dirty && void run(); // push anything pending before the tab goes away
   document.addEventListener('visibilitychange', onHide);
   schedule(0);
   stop.push(
     off,
     () => clearInterval(tick),
+    () => clearInterval(pullTick),
+    () => clearTimeout(firstPull),
     () => clearTimeout(timer),
     () => document.removeEventListener('visibilitychange', onHide),
   );
