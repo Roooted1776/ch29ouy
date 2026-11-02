@@ -28,7 +28,7 @@ export const PROV: Record<ProviderId, Provider> = {
   google: {
     label: 'Google',
     model: 'gemini-3.1-flash-lite',
-    hint: 'key starts with AIza',
+    hint: 'key starts with AQ. or AIza',
     color: '#8bb7ff',
     roles: 'Gemini',
   },

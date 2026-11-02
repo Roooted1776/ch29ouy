@@ -33,7 +33,7 @@ export const KEY_GUIDE: Record<ProviderId, KeyGuide> = {
   google: {
     site: 'Google AI Studio',
     url: 'https://aistudio.google.com/apikey',
-    prefix: 'AIza',
+    prefix: 'AQ.',
     steps: [
       'Sign in at aistudio.google.com',
       'Open Get API key and create a key',
@@ -94,7 +94,7 @@ export function guessProvider(key: string): ProviderId | null {
   if (k.startsWith('xai-')) return 'xai';
   if (k.startsWith('gsk_')) return 'groq';
   if (k.startsWith('csk-')) return 'cerebras';
-  if (k.startsWith('AIza')) return 'google';
+  if (k.startsWith('AIza') || k.startsWith('AQ.')) return 'google';
   if (k.startsWith('sk-')) return 'openai';
   return null;
 }
