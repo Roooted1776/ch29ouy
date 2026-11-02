@@ -16,6 +16,40 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Cursor — Nov 2, 2026, 2:24 AM America/New_York: Pages cutover finished
+
+## Overview & Request
+Owner: take down `www.redeemed.live` (site moved onto git), deploy all onto https://roooted1776.github.io/ch29ouy/, then continue.
+
+## What Changed & Why
+- Stopped, then permanently removed Hostinger compose project `brain-site` on VPS `2010795`. Left `redmed-mcp`, `redmed-store`, `traefik`, and `vpn` running.
+- Confirmed GitHub Pages already serves `main` `index.html` (SHA-256 `3c86922e…`). No app rebuild was required; source and published HTML were already aligned.
+- Applied missing Brain Supabase migrations `tighten_access` and `admin_only_accounts` on project `iihjcqiiavleyheqzotl`. Verified `audit_log_stamp` exists and accounts status returns `setupNeeded: false` with CORS for `https://roooted1776.github.io`.
+- Docs only in this PR: record the cutover facts in `DEPLOYMENT.md` and this handoff.
+
+## Files Touched
+- `DEPLOYMENT.md`
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `https://roooted1776.github.io/ch29ouy/` → 200, SHA-256 matches `origin/main:index.html`
+- `https://redeemed.live` / `https://www.redeemed.live` → 404
+- `https://redmed.live` → 200
+- Hostinger docker list: no `brain-site`
+- Accounts `status` with Pages Origin → `{"setupNeeded":false}` and allow-origin header set
+- No `npm` format/lint/typecheck/test/build/e2e this turn: docs-only change; published HTML unchanged
+
+## How the Next AI Should Check It
+1. `curl -sI https://roooted1776.github.io/ch29ouy/ | head`
+2. Compare Pages SHA-256 with `git show origin/main:index.html | sha256sum`
+3. Confirm Hostinger docker projects for VM `2010795` do not include `brain-site`
+4. Do not recreate `brain-site`. Do not change `users.redeemed.live` or `brain.redeemed.live:` salts.
+
+## Git State
+Branch `cursor/pages-cutover-complete-b998` → draft PR into `main`. Owner / Director merge after Audits and Security.
+
+---
+
 # Handoff from Cursor — Nov 2, 2026, 1:53 AM America/New_York: deploy is GitHub Pages only
 
 ## Overview & Request

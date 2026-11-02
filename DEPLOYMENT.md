@@ -2,13 +2,17 @@
 
 Repository: https://github.com/Roooted1776/ch29ouy (renamed from Nodes). Work on `main` only.
 
-## Now: GitHub Pages only (Owner, 2026-11-02, 1:53 AM America/New_York)
+## Now: GitHub Pages only (Owner, 2026-11-02)
 
 Owner moved Brain onto GitHub. The only place a build is published is https://roooted1776.github.io/ch29ouy/.
 
 GitHub Pages serves the root `index.html` on `main` (legacy Pages, source branch `main`, path `/`). `.nojekyll` is in the repo root so Pages does not rewrite the file. Every merge to `main` is the deploy. Do not pin Hostinger, do not recreate `brain-site`, and do not treat `redeemed.live` as the live site.
 
-Checked 2026-11-02, 1:53 AM America/New_York: Pages, raw `main`, and the repo `index.html` share SHA-256 `3c86922e07108dac6e817c676791a82549caa057aa2fdef2a338f070732a33c4`. Pages last-modified `2026-11-02T06:52:07Z`.
+Checked 2026-11-02, 2:24 AM America/New_York:
+- Pages status `built` on commit `cb1bb83`. Pages, raw `main`, and the repo `index.html` share SHA-256 `3c86922e07108dac6e817c676791a82549caa057aa2fdef2a338f070732a33c4`.
+- The accounts Edge Function answers `Origin: https://roooted1776.github.io` and returns `setupNeeded: false` (one existing admin).
+- Hostinger compose project `brain-site` on VPS `2010795` was stopped, then removed with `docker .../down`. `redeemed.live` and `www.redeemed.live` return Traefik `404`. RedMed, Traefik, and VPN on that VPS were left running.
+- Brain Supabase (`iihjcqiiavleyheqzotl`) has `tighten_access` and `admin_only_accounts` applied; `audit_log_stamp` is present.
 
 Keep `users.redeemed.live` (account sign-in names) and the `brain.redeemed.live:` salt exactly as they are: they are identifiers inside existing accounts, not web addresses, and changing them would lock every account out.
 
@@ -16,7 +20,7 @@ Everything below is the earlier Hostinger setup, kept for history.
 
 ## Layout
 
-- Hostinger VPS 2010795 already runs the isolated `brain-site` application. Its Caddy container serves `/var/www/redeemed` read-only on port 8080 behind the existing Traefik HTTPS route. www redirects to the apex. Certificates are managed by the existing Let's Encrypt resolver.
+- Hostinger VPS `2010795` no longer runs Brain. The `brain-site` compose project was removed on 2026-11-02. Do not recreate it. RedMed containers on that VPS are unrelated and stay as they are.
 - The Brain Supabase project is `iihjcqiiavleyheqzotl`. The account service authenticates each admin request itself. Only setup status and open first-admin setup are public. The service-role credential stays in the Edge Function environment.
 - `vaults` holds one encrypted, admin-signed memory/task envelope. `account_keys` holds each account’s sealed memory keys; members can read only their own key envelope. Row-level security allows members to read ciphertext and admins to update it. Revision matching refuses conflicting saves. Readable memory/session tables from the unfinished migration remain closed to client roles.
 - Provider keys are never stored in the database. Remembered keys are encrypted on the owner’s device. A lock forgets decrypted memory, keys, and auth session from the page.
