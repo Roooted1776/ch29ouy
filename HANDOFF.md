@@ -4,6 +4,49 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Cursor — Nov 2, 2026, ~5:35 AM America/New_York: Desktop TypeScript errors
+
+## Overview & Request
+Owner (Cursor Desktop): "fix all the code errors on github desktop".
+
+## What Changed & Why
+PR #71 left three agent scratch `tsconfig*.json` files under `.agents/teamwork/` that hard-coded absolute paths to `/Users/claude/Projects/Brain/Nodes/...`. On Max's Desktop clone those paths do not exist, so the TypeScript language service reported project errors (TS5083 / TS2688 / empty program) even though `app/` typecheck was clean.
+
+Removed:
+- `.agents/teamwork/teamwork_preview_auditor_m1/tsconfig.audit.json`
+- `.agents/teamwork/teamwork_preview_reviewer_m1_1/tsconfig.check.json`
+- `.agents/teamwork/teamwork_preview_reviewer_m1_2/tsconfig.check.json`
+
+Only `app/tsconfig.json` remains. App code, CI green path, and RedMed were not touched.
+
+## Files Touched
+- deleted the three agent tsconfigs above
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `npm run format` — ok (121 files, no fixes)
+- `npm run lint` — 0 errors, 39 warnings (baseline)
+- `npm run typecheck` — ok
+- `npm test` — 454 passed, 3 skipped
+- `npm run build` — ok; single-file root `index.html` (~1744 KB)
+- `npm run e2e` — 3 passed (~1.1m)
+
+## How the Next AI Should Check It
+```bash
+find . -name 'tsconfig*.json' -not -path '*/node_modules/*'
+# expect only ./app/tsconfig.json
+cd app && npm run typecheck && npm test && npm run build && npm run e2e
+```
+Open the repo in Cursor Desktop: Problems should no longer list missing `/Users/claude/Projects/Brain/Nodes/...` paths.
+
+## Git State
+Branch `cursor/fix-desktop-tsconfig-errors-e891` → draft PR into `main`. Owner / Director merge after Audits and Security.
+
+---
+
+
+---
+
 # Handoff from Cursor — Nov 2, 2026, ~5:10 AM America/New_York: GitHub push option missing
 
 ## Overview & Request
