@@ -499,4 +499,34 @@ describe('GitHub Connector - End to End Fetch & Convert', () => {
     expect(result.summary).toContain('Roooted1776/Brain');
     expect(result.items.every(it => it.project === 'TestProject')).toBe(true);
   });
+
+  it('a differential sync still reads every commit when the per-bot logs are new', async () => {
+    const urls: string[] = [];
+    const fakeFetch = async (url: string | URL | Request) => {
+      const u = String(url);
+      urls.push(u);
+      if (u.endsWith('/repos/Roooted1776/Brain'))
+        return new Response(JSON.stringify({ name: 'Brain', full_name: 'Roooted1776/Brain' }), { status: 200 });
+      return new Response('[]', { status: 200 });
+    };
+    const since = '2026-11-01T00:00:00Z';
+    await fetchAndConvertGitHub(
+      'Roooted1776/Brain',
+      { includeReadme: false, includeIssues: true, differential: true, since, allCommits: true },
+      undefined,
+      'Brain',
+      fakeFetch as typeof fetch,
+    );
+    expect(urls.find(u => u.includes('/commits'))).not.toContain('since=');
+    expect(urls.find(u => u.includes('/issues'))).toContain('since=');
+    urls.length = 0;
+    await fetchAndConvertGitHub(
+      'Roooted1776/Brain',
+      { includeReadme: false, includeIssues: false, differential: true, since },
+      undefined,
+      'Brain',
+      fakeFetch as typeof fetch,
+    );
+    expect(urls.find(u => u.includes('/commits'))).toContain('since=');
+  });
 });

@@ -275,7 +275,12 @@ const GH_KEY = 'brain.github.v1';
 export interface GitHubSyncRecord {
   date: string;
   count: number;
+  /** 2 once every commit has been filed into the per-bot logs (#54); older records re-read the full history once. */
+  commitsV?: number;
 }
+
+/** Version of the commit logs; a sync record below it re-reads every commit once instead of only new ones. */
+export const COMMITS_V = 2;
 
 /** The old default named a repository that does not exist; a saved copy of it counts as unset. */
 const OLD_DEFAULT_REPO = 'Roooted1776/Brain';
@@ -946,13 +951,15 @@ export const useStore = create<State>()((set, get) => {
         const effectiveOptions: GitHubImportOptions = {
           ...options,
           since: options?.differential && lastSyncRecord?.date ? lastSyncRecord.date : undefined,
+          // Commits made before the per-bot logs existed are read once, so every commit lands under its bot.
+          allCommits: lastSyncRecord?.commitsV !== COMMITS_V,
         };
         const { items, summary } = await fetchAndConvertGitHub(repo, effectiveOptions, token, proj);
         const res = get().importItems(items, proj, { sourceKind: 'github', repo, summary });
 
         const updatedSync = {
           ...get().githubLastSync,
-          [repo]: { date: new Date().toISOString(), count: res.total },
+          [repo]: { date: new Date().toISOString(), count: res.total, commitsV: COMMITS_V },
         };
         set({ githubLastSync: updatedSync });
         get().addRecentGithubRepo(repo);
