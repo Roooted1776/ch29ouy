@@ -394,8 +394,24 @@ async function readStream(
   return { ...acc, ttftMs };
 }
 
+/** Groq's gpt-oss sometimes calls a tool it was never given (e.g. 'JSON'); Groq then rejects the reply. */
+export function isToolCallError(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e);
+  return /tool call validation failed|attempted to call tool/i.test(m);
+}
+
 /** One call to one provider. The key goes only to that provider and is never logged. */
 export async function callModel(o: CallOpts): Promise<CallResult> {
+  try {
+    return await callOnce(o);
+  } catch (e) {
+    // A made-up tool call is a random slip, not a bad key: ask once more, without the web tool.
+    if (!isToolCallError(e) || o.signal?.aborted) throw e;
+    return callOnce({ ...o, web: false });
+  }
+}
+
+async function callOnce(o: CallOpts): Promise<CallResult> {
   const req = buildRequest(o, !!o.onDelta),
     ctl = new AbortController();
   const wait = o.timeoutMs ?? (o.web ? 60000 : 30000);
