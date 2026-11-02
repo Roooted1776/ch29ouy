@@ -10,10 +10,9 @@ Brain is served by GitHub Pages at https://roooted1776.github.io/ch29ouy/ straig
 
 Keep `users.redeemed.live` (account sign-in names) and the `brain.redeemed.live:` salt exactly as they are: they are identifiers inside existing accounts, not web addresses, and changing them would lock every account out.
 
-Current Hostinger pin (2026-11-02, 1:45 AM America/New_York):
-- commit `f5e040148850c3f8d8cf358e304555e8add67897`
-- `BUILD_URL`=`https://raw.githubusercontent.com/Roooted1776/ch29ouy/f5e040148850c3f8d8cf358e304555e8add67897/index.html`
-- `BUILD_SHA256`=`3c86922e07108dac6e817c676791a82549caa057aa2fdef2a338f070732a33c4`
+Current Hostinger pin (2026-11-02, 1:50 AM America/New_York), after squash-merge of #65 onto `main`:
+- `BUILD_SHA256`=`3c86922e07108dac6e817c676791a82549caa057aa2fdef2a338f070732a33c4` (root `index.html`; docs commits do not change it)
+- `BUILD_URL` is the raw `index.html` of current `origin/main` (synced and redeployed in the same step)
 
 Everything below keeps the earlier Hostinger layout and history.
 

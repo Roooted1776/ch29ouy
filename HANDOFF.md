@@ -41,7 +41,7 @@ Owner: fix errors for #62 / https://github.com/Roooted1776/ch29ouy/pull/59 (rede
 Docs-only; app format/lint/typecheck/test/build/e2e not re-run.
 
 ## Git State
-Branch `cursor/redeemed-live-deploy-docs-939b` → draft PR. Owner/Director merge after Audits/Security.
+Squash-merged to `main` as requested (PR #65). Extra remote branches deleted. Only `origin/main` remains. Hostinger `brain-site` redeployed to that tip.
 
 ---
 
