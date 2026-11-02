@@ -105,6 +105,18 @@ describe('pathways in 3D', () => {
       expect(Math.abs(p[2])).toBeLessThanOrEqual(halfWidth(p[0], p[1]) + 1e-6);
     }
   });
+  it("a bot's commit logs sit just under that bot's node, inside the brain", () => {
+    const m = blankMem();
+    for (const a of AGENTS) {
+      const e = mkEntry(m, { key: 'c' + a.id, type: 'workstream', title: a.name + ' commits', note: 'x' }, 1);
+      e.agent = a.id;
+      const p = placeMemory([e]).get(e.id)!,
+        s = station(a.id)!;
+      expect(inside(p[0], p[1]), a.id).toBe(true);
+      expect(Math.hypot(p[0] - s[0], p[1] - s[1]), a.id).toBeLessThan(30);
+      expect(p[1], a.id).toBeGreaterThan(s[1]);
+    }
+  });
   it('the smooth shell keeps the same outline and volume without the fold ripples', () => {
     const a = buildShell(),
       b = buildShell(180, 30, true);

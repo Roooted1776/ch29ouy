@@ -4,6 +4,7 @@ import {
   parseMarkdownMemory,
   parseCsvMemory,
   importMemoryItems,
+  mergeLines,
   exportMemoryJson,
   exportMemoryMarkdown,
 } from '../src/lib/file-import';
@@ -220,5 +221,26 @@ Quota errors trigger automatic agent failover to preserve budget.
       const mdStr = exportMemoryMarkdown(mem);
       expect(mdStr).toContain('# Quantum Computing');
     });
+  });
+});
+
+describe('commit logs', () => {
+  it('keep every commit across syncs, newest first, with no repeats', () => {
+    expect(mergeLines('ccc 3\nbbb 2', 'bbb 2\naaa 1')).toBe('ccc 3\nbbb 2\naaa 1');
+    const m = blankMem();
+    const item = (note: string) => ({
+      title: 'Brain: Claude Code commits',
+      note,
+      type: 'workstream' as const,
+      project: 'Brain',
+      mergeLines: true,
+      agent: 'claude',
+    });
+    importMemoryItems(m, [item('bbb 2\naaa 1')]);
+    importMemoryItems(m, [item('ccc 3\nbbb 2')]);
+    const log = m.entries.find(e => e.title === 'Brain: Claude Code commits')!;
+    expect(log.note).toBe('ccc 3\nbbb 2\naaa 1');
+    expect(log.agent).toBe('claude');
+    expect(sanitizeMem(JSON.parse(JSON.stringify(m)), true)!.entries.find(e => e.id === log.id)?.agent).toBe('claude');
   });
 });

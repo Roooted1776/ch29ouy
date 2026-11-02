@@ -8,6 +8,7 @@ import {
   type Mem,
   type Source,
 } from './memory';
+import { isAgent } from '../data/team';
 import { redact } from './redact';
 import { keywords } from './text';
 
@@ -20,6 +21,24 @@ export interface RawMemoryItem {
   sources?: Source[];
   /** Replace the stored note instead of adding to it. */
   replace?: boolean;
+  /** Keep every line ever seen: new lines first, old ones kept, duplicates (same first word) dropped. */
+  mergeLines?: boolean;
+  /** The bot this page belongs to. */
+  agent?: string;
+}
+
+/** Every line from both notes, new first; a line whose first word (a commit id) is already kept is dropped. */
+export function mergeLines(next: string, previous: string): string {
+  const seen = new Set<string>(),
+    out: string[] = [];
+  for (const line of [...next.split('\n'), ...previous.split('\n')]) {
+    const t = line.trim(),
+      id = t.split(/\s+/)[0];
+    if (!t || seen.has(id)) continue;
+    seen.add(id);
+    out.push(t);
+  }
+  return out.join('\n');
 }
 
 const VALID_TYPES = new Set<EntryType>(['concept', 'entity', 'workstream']);
@@ -264,11 +283,13 @@ export function importMemoryItems(
           .map(e => e.note)
           .join('')
       : '';
-    const fullNote = it.replace
-      ? note
-      : previous && !previous.includes(note)
-        ? `${previous}\n\n${note}`
-        : previous || note;
+    const fullNote = it.mergeLines
+      ? mergeLines(note, previous)
+      : it.replace
+        ? note
+        : previous && !previous.includes(note)
+          ? `${previous}\n\n${note}`
+          : previous || note;
     const sources = cleanSources(it.sources);
     const attribution: Source[] = sources.length
       ? sources
@@ -284,6 +305,7 @@ export function importMemoryItems(
         if (entry.note !== partNote) keepHistory(entry, 'file', now);
         entry.note = partNote;
         entry.project = project;
+        if (it.agent && isAgent(it.agent)) entry.agent = it.agent;
         entry.seen = now;
         entry.strength = Math.min(9, entry.strength + 1);
         entry.status = 'fresh';
@@ -307,6 +329,7 @@ export function importMemoryItems(
           },
           now,
         );
+        if (it.agent && isAgent(it.agent)) entry.agent = it.agent;
         m.entries.push(entry);
         m.inbox.push({ kind: 'file', ref: entry.id });
         added++;

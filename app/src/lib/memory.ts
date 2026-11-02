@@ -58,6 +58,8 @@ export interface Entry {
   kws: string[] | null;
   manual: boolean;
   project?: string;
+  /** The bot this page belongs to (its commits); drawn under that bot's colour node. */
+  agent?: string;
   /** Earlier versions of the note, newest last (the page's change log). */
   hist?: Hist[];
 }
@@ -273,6 +275,7 @@ export function sanitizeMem(d: any, fromBackup = false): Mem | null {
         : null,
       sources: cleanSources(e.sources).filter(s => !(e.corrected && DEMO_LABEL.test(s.label))),
       links: [],
+      ...(typeof e.agent === 'string' && isAgent(e.agent) ? { agent: e.agent } : {}),
       ...(Array.isArray(e.hist)
         ? {
             hist: e.hist

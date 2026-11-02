@@ -594,7 +594,7 @@ function ImportModal({
           differential: ghDifferential,
           since: ghDifferential && lastSyncRecord?.date ? lastSyncRecord.date : undefined,
           maxIssues: 15,
-          maxCommits: 8,
+          maxCommits: 100,
           maxReleases: 5,
         },
         ghToken,

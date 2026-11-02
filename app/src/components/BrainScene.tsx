@@ -545,7 +545,7 @@ function Memories() {
         grey = !!sel && !on && !linked;
       const actScore = activityScores.get(e.id) || 0;
       const isTopActive = maxActScore > 0 && actScore >= maxActScore * 0.4;
-      c.set(grey ? '#6b6b72' : TYPE_COLOR[e.type]);
+      c.set(grey ? '#6b6b72' : e.agent ? colorOf(e.agent) : TYPE_COLOR[e.type]);
       setDot(
         g,
         i,
@@ -615,7 +615,7 @@ function Memories() {
               <mesh renderOrder={3}>
                 <ringGeometry args={[0.13, 0.17, 24]} />
                 <meshBasicMaterial
-                  color={TYPE_COLOR[e.type]}
+                  color={e.agent ? colorOf(e.agent) : TYPE_COLOR[e.type]}
                   transparent
                   opacity={0.35 + 0.3 * Math.min(1, actScore / (maxActScore || 1))}
                   side={THREE.DoubleSide}
