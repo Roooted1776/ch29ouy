@@ -253,3 +253,27 @@ describe('accounts function: removing accounts', () => {
     expect(fake.state.tables.audit_log).toEqual([]);
   });
 });
+
+describe('accounts function: no sign-in token is refused', () => {
+  it('refuses create, reset and remove with 401 and changes nothing', async () => {
+    seedLiveBrain();
+    const before = structuredClone(fake.state.tables);
+    for (const body of [
+      { action: 'create', name: 'Intruder', role: 'admin', password: PASS, wrap: WRAP },
+      { action: 'reset', id: 'u1', password: PASS, wrap: WRAP },
+      { action: 'remove', id: 'u1' },
+    ]) {
+      const r = await call(body);
+      expect(r.status).toBe(401);
+      expect(r.body.error).toBe('Sign in first.');
+    }
+    expect(fake.state.tables).toEqual(before);
+    expect(fake.state.authUsers.map(u => u.id)).toEqual(['u1']);
+  });
+
+  it('an admin token is accepted (control)', async () => {
+    seedLiveBrain();
+    const r = await call({ action: 'list' }, 'owner-token');
+    expect(r.status).toBe(200);
+  });
+});
