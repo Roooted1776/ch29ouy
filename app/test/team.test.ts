@@ -185,3 +185,75 @@ describe('robust verdict extraction in approval', () => {
     expect(finalReviewFor(false, 'Two checks failed.')).toMatch(/^DECLINED/);
   });
 });
+
+describe('specialty guardrails & negative constraints across all 10 bots', () => {
+  it('all 10 bots in LIVE_ORDER have distinct, non-overlapping specialties and roles', () => {
+    expect(LIVE_ORDER).toHaveLength(10);
+    const specialties = new Set(LIVE_ORDER.map(id => AGENTS.find(a => a.id === id)?.specialty));
+    expect(specialties.size).toBe(10);
+    const roles = new Set(LIVE_ORDER.map(id => AGENTS.find(a => a.id === id)?.role));
+    expect(roles.size).toBe(10);
+  });
+
+  it('all 10 bots enforce universal negative constraints in their system prompts', () => {
+    for (const id of LIVE_ORDER) {
+      const prompt = systemPrompt(id);
+      expect(prompt).toContain('never claim to read files, make changes or run tests');
+      expect(prompt).toContain('Do not invent sources, results, keys or passwords');
+      expect(prompt).toContain('DO NOT OUTPUT CODE BLOCKS');
+      expect(prompt).toContain('not a connection to the named installed app');
+    }
+  });
+
+  it('every individual bot in LIVE_ORDER enforces its distinct boundary rules and negative constraints', () => {
+    // 1. Gemini: Context check, requirements, boundary limits; forbidden from claiming file edits or tool runs
+    const geminiSys = systemPrompt('gemini');
+    expect(geminiSys).toContain('FIRST CHECK. Read the request and any context.');
+    expect(geminiSys).toContain('Never claim to modify files or execute tools.');
+
+    // 2. Muse: Adversarial audit, gaps, contradictions; forbidden from fabricating verification evidence or running tests
+    const museSys = systemPrompt('muse');
+    expect(museSys).toContain('SECOND CHECK. Audit the incoming context and handoff on your own.');
+    expect(museSys).toContain('Never fabricate verification evidence or claim to run tests.');
+
+    // 3. ChatGPT: Tactical attack plan, ordered deliverable; forbidden from tool execution or repo modification
+    const chatgptSys = systemPrompt('chatgpt');
+    expect(chatgptSys).toContain('COLLECTIVE CHECK. Turn the reviewed handoff into a concrete step of attack');
+    expect(chatgptSys).toContain('Never claim to execute tools or edit the repo.');
+
+    // 4. Claude Code: Builder, architecture, reasoning proposal; forbidden from claiming to have edited files
+    const claudeSys = systemPrompt('claude');
+    expect(claudeSys).toContain('BUILDER. Produce the reasoning, writing, design or code proposal as text.');
+    expect(claudeSys).toContain('Do not claim to have edited files.');
+
+    // 5. Cursor: Repo fit, integration risks; forbidden from claiming to have opened files
+    const cursorSys = systemPrompt('cursor');
+    expect(cursorSys).toContain('INTEGRATION REVIEW. Check the proposal for repo fit');
+    expect(cursorSys).toContain('Do not claim to have opened files.');
+
+    // 6. Copilot: Code review, focused improvements; forbidden from running tools or changing projects
+    const copilotSys = systemPrompt('copilot');
+    expect(copilotSys).toContain('CODE REVIEW. Explain supplied code and suggest focused improvements as text.');
+    expect(copilotSys).toContain('Never claim to run tools or change a project.');
+
+    // 7. Perplexity: Source verification, citations; forbidden from inventing citations
+    const perplexitySys = systemPrompt('perplexity');
+    expect(perplexitySys).toContain('SOURCE CHECK. Judge source quality and what needs a citation.');
+    expect(perplexitySys).toContain('Never invent citations; mark unsupported claims.');
+
+    // 8. Grok: Strategy review, contrarian check, missed options; forbidden from running code or modifying files
+    const grokSys = systemPrompt('grok');
+    expect(grokSys).toContain('STRATEGY REVIEW. Challenge assumptions, name risks and one option the team missed.');
+    expect(grokSys).toContain('never claim to run code or modify files.');
+
+    // 9. Xcode: Platform & build constraints (iOS, macOS, web, mobile, desktop); forbidden from claiming to run builds
+    const xcodeSys = systemPrompt('xcode');
+    expect(xcodeSys).toContain('PLATFORM & BUILD CHECK. Review client platforms');
+    expect(xcodeSys).toContain('Do not claim to run builds.');
+
+    // 10. Grok Bot: Team lead synthesis and final PASS/FAIL recommendation; does NOT edit/push/merge
+    const grokbotSys = systemPrompt('grokbot');
+    expect(grokbotSys).toContain('TEAM LEAD. Review the whole chain, settle conflicts');
+    expect(grokbotSys).toContain('Owner controls repo changes, push and merge.');
+  });
+});

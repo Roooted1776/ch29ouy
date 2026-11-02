@@ -39,6 +39,89 @@ export interface TaskDeps {
   ls: Storage | null;
 }
 
+/** Resolves an agent name or alias to AgentId */
+function findAgentByNameOrId(raw: string): AgentId | undefined {
+  const cleanName = raw.trim().toLowerCase();
+  if (cleanName in AGENT) return cleanName as AgentId;
+  const sortedAgents = Object.values(AGENT).sort((a, b) => b.name.length - a.name.length);
+  for (const a of sortedAgents) {
+    if (cleanName === a.name.toLowerCase() || cleanName.startsWith(a.name.toLowerCase())) {
+      return a.id;
+    }
+  }
+  if (cleanName === 'claude' || cleanName.startsWith('claude')) return 'claude';
+  if (cleanName === 'grokbot' || cleanName === 'grok bot') return 'grokbot';
+  return undefined;
+}
+
+/**
+ * Robust stage error parser: extracts affected agent and error reason from any stage error format
+ * (quota, rate limits, timeouts, provider failures, 402/429/500/503 errors).
+ */
+export function parseStageError(text: string): { id: AgentId; reason: string } | null {
+  if (!text || typeof text !== 'string') return null;
+  const str = text.trim();
+
+  // Pattern A: "<AgentName/Alias> did not finish: <reason>" (with optional "Nothing was made up...")
+  const finishMatch = /^(.+?)\s+did not finish:\s*(.*?)(?:\.?\s*Nothing was made up.*)?$/i.exec(str);
+  if (finishMatch) {
+    const id = findAgentByNameOrId(finishMatch[1]);
+    if (id) {
+      const reason = finishMatch[2].replace(/\.?\s*Nothing was made up.*/i, '').trim();
+      return { id, reason: reason || 'did not finish' };
+    }
+  }
+
+  // Pattern B: "<AgentName/Alias> (failed|error|timed out|timeout): <reason>"
+  const failMatch = /^(.+?)\s+(?:failed|error|timed out|timeout):\s*(.*?)(?:\.?\s*Nothing was made up.*)?$/i.exec(str);
+  if (failMatch) {
+    const id = findAgentByNameOrId(failMatch[1]);
+    if (id) {
+      const reason = failMatch[2].replace(/\.?\s*Nothing was made up.*/i, '').trim();
+      return { id, reason: reason || 'failed' };
+    }
+  }
+
+  // Pattern C: Message starts with agent name and contains failure/quota/limit indicators
+  const sortedAgents = Object.values(AGENT).sort((a, b) => b.name.length - a.name.length);
+  for (const a of sortedAgents) {
+    const patterns = [
+      new RegExp(`^${a.name}\\b`, 'i'),
+      ...(a.id === 'claude' ? [/^Claude\b/i] : []),
+      ...(a.id === 'grokbot' ? [/^GrokBot\b/i] : []),
+    ];
+    for (const pat of patterns) {
+      if (pat.test(str)) {
+        const isFailure =
+          /did not finish|failed|failure|error|timeout|timed out|timed-out|quota|credit|rate limit|429|402|500|502|503|504|overloaded/i.test(
+            str,
+          );
+        if (isFailure) {
+          const reason = str
+            .replace(pat, '')
+            .replace(/^[:\s\-–—]+/, '')
+            .replace(/^(?:did not finish|stage failed|failed|encountered an error|error|timed out)[:\s]*/i, '')
+            .replace(/\.?\s*Nothing was made up.*/i, '')
+            .trim();
+          return { id: a.id, reason: reason || 'failed' };
+        }
+      }
+    }
+  }
+
+  // Pattern D: "Stage <AgentName> failed: <reason>" or "Stage failure in <AgentName>: <reason>"
+  for (const a of sortedAgents) {
+    const stagePattern = new RegExp(`(?:stage|worker)\\s+${a.name}\\s+(?:failed|error|did not finish)[:\\s]*(.*)`, 'i');
+    const m = stagePattern.exec(str);
+    if (m) {
+      const reason = m[1].replace(/\.?\s*Nothing was made up.*/i, '').trim();
+      return { id: a.id, reason: reason || 'failed' };
+    }
+  }
+
+  return null;
+}
+
 export async function runTask(raw: string, d: TaskDeps): Promise<void> {
   const { get, set, say, clean, addPulse, words, speedFor, liveReady, admin, ctls, ls } = d;
   if (!admin()) {
@@ -250,23 +333,29 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
       }));
     }
   };
+
   const result = await runChain(
     q,
     tag,
     callAs,
     {
       say: m => {
+        const err = parseStageError(m.text);
+        if (err) {
+          set(x => ({
+            stages: { ...x.stages, [err.id]: 'failed' },
+            notes: { ...x.notes, [err.id]: clip(err.reason, 110) },
+          }));
+        }
         if (m.from === 'brain') {
           // a stage that did not finish: its reason goes on its coverage chip and the Tasks list, not in the chat
-          const f = /^(.+?) did not finish: (.*?)\.? Nothing was made up/.exec(m.text);
-          const id = f && Object.values(AGENT).find(a => a.name === f[1])?.id;
-          if (id)
-            set(x => ({ stages: { ...x.stages, [id]: 'failed' }, notes: { ...x.notes, [id]: clip(f![2], 110) } }));
-          else set({ status: clip(m.text, 160) });
+          if (!err) set({ status: clip(m.text, 160) });
           return;
         }
         say(m);
-        if (m.from in AGENT && m.tag.startsWith('live')) set(x => ({ stages: { ...x.stages, [m.from]: 'done' } }));
+        if (m.from in AGENT && m.tag.startsWith('live') && get().stages[m.from as AgentId] !== 'failed') {
+          set(x => ({ stages: { ...x.stages, [m.from]: 'done' } }));
+        }
       },
       active: id => set(x => ({ active: id, stages: id ? { ...x.stages, [id]: 'working' } : x.stages })),
       handoff: (a, b, payload) => {

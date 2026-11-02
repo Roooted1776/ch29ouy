@@ -29,10 +29,10 @@ Brain is an AI orchestration platform modeling a 10-specialist collaborative tea
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | M1 | Collaborative Flow & Synthesis (R1) | Features 1-5: `chain.ts`, `team.ts`, `run-task.ts`, `approval.ts` | Survey | DONE |
-| M2 | Streaming Handoff Metrics & Fluid State (R2) | Features 6-9: `memory.ts`, `run-task.ts`, `providers.ts`, `store.ts`, `ChatPanel.tsx`, `FlowPane.tsx` | M1 | IN_PROGRESS |
-| M3 | Specialty Guardrails & Failure Handling (R3) | Features 10-13: `team.ts`, `ChatPanel.tsx`, `run-task.ts`, test suites | M1, M2 | PLANNED |
+| M2 | Streaming Handoff Metrics & Fluid State (R2) | Features 6-9: `memory.ts`, `run-task.ts`, `providers.ts`, `store.ts`, `ChatPanel.tsx`, `FlowPane.tsx` | M1 | DONE |
+| M3 | Specialty Guardrails & Failure Handling (R3) | Features 10-13: `team.ts`, `ChatPanel.tsx`, `run-task.ts`, test suites | M1, M2 | DONE |
 | M4 | E2E Testing Track (Requirement-Driven) | Test infra, 4-tier opaque-box test suite for all 14 features, publish `TEST_READY.md` | Independent | DONE |
-| M5 | Final Milestone: All 6 Checks & Adversarial Hardening | Pass 100% E2E tests, Tier 5 hardening, Forensic Integrity Audit | M1, M2, M3, M4 | PLANNED |
+| M5 | Final Milestone: All 6 Checks & Adversarial Hardening | Pass 100% E2E tests, Tier 5 hardening, Forensic Integrity Audit | M1, M2, M3, M4 | DONE |
 
 ## Interface Contracts
 ### `app/src/lib/chain.ts` <-> `app/src/data/team.ts`

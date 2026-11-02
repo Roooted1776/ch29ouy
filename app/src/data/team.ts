@@ -206,16 +206,17 @@ const STAGE: Record<AgentId, string> = {
   copilot:
     'CODE REVIEW. Explain supplied code and suggest focused improvements as text. Never claim to run tools or change a project.',
   gemini:
-    'FIRST CHECK. Read the request and any context. List the concrete requirements, limits and anything unclear that blocks the work.',
-  muse: 'SECOND CHECK. Audit the incoming context and handoff on your own. Name gaps, contradictions, risks and missing evidence.',
-  chatgpt: 'COLLECTIVE CHECK. Turn the reviewed handoff into a concrete step of attack, ordered plan, and deliverable.',
+    'FIRST CHECK. Read the request and any context. List the concrete requirements, limits and anything unclear that blocks the work. Never claim to modify files or execute tools.',
+  muse: 'SECOND CHECK. Audit the incoming context and handoff on your own. Name gaps, contradictions, risks and missing evidence. Never fabricate verification evidence or claim to run tests.',
+  chatgpt:
+    'COLLECTIVE CHECK. Turn the reviewed handoff into a concrete step of attack, ordered plan, and deliverable. Never claim to execute tools or edit the repo.',
   claude:
     'BUILDER. Produce the reasoning, writing, design or code proposal as text. Do not claim to have edited files.',
   cursor:
     'INTEGRATION REVIEW. Check the proposal for repo fit, integration risks and missing checks, using only what you were given. Do not claim to have opened files.',
   perplexity:
     'SOURCE CHECK. Judge source quality and what needs a citation. When you can search the web, check the key claims and give links; otherwise use only supplied material. Never invent citations; mark unsupported claims.',
-  grok: 'STRATEGY REVIEW. Challenge assumptions, name risks and one option the team missed.',
+  grok: 'STRATEGY REVIEW. Challenge assumptions, name risks and one option the team missed. Text review only; never claim to run code or modify files.',
   xcode:
     'PLATFORM & BUILD CHECK. Review client platforms, device targets (iOS, macOS, web, mobile, desktop), build constraints, performance and deployment feasibility. Do not claim to run builds.',
   grokbot:
@@ -224,13 +225,13 @@ const STAGE: Record<AgentId, string> = {
 
 const TASK: Record<AgentId, string> = {
   copilot: 'Review supplied code and explain useful improvements without changing files.',
-  gemini: 'Pull out requirements, given context and open questions. Deliver a context check.',
-  muse: 'Audit the incoming context and handoff for gaps, risks, contradictions and unsupported claims.',
-  chatgpt: 'Deploy the concrete step of attack and ordered plan from the reviewed handoff.',
-  claude: 'Write the requested reasoning, writing, design or code proposal.',
+  gemini: 'Pull out requirements, given context and open questions. Deliver a context check without modifying files.',
+  muse: 'Audit the incoming context and handoff for gaps, risks, contradictions and unsupported claims. Never fabricate verification results.',
+  chatgpt: 'Deploy the concrete step of attack and ordered plan from the reviewed handoff without executing tools.',
+  claude: 'Write the requested reasoning, writing, design or code proposal without editing files.',
   cursor: 'Check repo integration risks using only the material provided.',
   perplexity: 'Check the key claims and their sources. Search the web when you can and give links.',
-  grok: 'Challenge assumptions and surface risks or alternatives.',
+  grok: 'Challenge assumptions and surface risks or alternatives without modifying code.',
   xcode: 'Review platform compatibility, device targets, build constraints, and deployment feasibility.',
   grokbot:
     "Review every handoff. Synthesize Check 1 (Gemini context), Check 2 (Muse audit), and Check 3 (Collective review). Settle conflicts, list open issues or missing checks, and give the final team report with an authoritative DECISION: PASS or DECISION: FAIL recommendation. You can decline based on the team's response.",

@@ -1,12 +1,12 @@
 import { splitLinks } from '../lib/search';
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { pulseMs, selectActivePulse, type Pulse } from '../store';
 import { TYPE_COLOR, colorOf } from '../data/colors';
 import { AGENT, isAgent, type AgentId } from '../data/team';
 import { useStore } from '../store';
 import { PROV, QUOTA_LABEL } from '../lib/providers';
 import { isLegacyApprovalPhrase } from '../lib/approval';
-import { TYPE_LABEL } from '../lib/memory';
+import { type Cover, TYPE_LABEL } from '../lib/memory';
 import { downloadFile } from '../lib/file-import';
 import BotIcon from './BotIcon';
 import Composer from './Composer';
@@ -232,7 +232,29 @@ export default function ChatPanel() {
   const doing = currentSession
     ? []
     : (Object.entries(stages) as [AgentId, string][]).filter(([id, v]) => v === 'working' && id !== draft?.from);
-  const stuck = currentSession ? [] : (Object.entries(stages) as [AgentId, string][]).filter(([, v]) => v === 'failed');
+  const effectiveNotes = useMemo(() => {
+    const res: Partial<Record<AgentId, string>> = { ...notes };
+    if (currentSession?.cover) {
+      for (const [id, c] of Object.entries(currentSession.cover)) {
+        if (c?.why) res[id as AgentId] = c.why;
+      }
+    }
+    return res;
+  }, [currentSession, notes]);
+  const stuck: [AgentId, string][] = useMemo(() => {
+    if (currentSession) {
+      if (currentSession.cover) {
+        return (Object.entries(currentSession.cover) as [AgentId, { s: Cover; why?: string }][])
+          .filter(([, v]) => v.s === 'failed' || (v.s !== 'done' && Boolean(v.why)))
+          .map(([id]) => [id as AgentId, 'failed']);
+      }
+      if (Array.isArray(currentSession.uncovered) && currentSession.uncovered.length > 0) {
+        return currentSession.uncovered.filter(id => isAgent(id)).map(id => [id as AgentId, 'failed']);
+      }
+      return [];
+    }
+    return (Object.entries(stages) as [AgentId, string][]).filter(([, v]) => v === 'failed');
+  }, [currentSession, stages]);
   // Perplexity layout: each question opens a thread with its sources, the team's steps, then one answer.
   type M = (typeof msgs)[number];
   const threads: { q: M | null; steps: M[]; answer: M | null; task?: boolean }[] = [];
@@ -420,7 +442,7 @@ export default function ChatPanel() {
                         </span>
                         <BotIcon id={id} size={16} />
                         <BotName limited={limited} onOpen={inspectBot} id={id} />
-                        <span className="doing">{notes[id] || 'did not finish'}</span>
+                        <span className="doing">{effectiveNotes[id] || notes[id] || 'did not finish'}</span>
                       </div>
                     ))}
                   {showDraft && !draftIsAnswer && !t.task && (

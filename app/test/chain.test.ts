@@ -1,20 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { buildChainDigest, chainFor, runChain } from '../src/lib/chain';
-import { buildRequest, callModel, parseReply, ProviderError } from '../src/lib/providers';
+import { buildRequest, callModel, parseReply, ProviderError, QUOTA_LABEL } from '../src/lib/providers';
+import { finalReviewFor } from '../src/lib/approval';
+import { parseStageError } from '../src/lib/run-task';
 
 const hooks = () => {
   const log: any[] = [],
     hand: string[] = [],
-    act: (string | null)[] = [];
+    act: (string | null)[] = [],
+    creditFails: { bot: string; err: string }[] = [];
   return {
     log,
     hand,
     act,
+    creditFails,
     h: {
       say: (m: any) => log.push(m),
       active: (id: any) => act.push(id),
       handoff: (a: string, b: string) => hand.push(a + '>' + b),
       blocked: () => null,
+      onCreditFailure: (bot: any, err: any) => creditFails.push({ bot, err }),
     },
   };
 };
@@ -113,6 +118,107 @@ describe('live chain', () => {
     expect(digest).toContain('[Gemini - Check 1 Context & Requirements]\nRequirements identified.');
     expect(digest).toContain('[Muse - Check 2 Adversarial Audit & Risks]\nRisks audited.');
     expect(digest).toContain('[ChatGPT - Check 3 Strategy & Execution Plan [INCOMPLETE/FAILED]]\nTool plan ready.');
+  });
+
+  it('handles quota and credit failures with QUOTA_LABEL, triggers onCreditFailure, and continues autonomously', async () => {
+    const { h, log, creditFails } = hooks();
+    let step = 0;
+    const prompts: string[] = [];
+    const r = await runChain(
+      'Audit dependencies',
+      'live · OpenAI · m',
+      async (_s, u) => {
+        step++;
+        prompts.push(u);
+        if (step === 2) {
+          throw new Error('402 Payment Required: monthly quota reached');
+        }
+        return { text: `Output from stage ${step}`, why: '' };
+      },
+      h,
+    );
+    expect(r.failed).toEqual(['muse']);
+    expect(r.completed).toBe(9);
+    expect(creditFails).toHaveLength(1);
+    expect(creditFails[0].bot).toBe('muse');
+    expect(creditFails[0].err).toContain('quota reached');
+
+    const warningMsg = log.find(m => m.from === 'brain' && m.cls === 'warn');
+    expect(warningMsg).toBeDefined();
+    expect(warningMsg.text).toContain(`Muse did not finish: ${QUOTA_LABEL}`);
+    expect(warningMsg.text).toContain('Nothing was made up in its place');
+
+    // Stage 3 (ChatGPT) receives autonomous continuation notice
+    expect(prompts[2]).toContain('HANDOFF STATUS FOR Muse:');
+    expect(prompts[2]).toContain('Next worker: review the last available handoff above and continue autonomously.');
+  });
+
+  it('Grok Bot synthesizes upstream failures and produces final DECLINED review verdict', async () => {
+    const { h } = hooks();
+    let step = 0;
+    let lastGrokBotPrompt = '';
+    const r = await runChain(
+      'Verify build',
+      'live · OpenAI · m',
+      async (_s, u) => {
+        step++;
+        if (step === 9) {
+          // Xcode fails with 500 internal error
+          throw new Error('Build daemon crashed: code 500');
+        }
+        if (step === 10) {
+          lastGrokBotPrompt = u;
+          return { text: 'Summary of results.\nDECISION: PASS', why: '' };
+        }
+        return { text: `OK ${step}`, why: '' };
+      },
+      h,
+    );
+    expect(r.failed).toEqual(['xcode']);
+    expect(r.completed).toBe(9);
+    // Grok Bot was called with Xcode's failure status in handoffs
+    expect(lastGrokBotPrompt).toContain('HANDOFF STATUS FOR Xcode:');
+    expect(lastGrokBotPrompt).toContain('Build daemon crashed');
+
+    // Safety override in approval: any stage failure results in DECLINED verdict
+    const review = finalReviewFor(r.failed.length > 0, 'DECISION: PASS');
+    expect(review).toBe('DECLINED: Blocked based on team response.');
+  });
+
+  it('robust stage error parser extracts bot and reasons across all error formats', () => {
+    // Standard format with Nothing was made up
+    expect(
+      parseStageError(
+        'Gemini did not finish: Disabled · Reached Credit Quota, Wait Until Reset. Nothing was made up in its place.',
+      ),
+    ).toEqual({ id: 'gemini', reason: 'Disabled · Reached Credit Quota, Wait Until Reset' });
+
+    // Rate limit without trailer
+    expect(parseStageError('Muse did not finish: 429 Too Many Requests')).toEqual({
+      id: 'muse',
+      reason: '429 Too Many Requests',
+    });
+
+    // Timeout
+    expect(parseStageError('Claude Code timed out: connection closed after 30s')).toEqual({
+      id: 'claude',
+      reason: 'connection closed after 30s',
+    });
+
+    // Provider error
+    expect(parseStageError('Cursor failed: Git repository error 500')).toEqual({
+      id: 'cursor',
+      reason: 'Git repository error 500',
+    });
+
+    // Stage failure prefix
+    expect(parseStageError('Stage Xcode failed: Provisioning profile invalid')).toEqual({
+      id: 'xcode',
+      reason: 'Provisioning profile invalid',
+    });
+
+    // Non-agent message
+    expect(parseStageError('The limit of 9 model calls for one task was reached.')).toBeNull();
   });
 });
 

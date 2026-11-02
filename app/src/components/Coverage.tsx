@@ -24,6 +24,14 @@ export function fromSession(s: Session): Cov {
     states[k as AgentId] = v.s === 'done' ? 'done' : v.s;
     if (v.why) notes[k as AgentId] = v.why;
   }
+  if (Array.isArray(s.uncovered)) {
+    for (const id of s.uncovered) {
+      if (id in AGENT && !states[id as AgentId]) {
+        states[id as AgentId] = 'failed';
+        if (!notes[id as AgentId]) notes[id as AgentId] = 'uncovered';
+      }
+    }
+  }
   return { states, notes };
 }
 export function summary(states: Cov['states']) {

@@ -79,4 +79,136 @@ describe('a real task, streamed', () => {
     expect(s.status).toMatch(/Grok Bot filed 1 memory/);
     delete (globalThis as any).localStorage;
   });
+
+  it('gracefully handles mid-chain stage failures during streaming task, continues chain, and records DECLINED review', async () => {
+    const d = new Map<string, string>();
+    (globalThis as any).localStorage = {
+      getItem: (k: string) => d.get(k) ?? null,
+      setItem: (k: string, v: string) => void d.set(k, v),
+      removeItem: (k: string) => void d.delete(k),
+    };
+
+    let fetchCall = 0;
+    const failingFetch = vi.fn(async (_u: string, init: any) => {
+      fetchCall++;
+      // Stage 2 is Muse: simulate a 429 rate limit failure
+      if (fetchCall === 2) {
+        return new Response(
+          JSON.stringify({
+            error: { message: '429 Rate limit exceeded. Please wait before retrying.' },
+          }),
+          { status: 429, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      const filing = /File what the team should remember/.test(init.body);
+      const enc = new TextEncoder(),
+        body = [
+          'data: ' +
+            JSON.stringify({
+              type: 'response.output_text.delta',
+              delta: filing ? '{"memories":[]}' : 'stage reply ',
+            }) +
+            '\n\n',
+          'data: ' +
+            JSON.stringify({
+              type: 'response.output_text.delta',
+              delta: filing ? '' : 'done',
+            }) +
+            '\n\n',
+          'data: ' +
+            JSON.stringify({ type: 'response.completed', response: { usage: { input_tokens: 4, output_tokens: 2 } } }) +
+            '\n\n',
+        ];
+      return new Response(
+        new ReadableStream({
+          start(c) {
+            body.forEach(b => c.enqueue(enc.encode(b)));
+            c.close();
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'text/event-stream' } },
+      );
+    });
+
+    (globalThis as any).fetch = failingFetch;
+    vi.resetModules();
+    const { useStore } = await import('../src/store');
+    useStore.setState({ role: 'admin', keys: { openai: 'sk-test' } });
+    useStore.getState().setLive({ provider: 'openai' });
+    useStore.setState({ keys: { openai: 'sk-test' } });
+
+    await useStore.getState().send('task: evaluate security architecture');
+    const s = useStore.getState();
+
+    // The chain continued despite Muse failing: Gemini (1) + ChatGPT..Xcode..GrokBot (8 more) + Dream filing (1) = 11 calls
+    expect(failingFetch).toHaveBeenCalledTimes(11);
+    expect(s.busy).toBe(false);
+
+    // Muse is marked failed with error note
+    expect(s.stages.muse).toBe('failed');
+    expect(s.notes.muse).toMatch(/429 Rate limit|did not finish/);
+
+    // Subsequent bots completed
+    expect(s.stages.chatgpt).toBe('done');
+    expect(s.stages.claude).toBe('done');
+    expect(s.stages.grokbot).toBe('done');
+
+    // Final session saved
+    const sess = s.mem.sessions.at(-1)!;
+    expect(sess.cover?.muse).toBeDefined();
+    expect(sess.cover?.muse.s).toBe('failed');
+    expect(sess.cover?.muse.why).toMatch(/429 Rate limit|did not finish/);
+
+    // Grok Bot final review must be DECLINED due to the stage failure
+    expect(sess.grokFinalReview).toMatch(/^DECLINED/);
+
+    delete (globalThis as any).localStorage;
+  });
+
+  it('historical session preserves failed stages and reasons for ChatPanel viewSession', async () => {
+    const { fromSession } = await import('../src/components/Coverage');
+    const { useStore } = await import('../src/store');
+
+    const sessionWithFailures: any = {
+      id: 's99',
+      ts: Date.now(),
+      q: 'Audit network security',
+      kws: [],
+      accepted: [],
+      uncovered: [],
+      msgs: [
+        { from: 'owner', tag: '', text: 'task: Audit network security' },
+        { from: 'gemini', tag: 'live', text: 'Checked requirements' },
+        { from: 'grokbot', tag: 'live', text: 'Final summary: DECLINED' },
+      ],
+      cover: {
+        gemini: { s: 'done' },
+        muse: { s: 'failed', why: '429 Rate limit exceeded' },
+        chatgpt: { s: 'done' },
+        xcode: { s: 'skipped', why: 'Not reached: stopped, limit or key' },
+      },
+      grokFinalReview: 'DECLINED: Blocked based on team response.',
+    };
+
+    // Coverage.fromSession extracts both failed and done states accurately
+    const cov = fromSession(sessionWithFailures);
+    expect(cov.states.gemini).toBe('done');
+    expect(cov.states.muse).toBe('failed');
+    expect(cov.notes.muse).toBe('429 Rate limit exceeded');
+    expect(cov.states.xcode).toBe('skipped');
+    expect(cov.notes.xcode).toBe('Not reached: stopped, limit or key');
+
+    // Setting viewing session in store
+    const currentMem = useStore.getState().mem;
+    useStore.setState({
+      mem: {
+        ...currentMem,
+        sessions: [...currentMem.sessions, sessionWithFailures],
+      },
+    });
+    useStore.getState().viewSession('s99');
+    expect(useStore.getState().viewing).toEqual(sessionWithFailures);
+    expect(useStore.getState().viewing?.cover?.muse.s).toBe('failed');
+    expect(useStore.getState().viewing?.cover?.muse.why).toBe('429 Rate limit exceeded');
+  });
 });

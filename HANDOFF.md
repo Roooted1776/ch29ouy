@@ -16,6 +16,63 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Claude — Nov 2, 2026: Teamwork Multi-Agent Runtime & Collaborative Flow Expansion
+
+## Overview & Request
+User: "/teamwork-preview" & "your going to have to make a claude handoff prompt soon your taking too long onlly 33% left of useage"
+Expanded and hardened Brain's multi-agent runtime, streaming metrics, error parsing, and collaborative reasoning across all 10 specialized agents. Fully verified with 462 passing unit/integration tests and 3 passing Playwright browser tests. Rebuilt single-file `index.html` with CSP hash pinning.
+
+## What Changed & Why
+1. **Multi-Agent Collaborative Flow & Grok Bot Three-Check Synthesis (`app/src/data/team.ts`, `app/src/lib/run-task.ts`)**:
+   - Upgraded all 10 bot prompt instructions with negative constraints against unapproved file editing and tool fabrication.
+   - Enforced Grok Bot's Three-Check review synthesis schema: Check 1 (Gemini context), Check 2 (Muse audit), and Check 3 (Collective engineering review) leading to authoritative PASS/FAIL decisions.
+2. **Robust Stage Error Detection & Fallback Handling (`app/src/lib/run-task.ts`)**:
+   - Implemented `parseStageError` to parse errors across diverse patterns (quota, rate limits, timeouts, 402/429/500/503 status codes, stage failure prefixes).
+   - Prevents failed stages from silently setting 'done'; updates coverage chips with truncated error reasons.
+3. **UI Indicators for Incomplete & Degraded Stages (`app/src/components/ChatPanel.tsx`, `app/src/components/Coverage.tsx`)**:
+   - Added visual badges and error callouts for incomplete/failed stages in the chat stream and coverage header.
+4. **Comprehensive Test Suites (`app/test/*`)**:
+   - Added `e2e-requirements.test.ts` (161 tests covering 14 project requirements across 4 tiers).
+   - Added `m1-adversarial-stress.test.ts` (18 invariant stress tests).
+   - Expanded `chain.test.ts`, `task-flow.test.ts`, and `team.test.ts`. Total test suite expanded to **462 passing tests** (0 failures).
+5. **Single-File Bundle Rebuild (`index.html`, `app/dist/index.html`)**:
+   - Recompiled via `npm run build` (1746 KB) with SHA-256 CSP script hash pinning.
+
+## Files Touched
+- `app/src/data/team.ts`
+- `app/src/lib/run-task.ts`
+- `app/src/components/ChatPanel.tsx`
+- `app/src/components/Coverage.tsx`
+- `app/test/e2e-requirements.test.ts` (new)
+- `app/test/m1-adversarial-stress.test.ts` (new)
+- `app/test/chain.test.ts`
+- `app/test/task-flow.test.ts`
+- `app/test/team.test.ts`
+- `app/dist/index.html`
+- `index.html`
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `npm run format`: clean (120 files checked)
+- `npm run lint`: 0 errors (40 baseline warnings preserved)
+- `npm run typecheck`: clean (0 errors)
+- `npm test`: 44 test suites passed, 1 skipped (**462 passed**, 3 skipped)
+- `npm run build`: built in 490ms; single-file `index.html` (1746 KB) with CSP hash
+- `npm run e2e`: 3 passed in 45.4s (all 10 bots verified in real Chromium browser)
+
+## How the Next AI Should Check It
+```bash
+cd app
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run e2e
+```
+Open `index.html` in browser, verify all 10 bots participate in tasks, verify coverage chips reflect stage status, and verify failed stages show graceful error notices without chain interruption.
+
+---
+
 # Handoff from Claude — Nov 2, 2026: All agents involved in every task
 
 ## Overview & Request
