@@ -53,3 +53,11 @@ export function sentences(s: string): string[] {
     .map(x => x.trim())
     .filter(x => x.length > 2);
 }
+
+/** Most words a bot may post on the Brain site (Owner, Nov 2 2026). */
+export const WORD_CAP = 150;
+/** Cuts a message to at most `n` words, marking the cut with an ellipsis. */
+export function capWords(s: string, n = WORD_CAP): string {
+  const parts = String(s).trim().split(/\s+/);
+  return parts.length <= n ? String(s).trim() : `${parts.slice(0, n).join(' ')}…`;
+}

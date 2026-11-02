@@ -150,7 +150,7 @@ export default function ChatPanel() {
   const stuck = currentSession ? [] : (Object.entries(stages) as [AgentId, string][]).filter(([, v]) => v === 'failed');
   // Perplexity layout: each question opens a thread with its sources, the team's steps, then one answer.
   type M = (typeof msgs)[number];
-  const threads: { q: M | null; steps: M[]; answer: M | null }[] = [];
+  const threads: { q: M | null; steps: M[]; answer: M | null; task?: boolean }[] = [];
   for (const m of msgs) {
     if (m.from === 'owner' || !threads.length)
       threads.push({ q: m.from === 'owner' ? m : null, steps: [], answer: null });
@@ -168,6 +168,12 @@ export default function ChatPanel() {
       ? lastIndex(t.steps, m => isAgent(m.from))
       : lastIndex(t.steps, m => m.from === 'grokbot' && typeof m.tag === 'string' && m.tag.startsWith('live'));
     if (at !== -1 && (chatTurn || at === t.steps.length - 1)) t.answer = t.steps.splice(at, 1)[0];
+    // A team task's steps play out on the brain itself (Owner, Nov 2 2026): the chat keeps the question,
+    // Grok Bot's review and anything that went wrong, never the step-by-step work.
+    if (t.q && !chatTurn) {
+      t.task = true;
+      t.steps = t.steps.filter(m => !isAgent(m.from));
+    }
   }
   const live = !currentSession;
   const sourceIds = currentSession ? currentSession.used || [] : used;
@@ -236,7 +242,9 @@ export default function ChatPanel() {
         {threads.map((t, ti) => {
           const last = ti === threads.length - 1;
           const showDraft = last && live && draft && isAgent(draft.from);
-          const stepCount = t.steps.length + (last ? doing.length : 0) + (showDraft && !draftIsAnswer ? 1 : 0);
+          const stepCount = t.task
+            ? t.steps.length
+            : t.steps.length + (last ? doing.length : 0) + (showDraft && !draftIsAnswer ? 1 : 0);
           return (
             <section key={t.q ? `q${t.q.id}` : `t${ti}`} className="px-thread">
               {(t.q || (ti === 0 && currentSession)) && <h3 className="px-q">{t.q ? t.q.text : currentSession?.q}</h3>}
@@ -265,8 +273,8 @@ export default function ChatPanel() {
               {stepCount + (last ? stuck.length : 0) > 0 && (
                 <div className="px-steps">
                   <div className="px-head">
-                    Steps · {t.steps.length}
-                    {last && live && busy ? ' · working' : ''}
+                    {t.task ? 'Did not finish' : `Steps · ${t.steps.length}`}
+                    {!t.task && last && live && busy ? ' · working' : ''}
                   </div>
                   {t.steps.map(m =>
                     isAgent(m.from) ? (
@@ -287,6 +295,7 @@ export default function ChatPanel() {
                     ),
                   )}
                   {last &&
+                    !t.task &&
                     doing.map(([id]) => (
                       <div key={'doing-' + id} className="activity" style={{ '--c': colorOf(id) } as CSSProperties}>
                         <span className="px-mark working" aria-hidden="true">
@@ -312,7 +321,7 @@ export default function ChatPanel() {
                         <span className="doing">{notes[id] || 'did not finish'}</span>
                       </div>
                     ))}
-                  {showDraft && !draftIsAnswer && (
+                  {showDraft && !draftIsAnswer && !t.task && (
                     <article
                       className={'msg bot streaming ' + AGENT[draft.from as AgentId].kind}
                       style={{ '--c': colorOf(draft.from) } as CSSProperties}

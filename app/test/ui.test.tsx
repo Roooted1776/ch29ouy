@@ -284,7 +284,7 @@ describe('who can do what', () => {
     expect(within(dialog).getByText(/Anthropic/)).toBeTruthy();
   }, 30000);
 
-  it('live chat reads like Perplexity: question, numbered sources, collapsible steps, then the answer', async () => {
+  it('live chat shows a task as question, numbered sources and the review; the steps stay on the brain', async () => {
     const { u, App, store } = await asRole('admin');
     render(<App />);
     expect(await screen.findByRole('main', { name: 'Brain view' })).toBeTruthy();
@@ -307,13 +307,26 @@ describe('who can do what', () => {
     const chat = screen.getByRole('region', { name: 'Live chat' });
     expect(within(chat).getByRole('heading', { name: 'Plan the launch' })).toBeTruthy();
     expect(within(chat).getByText('Sources from Brain')).toBeTruthy();
-    const step = chat.querySelector('details.px-step')!;
-    expect(step.textContent).toContain('Context checked.');
+    expect(chat.querySelector('details.px-step')).toBeNull();
+    expect(chat.textContent).not.toContain('Context checked.');
     const answer = chat.querySelector('.px-answer')!;
     expect(answer.textContent).toContain('PASS. Keep the vault rule');
     await u.click(within(answer as HTMLElement).getByRole('button', { name: 'Source 1' }));
     expect(store.useStore.getState().selected).toBe(store.useStore.getState().used[0]);
   }, 30000);
+
+  it('a bot message on the Brain site is cut to 150 words', async () => {
+    const { capWords, WORD_CAP } = await import('../src/lib/text');
+    expect(WORD_CAP).toBe(150);
+    const long = Array.from({ length: 200 }, (_, i) => `w${i}`).join(' ');
+    const out = capWords(long);
+    expect(out.split(/\s+/).length).toBe(150);
+    expect(out.endsWith('…')).toBe(true);
+    expect(capWords('short reply')).toBe('short reply');
+    const { systemPrompt, roomSystem, huddleSystem } = await import('../src/data/team');
+    for (const p of [systemPrompt('claude'), roomSystem('claude', true), huddleSystem('claude', 'respond')])
+      expect(p).toContain('150 words or fewer');
+  });
 
   it('the handoff pane beside the chat shows starting point → the bot it goes to', async () => {
     const { App, store } = await asRole('admin');

@@ -8,13 +8,14 @@ import { nudge, ownerEvent, personalityLine } from './personality';
 import { PROV, PROVIDERS, ProviderError, QUOTA_LABEL, callModel, isLimitError, type ProviderId } from './providers';
 import { redact } from './redact';
 import { contextBlock, indexTitles, relevant } from './retrieve';
-import { clip } from './text';
+import { WORD_CAP, clip } from './text';
 import { NOT_ADMIN, type TaskDeps } from './run-task';
 
 export const CHAT_SYSTEM =
   "You are a helpful assistant in Owner's Brain chat. Answer clearly in plain words. " +
   'Use BRAIN CONTEXT only as hints that may be wrong. Never invent secrets, keys, or actions. ' +
-  'You cannot run tools, edit files, or take actions outside this reply. If something needs the team, say so.';
+  'You cannot run tools, edit files, or take actions outside this reply. If something needs the team, say so. ' +
+  `Keep every message to ${WORD_CAP} words or fewer.`;
 
 export async function runChat(raw: string, d: TaskDeps): Promise<void> {
   const { get, set, say, clean, addPulse, words, admin, ctls } = d;

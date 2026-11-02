@@ -29,9 +29,9 @@ body {
 
 /* One size everywhere outside the 3D scene (the brain's own labels keep their look). */
 body
-  :where(*):not(canvas):not(svg *):not(.mem-tag):not(.task-node-tag):not(.packet):not(.agent-tag):not(.mem-tag *):not(
-    .task-node-tag *
-  ) {
+  :where(*):not(canvas):not(svg *):not(.mem-tag):not(.task-node-tag):not(.packet):not(.agent-tag):not(.task-bubble):not(
+    .task-bubble *
+  ):not(.mem-tag *):not(.task-node-tag *) {
   font-size: var(--fs) !important;
   font-family: var(--font) !important;
 }

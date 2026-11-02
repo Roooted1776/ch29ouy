@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { archiveCommitNodes } from './lib/project-sync';
-import { AGENT, type AgentId } from './data/team';
+import { AGENT, type AgentId, isAgent } from './data/team';
+import { capWords } from './lib/text';
 import { addNote, correctEntry, deleteEntry } from './lib/learn';
 import {
   blankMem,
@@ -358,8 +359,13 @@ export const useStore = create<State>()((set, get) => {
       return trimmed ? `[${trimmed.length > 100 ? trimmed.slice(0, 97) + '…' : trimmed}]` : '';
     });
   };
+  // A bot's message is cut to WORD_CAP words (Owner, Nov 2 2026: 150 words at most on the Brain site).
   const say = (m: Msg & { cls?: 'warn' }) =>
-    set(s => ({ log: [...s.log, { ...m, text: clean(m.text), id: ++logN }].slice(-200) }));
+    set(s => ({
+      log: [...s.log, { ...m, text: isAgent(m.from) ? capWords(clean(m.text)) : clean(m.text), id: ++logN }].slice(
+        -200,
+      ),
+    }));
   const admin = () => get().role === 'admin';
   /** A handoff light from one agent to the next. It is removed when its travel animation ends. */
   const addPulse = (

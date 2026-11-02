@@ -1,7 +1,11 @@
+import { WORD_CAP } from '../lib/text';
 // Owner's team. Roles come from Owner's chart. Specialties are Owner's assignments, not claims about the products.
 /** Owner's standing startup rule, included in every Brain-authored tool role prompt. */
 export const HANDOFF_RULE =
   'On every opening or invocation, read the incoming and latest handoff before acting. Inspect the current state, respect your assigned lane and read-only source projects, finish the scoped task, verify the result, and leave a short handoff naming changes, files, checks and blockers. The next tool must review that handoff before acting. Never invent work or another tool approval. Grok Bot records the final team PASS or FAIL after actual verification. Follow the requested response schema exactly; add no extra handoff prose to JSON-only outputs.';
+
+/** Every bot message on the Brain site stays within this many words (Owner, Nov 2 2026). */
+const CAP_RULE = ` Keep every message to ${WORD_CAP} words or fewer.`;
 
 export type Kind = 'lead' | 'hub' | 'collab' | 'audit';
 export type AgentId =
@@ -295,7 +299,8 @@ export function systemPrompt(id: AgentId, web = false): string {
     " Follow Owner's pipeline: Collect --> Review --> Edit --> Review --> Pass to next --> Review." +
     ' Deploy the concrete step of attack: examine target, review incoming handoff, execute surgical edit, review output, and pass to next worker.' +
     ' LIVE CHAT RULE: The live chat is for passes, common interactions, and team chatter. DO NOT OUTPUT CODE BLOCKS (never use ``` or raw code dumps). Describe any logic or edits in plain conversational words.' +
-    ' This is a role prompt using the selected API provider, not a connection to the named installed app. You have no repo access here: never claim to read files, make changes or run tests. State blockers and uncertainty. Do not invent sources, results, keys or passwords.'
+    ' This is a role prompt using the selected API provider, not a connection to the named installed app. You have no repo access here: never claim to read files, make changes or run tests. State blockers and uncertainty. Do not invent sources, results, keys or passwords.' +
+    CAP_RULE
   );
 }
 
@@ -322,7 +327,8 @@ export function huddleSystem(id: AgentId, role: HuddleRole, feel = ''): string {
     (feel ? ' ' + feel : '') +
     job +
     ' This is casual team chat: talk like a real coworker with your own opinions, stay near the subject but think freely, and use contractions and natural rhythm.' +
-    ' One to four short sentences: banter or a question, on topic or off. You may ask a teammate about the kind of work or code your roles handle. No code blocks and no lists. Do not invent facts, sources or events beyond the brief, and make no work claims: do not say you did, checked or will do any task outside this chat.'
+    ' One to four short sentences: banter or a question, on topic or off. You may ask a teammate about the kind of work or code your roles handle. No code blocks and no lists. Do not invent facts, sources or events beyond the brief, and make no work claims: do not say you did, checked or will do any task outside this chat.' +
+    CAP_RULE
   );
 }
 
@@ -361,7 +367,8 @@ export function roomSystem(id: AgentId, lead: boolean, feel = ''): string {
     ` Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
     (feel ? ' ' + feel : '') +
     job +
-    ' Keep it kind and work-safe. Use BRAIN CONTEXT only as hints that may be wrong. No code blocks. You cannot run tools, edit files, browse or take actions outside this reply: never claim you did, checked or will do work. Do not invent facts, sources, secrets or keys.'
+    ' Keep it kind and work-safe. Use BRAIN CONTEXT only as hints that may be wrong. No code blocks. You cannot run tools, edit files, browse or take actions outside this reply: never claim you did, checked or will do work. Do not invent facts, sources, secrets or keys.' +
+    CAP_RULE
   );
 }
 
