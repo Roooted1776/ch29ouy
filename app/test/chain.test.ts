@@ -257,4 +257,34 @@ describe('providers', () => {
     expect(err.rejected).toBe(true);
     expect(err.message).not.toContain('TESTKEY123456');
   });
+  it('asks once more without the web tool when Groq rejects a made-up tool call', async () => {
+    const bodies: any[] = [];
+    const fake = (async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      if (bodies.length === 1)
+        return new Response(
+          JSON.stringify({
+            error: {
+              message: "tool call validation failed: attempted to call tool 'JSON' which was not in request.tools",
+            },
+          }),
+          { status: 400 },
+        );
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const r = await callModel({
+      provider: 'groq',
+      key: 'k',
+      model: 'openai/gpt-oss-120b',
+      system: 's',
+      user: 'u',
+      maxTokens: 10,
+      web: true,
+      fetchImpl: fake,
+    });
+    expect(r.text).toBe('ok');
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0].tools).toBeDefined();
+    expect(bodies[1].tools).toBeUndefined();
+  });
 });
