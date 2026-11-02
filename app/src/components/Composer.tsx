@@ -84,6 +84,37 @@ export default function Composer() {
           </button>
         )}
       </form>
+      {ready && isAdmin && !busy && (
+        <div className="composer-shortcuts" role="toolbar" aria-label="Task shortcuts">
+          <button
+            type="button"
+            className={'chip' + (q.startsWith('task: ') ? ' on' : '')}
+            onClick={() => {
+              if (q.startsWith('task: ')) setQ(q.slice(6));
+              else setQ('task: ' + q);
+            }}
+            title="Toggle full task mode (runs multi-agent chain)"
+          >
+            {q.startsWith('task: ') ? '✓ task:' : '+ task:'}
+          </button>
+          <button
+            type="button"
+            className="chip"
+            onClick={() => setQ('task: Audit repository and team status')}
+            title="Audit team status and repository hygiene"
+          >
+            Audit
+          </button>
+          <button
+            type="button"
+            className="chip"
+            onClick={() => setQ('What are the key concepts and entities in memory?')}
+            title="Query current memory index"
+          >
+            Memory
+          </button>
+        </div>
+      )}
       {!ready && isAdmin && (
         <p className="hint composer-key-hint">Add an API key to chat. Paste it into this box to save it.</p>
       )}

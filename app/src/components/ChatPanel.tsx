@@ -7,6 +7,7 @@ import { useStore } from '../store';
 import { PROV, QUOTA_LABEL } from '../lib/providers';
 import { isLegacyApprovalPhrase } from '../lib/approval';
 import { TYPE_LABEL } from '../lib/memory';
+import { downloadFile } from '../lib/file-import';
 import BotIcon from './BotIcon';
 import Composer from './Composer';
 
@@ -81,6 +82,79 @@ export function cleanChatText(text: string): string {
     if (!trimmed) return '';
     return trimmed.length > 100 ? `[Action: ${trimmed.slice(0, 97)}…]` : `[Action: ${trimmed}]`;
   });
+}
+
+/** Subtle copy button for copying messages or answers to clipboard with instant confirmation. */
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!text) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(text);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // safe fallback if clipboard unavailable
+    }
+  };
+  return (
+    <button
+      type="button"
+      className={'msg-copy-btn' + (copied ? ' copied' : '')}
+      onClick={handleCopy}
+      title={copied ? 'Copied' : label || 'Copy'}
+      aria-label={label || 'Copy'}
+    >
+      {copied ? (
+        '✓'
+      ) : (
+        <svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" shapeRendering="crispEdges">
+          <rect x="5" y="5" width="8" height="8" fill="none" stroke="currentColor" />
+          <path d="M4 10H3V3h7v1" fill="none" stroke="currentColor" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+/** Formats and downloads session transcript as a clean Markdown report. */
+function exportSessionMarkdown(
+  title: string,
+  msgs: { from: string; text: string }[],
+  sources: { title: string; note: string; type: string }[] = [],
+) {
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const lines: string[] = [
+    `# Brain Task Report: ${title || 'Session'}`,
+    `> Generated: ${new Date().toLocaleString()}`,
+    '',
+  ];
+  if (sources.length > 0) {
+    lines.push('## Sources from Brain');
+    for (let i = 0; i < sources.length; i++) {
+      const s = sources[i];
+      lines.push(`${i + 1}. **${s.title}** (${s.type}): ${s.note}`);
+    }
+    lines.push('');
+  }
+  const steps = msgs.filter(m => m.from !== 'owner');
+  if (steps.length > 0) {
+    lines.push('## Agent Contributions & Steps');
+    for (const m of steps) {
+      const name = isAgent(m.from) ? AGENT[m.from].name : m.from === 'grokbot' ? 'Grok Bot' : m.from;
+      lines.push(`### ${name}`);
+      lines.push(cleanChatText(m.text));
+      lines.push('');
+    }
+  }
+  const slug = (title || 'task')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .slice(0, 30);
+  downloadFile(`brain-${slug}-${dateStr}.md`, lines.join('\n'), 'text/markdown');
 }
 
 export default function ChatPanel() {
@@ -206,6 +280,7 @@ export default function ChatPanel() {
               <span className="doing">{typeof m.tag === 'string' && m.tag.startsWith('chat ·') ? 'chat' : a.role}</span>
             )}
             {a && !viewing && via(a.id)}
+            <CopyButton text={cleanChatText(m.text)} />
           </header>
         )}
         <p>
@@ -229,13 +304,29 @@ export default function ChatPanel() {
                 : 'Latest task'}
             {currentSession.kind === 'chat' ? <small> · not wiki memory</small> : null}
           </span>
-          {viewing ? (
-            <button type="button" className="sm link" onClick={() => useStore.getState().viewSession(null)}>
-              Close
+          <div className="session-actions">
+            <button
+              type="button"
+              className="sm link export-btn"
+              title="Export this session as Markdown"
+              onClick={() =>
+                exportSessionMarkdown(
+                  currentSession.q,
+                  currentSession.msgs,
+                  sources.filter((s): s is NonNullable<typeof s> => !!s),
+                )
+              }
+            >
+              Export
             </button>
-          ) : (
-            <span className="px-done">Completed</span>
-          )}
+            {viewing ? (
+              <button type="button" className="sm link" onClick={() => useStore.getState().viewSession(null)}>
+                Close
+              </button>
+            ) : (
+              <span className="px-done">Completed</span>
+            )}
+          </div>
         </div>
       )}
       <div className="msgs" ref={msgsRef} onScroll={onScroll} aria-live="off">
@@ -360,7 +451,29 @@ export default function ChatPanel() {
               )}
               {(t.answer || (last && draftIsAnswer)) && (
                 <div className="px-answer">
-                  <div className="px-head">Answer</div>
+                  <div className="px-head">
+                    <span>Answer</span>
+                    {t.answer && (
+                      <div className="px-answer-actions">
+                        <CopyButton text={cleanChatText(t.answer.text)} label="Copy answer" />
+                        <button
+                          type="button"
+                          className="sm link export-btn"
+                          title="Export task report as Markdown"
+                          onClick={() => {
+                            const allMsgs = [...(t.q ? [t.q] : []), ...t.steps, t.answer!];
+                            exportSessionMarkdown(
+                              t.q?.text || 'Task Answer',
+                              allMsgs,
+                              sources.filter((s): s is NonNullable<typeof s> => !!s),
+                            );
+                          }}
+                        >
+                          Export
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {t.answer ? (
                     agentCard(t.answer, 'px-final')
                   ) : (

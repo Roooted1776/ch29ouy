@@ -61,33 +61,103 @@ strong {
   grid-template-columns: minmax(0, 1fr) !important;
 }
 .home.single.brain-first .side {
-  overflow-y: auto;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  border-left: 1px solid var(--line) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(4, 5, 8, 0.72) !important;
+  backdrop-filter: blur(16px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.1) !important;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5) !important;
 }
 
-/* Controls: small and tight */
-button:not(.agent-tag),
+/* Review text & word wrapping fix: prevent any clipping on the right edge */
+.panel.chat,
+.panel.chat .msgs,
+.chat.grok,
+.px-thread,
+.px-answer,
+.px-final,
+.px-steps,
+.msg,
+.msg p,
+.px-q,
+.px-head,
+.px-sources,
+.doing {
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Controls: small, tight, and translucent glass matching the tidal background */
+button:not(.agent-tag):not(.primary):not(.icon-btn),
 .btnlink,
 .btn-file {
   padding: 2px 8px !important;
   min-height: 20px !important;
-  border-radius: 5px !important;
+  border-radius: 4px !important;
   line-height: 1.4 !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #ededf0 !important;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s !important;
+}
+button:not(.agent-tag):not(.primary):not(.icon-btn):hover,
+.btnlink:hover,
+.btn-file:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+button.primary {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #ffffff !important;
+  font-weight: 600 !important;
+}
+button.primary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.88) !important;
 }
 input:not([type="checkbox"]):not([type="radio"]),
 select,
 textarea {
   padding: 3px 7px !important;
-  border-radius: 5px !important;
+  border-radius: 4px !important;
   line-height: 1.4 !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s !important;
+}
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08) !important;
 }
 .view-tools {
   top: 8px !important;
   right: 8px !important;
   left: 8px !important;
   gap: 4px !important;
+  background: rgba(6, 7, 10, 0.75) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 7px !important;
+  padding: 3px 5px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
 }
 .view-tools button {
   min-height: 22px !important;
@@ -140,8 +210,13 @@ textarea {
   max-height: none !important;
   padding: 0 !important;
   border-radius: 8px !important;
-  border: 1px solid var(--line) !important;
-  background: rgba(8, 10, 18, 0.97) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(6, 7, 10, 0.9) !important;
+  backdrop-filter: blur(20px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
   z-index: 60 !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
@@ -154,10 +229,10 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 8px !important;
+  padding: 6px 10px !important;
   margin: 0 !important;
-  background: rgba(8, 10, 18, 0.98);
-  border-bottom: 1px solid var(--line);
+  background: rgba(8, 10, 16, 0.96) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 .settings-drawer .settings-heading h2 {
   margin: 0 !important;
@@ -253,11 +328,13 @@ textarea {
   gap: 6px !important;
   padding: 8px 10px !important;
   border-radius: 8px !important;
-  border: 1px solid color-mix(in srgb, var(--c, #9aa8ff) 55%, transparent) !important;
-  background: rgba(8, 10, 18, 0.96) !important;
+  border: 1px solid color-mix(in srgb, var(--c, #9aa8ff) 50%, rgba(255, 255, 255, 0.16)) !important;
+  background: rgba(6, 7, 10, 0.9) !important;
+  backdrop-filter: blur(18px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
   box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 color-mix(in srgb, var(--c, #9aa8ff) 25%, transparent) !important;
+    0 12px 36px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
   animation: none !important;
 }
 .agent-inspector .ai-header {
@@ -290,6 +367,7 @@ textarea {
   padding: 0 4px !important;
   border: 0 !important;
   background: none !important;
+  cursor: pointer !important;
 }
 .agent-inspector .ai-body {
   gap: 6px !important;
@@ -342,10 +420,17 @@ textarea {
   gap: 5px !important;
 }
 .agent-inspector .ai-footer button {
-  flex: 1;
+  flex: 1 1 auto !important;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-inspector .ai-footer button + button {
+  flex: none !important;
 }
 
-/* Review fixes (Nov 2 2026): status pills and bot-card buttons stay on one line. */
+/* Review fixes: status pills stay on one line */
 .settings-drawer .company-key-head {
   align-items: center !important;
   gap: 6px !important;
@@ -358,13 +443,131 @@ textarea {
   flex: none;
   white-space: nowrap;
 }
-.agent-inspector .ai-footer button {
-  flex: 1 1 auto !important;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+/* ---------- Task steps on the brain: modern dark translucent HUD ---------- */
+.task-bubble {
+  transform: translate(-50%, 20px) !important;
+  width: 260px !important;
+  max-height: 180px !important;
+  overflow: hidden !important;
+  padding: 6px 10px !important;
+  background: rgba(6, 7, 12, 0.82) !important;
+  backdrop-filter: blur(14px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.2) !important;
+  border: 1px solid color-mix(in srgb, var(--c, #9aa8ff) 50%, rgba(255, 255, 255, 0.16)) !important;
+  border-radius: 7px !important;
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.75),
+    0 0 16px color-mix(in srgb, var(--c, #9aa8ff) 25%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  color: #ededf0 !important;
+  font: 11px / 1.4 var(--font, ui-monospace, monospace) !important;
+  pointer-events: none !important;
 }
-.agent-inspector .ai-footer button + button {
-  flex: none !important;
+.task-bubble b {
+  display: block !important;
+  margin-bottom: 2px !important;
+  color: var(--c, #9aa8ff) !important;
+  font-weight: 600 !important;
+}
+.task-bubble p {
+  margin: 0 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 7 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+.task-bubble.live {
+  border-color: var(--c, #9aa8ff) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.8),
+    0 0 24px color-mix(in srgb, var(--c, #9aa8ff) 45%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+/* ---------- Custom Sleek Scrollbars ---------- */
+::-webkit-scrollbar {
+  width: 5px !important;
+  height: 5px !important;
+}
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-radius: 3px !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* ---------- Capabilities UI: Copy Button, Export Button, Task Shortcuts ---------- */
+.msg-copy-btn {
+  margin-left: auto !important;
+  padding: 1px 4px !important;
+  min-height: 16px !important;
+  font-size: 10px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  border-radius: 3px !important;
+  cursor: pointer !important;
+}
+.msg-copy-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+.msg-copy-btn.copied {
+  color: #4ade80 !important;
+  border-color: rgba(74, 222, 128, 0.3) !important;
+  background: rgba(74, 222, 128, 0.1) !important;
+}
+.px-answer .px-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+.px-answer-actions,
+.session-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.export-btn {
+  padding: 1px 5px !important;
+  font-size: 10px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  cursor: pointer !important;
+}
+.export-btn:hover {
+  color: #ffffff !important;
+}
+.composer-shortcuts {
+  display: flex !important;
+  gap: 4px !important;
+  padding: 2px 6px !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.composer-shortcuts .chip {
+  padding: 1px 5px !important;
+  font-size: 10px !important;
+  border-radius: 3px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  cursor: pointer !important;
+}
+.composer-shortcuts .chip:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+.composer-shortcuts .chip.on {
+  background: rgba(147, 197, 253, 0.2) !important;
+  border-color: rgba(147, 197, 253, 0.5) !important;
+  color: #93c5fd !important;
 }

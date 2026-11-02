@@ -16,6 +16,63 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Claude — Nov 2, 2026: UI overhaul & capabilities upgrade
+
+## Overview & Request
+User: "using https://github.com/Roooted1776/ch29ouy edit the file to upgrade this websides capabilities and overhaul ui"
+Complete UI overhaul matching the tidal wave background canvas (dark translucent glass, subtle light borders, monochrome base with bot color accents), fix the chat review text horizontal clipping bug, and upgrade website capabilities with one-click message/answer copying, full session Markdown exporting, and task composer prompt shortcuts.
+
+## What Changed & Why
+1. **Chat Capabilities: One-Click Copy & Markdown Report Exporting (`app/src/components/ChatPanel.tsx`)**:
+   - Added `CopyButton` component to agent cards and the final answer header (`.px-answer .px-head`), copying text cleanly to clipboard with instant "✓" confirmation.
+   - Added session report exporter (`exportSessionMarkdown`) with "Export" action in `.session-banner` and `.px-answer`, allowing users to download structured Markdown reports of their task sessions (including question, cited Brain sources, intermediate agent contributions, and Grok Bot's final answer/decision).
+2. **Composer Capabilities: Task Mode & Prompt Shortcuts (`app/src/components/Composer.tsx`)**:
+   - Added a compact `role="toolbar"` quick-action strip (`.composer-shortcuts`) above the input for ready admins:
+     - `+ task:` / `✓ task:` toggle (rapidly prefixes the input with `task: ` to run the full 6-agent review pipeline without manual typing).
+     - `Audit`: quick macro to audit team and repository status.
+     - `Memory`: quick macro to query current memory index.
+3. **UI Overhaul & Text Clipping Bug Fix (`app/src/compact.css`)**:
+   - **Fixed Review Text Clipping**: Applied `overflow-wrap: anywhere !important`, `word-break: break-word !important`, and `overflow-x: hidden !important` to the side panel and all message containers (`.panel.chat`, `.px-answer`, `.msg p`, `.px-q`), completely eliminating right-edge clipping on long words, unbroken URLs, and code snippets.
+   - **Modern Dark-Glass Wave Aesthetic**:
+     - Upgraded side chat panel, view-tools, settings drawer, and agent inspector with dark translucent glass (`rgba(4, 5, 8, 0.72)` - `rgba(6, 7, 10, 0.9)`), backdrop blur (`blur(16px)` to `blur(20px)`), and crisp borders (`rgba(255, 255, 255, 0.12)`).
+     - Restyled `.task-bubble` HUD in the 3D scene to float cleanly under bot stations with dark glass backdrop blur and subtle border glow.
+     - Enhanced buttons with sleek translucent charcoal backgrounds and crisp white hover states.
+     - Added sleek custom 5px dark scrollbars matching the tidal aesthetic.
+4. **Rebuilt Single-File Bundle (`index.html`, `app/dist/index.html`)**:
+   - Built via `npm run build` with inlined assets and SHA-256 Content Security Policy hash pinning.
+
+## Files Touched
+- `app/src/components/ChatPanel.tsx`
+- `app/src/components/Composer.tsx`
+- `app/src/compact.css`
+- `app/dist/index.html`
+- `index.html`
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `npm run format`: clean (119 files checked)
+- `npm run lint`: 0 errors (39 baseline warnings preserved)
+- `npm run typecheck`: clean (0 errors)
+- `npm test`: 42 test suites passed, 1 skipped (266 passed, 3 skipped)
+- `npm run build`: built in 287ms; single-file `index.html` (1738 KB)
+- `npm run e2e`: 3 passed in 36.6s (all Chromium browser tests green)
+
+## How the Next AI Should Check It
+```bash
+cd app
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run e2e
+```
+Open `index.html` in a real browser: test the new dark translucent glass aesthetic against the tidal background, test copying an answer, test exporting a task report to Markdown, and test the task shortcuts in the composer.
+
+## Git State
+Working tree modified locally; `main` branch. Per Max's standing rule: never `git push`, commit locally only if asked. Ready for Cursor inspection and Grok Bot verification.
+
+---
+
 # Handoff from Cursor — Nov 2, 2026, 2:46 AM America/New_York: squash leftover branch, sync, deploy
 
 ## Overview & Request
