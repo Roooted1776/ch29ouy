@@ -284,6 +284,37 @@ describe('who can do what', () => {
     expect(within(dialog).getByText(/Anthropic/)).toBeTruthy();
   }, 30000);
 
+  it('live chat reads like Perplexity: question, numbered sources, collapsible steps, then the answer', async () => {
+    const { u, App, store } = await asRole('admin');
+    render(<App />);
+    expect(await screen.findByRole('main', { name: 'Brain view' })).toBeTruthy();
+    const { mkEntry } = await import('../src/lib/memory');
+    act(() => {
+      const mem = structuredClone(store.useStore.getState().mem);
+      const e = mkEntry(mem, { key: 'ai:concept:vault', type: 'concept', title: 'Vault rule', note: 'Encrypted.' }, 1);
+      mem.entries.push(e);
+      store.useStore.setState({
+        mem,
+        used: [e.id],
+        log: [
+          { id: 1, from: 'owner', tag: '', text: 'Plan the launch' },
+          { id: 2, from: 'gemini', tag: 'live · test', text: 'Context checked.' },
+          { id: 3, from: 'grokbot', tag: 'live · test', text: 'PASS. Keep the vault rule [1].' },
+        ],
+        stages: { gemini: 'done', grokbot: 'done' },
+      });
+    });
+    const chat = screen.getByRole('region', { name: 'Live chat' });
+    expect(within(chat).getByRole('heading', { name: 'Plan the launch' })).toBeTruthy();
+    expect(within(chat).getByText('Sources from Brain')).toBeTruthy();
+    const step = chat.querySelector('details.px-step')!;
+    expect(step.textContent).toContain('Context checked.');
+    const answer = chat.querySelector('.px-answer')!;
+    expect(answer.textContent).toContain('PASS. Keep the vault rule');
+    await u.click(within(answer as HTMLElement).getByRole('button', { name: 'Source 1' }));
+    expect(store.useStore.getState().selected).toBe(store.useStore.getState().used[0]);
+  }, 30000);
+
   it('the handoff pane beside the chat shows starting point → the bot it goes to', async () => {
     const { App, store } = await asRole('admin');
     render(<App />);
