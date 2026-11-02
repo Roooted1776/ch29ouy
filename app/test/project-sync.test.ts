@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { blankMem, mkEntry, sanitizeMem, type Entry, type Mem } from '../src/lib/memory';
-import { archiveEmptyAndRetiredNodes, mergeProjectMirror } from '../src/lib/project-sync';
+import { addNote } from '../src/lib/learn';
+import { archiveEmptyAndRetiredNodes, archiveRetiredToolNodes, mergeProjectMirror } from '../src/lib/project-sync';
 
 function add(mem: Mem, key: string, project: string, seen = 1000, extra: Partial<Entry> = {}): Entry {
   const e = mkEntry(
@@ -178,5 +179,22 @@ describe('reversible empty and retired node cleanup', () => {
     const snapshot = structuredClone(mem);
     expect(archiveEmptyAndRetiredNodes(mem)).toBe(0);
     expect(mem).toEqual(snapshot);
+  });
+});
+
+describe('sign-in and sync cleanup', () => {
+  it('archives removed tool nodes but keeps a title-only note the owner just added', () => {
+    const mem = blankMem();
+    const tool = add(mem, 'note:cerebras', '', 1000, {
+      type: 'entity',
+      title: 'Cerebras',
+      sources: [],
+      note: 'Old key.',
+    });
+    addNote(mem, { type: 'concept', title: 'Call dentist', note: '' }, 1000);
+    expect(archiveRetiredToolNodes(mem)).toBe(1);
+    expect(mem.entries.map(e => e.title)).toEqual(['Call dentist']);
+    expect(mem.archived.map(e => e.id)).toEqual([tool.id]);
+    expect(archiveRetiredToolNodes(mem)).toBe(0);
   });
 });

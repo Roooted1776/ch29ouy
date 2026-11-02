@@ -10,22 +10,34 @@ const SOURCE_LABEL = 'Read-only project sync';
 const isSource = (e: Entry) =>
   e.key.startsWith('source:') || e.sources.some(s => s.kind === 'tool' && s.label === SOURCE_LABEL);
 
-/** Remove unused graph dots reversibly; their original records remain in the archive. */
-export function archiveEmptyAndRetiredNodes(mem: Mem): number {
-  const retired = new Set(['freebuff', 'archil', 'comet', 'cerebras']);
-  const moved = mem.entries.filter(e => {
-    if (e.corrected || (isSource(e) && e.note.trim())) return false;
-    const exactRetiredTool = e.type === 'entity' && retired.has(e.title.trim().toLowerCase());
-    const placeholder = /^Undefined term\b/i.test(e.title.trim());
-    const emptyUnassigned = !e.note.trim() && !e.key.startsWith('project:') && !e.project?.trim() && !isSource(e);
-    return exactRetiredTool || placeholder || emptyUnassigned;
-  });
+/** Tools Brain no longer uses; a node titled exactly like one is archived. */
+const RETIRED_TOOLS = new Set(['freebuff', 'archil', 'comet', 'cerebras']);
+const isRetiredTool = (e: Entry) => e.type === 'entity' && RETIRED_TOOLS.has(e.title.trim().toLowerCase());
+
+/** Moves matching nodes to the archive (reversible) and drops links to them. */
+function archiveWhere(mem: Mem, pick: (e: Entry) => boolean): number {
+  const moved = mem.entries.filter(e => !e.corrected && pick(e));
   if (!moved.length) return 0;
   const removed = new Set(moved.map(e => e.id));
   mem.entries = mem.entries.filter(e => !removed.has(e.id));
   for (const entry of mem.entries) entry.links = entry.links.filter(id => !removed.has(id));
   mem.archived = [...mem.archived.filter(a => !moved.some(e => e.id === a.id && e.key === a.key)), ...moved];
   return moved.length;
+}
+
+/** Only nodes for removed tools: safe to run on every sign-in and memory sync. */
+export function archiveRetiredToolNodes(mem: Mem): number {
+  return archiveWhere(mem, e => !(isSource(e) && e.note.trim()) && isRetiredTool(e));
+}
+
+/** Remove unused graph dots reversibly; their original records remain in the archive. */
+export function archiveEmptyAndRetiredNodes(mem: Mem): number {
+  return archiveWhere(mem, e => {
+    if (isSource(e) && e.note.trim()) return false;
+    const placeholder = /^Undefined term\b/i.test(e.title.trim());
+    const emptyUnassigned = !e.note.trim() && !e.key.startsWith('project:') && !e.project?.trim() && !isSource(e);
+    return isRetiredTool(e) || placeholder || emptyUnassigned;
+  });
 }
 
 /** Single GitHub commits saved one per memory by older Brain versions: archived (reversibly), the digest replaces them. */

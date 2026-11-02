@@ -14,7 +14,7 @@ import {
   writeAudit,
 } from './lib/cloud';
 import { absorbMemory } from './lib/absorb';
-import { archiveEmptyAndRetiredNodes } from './lib/project-sync';
+import { archiveRetiredToolNodes } from './lib/project-sync';
 import { blankMem, type Mem, sanitizeMem } from './lib/memory';
 import { openChannel, publish, type Hub } from './lib/share';
 import { VaultError, decryptVault, encryptVault, newSecrets, openFor, sealFor, type Secrets } from './lib/vault';
@@ -125,7 +125,7 @@ function startMirror() {
       const cur = useStore.getState().mem;
       const next = structuredClone(cur);
       const r = absorbMemory(next, back);
-      const cleaned = archiveEmptyAndRetiredNodes(next); // another agent may still hold nodes for removed tools
+      const cleaned = archiveRetiredToolNodes(next); // another agent may still hold nodes for removed tools
       if (
         !(r.added || r.updated || r.sessions || cleaned) &&
         (next.nextSession > cur.nextSession || next.nextId > cur.nextId)
@@ -282,13 +282,13 @@ async function unlock(u: User, kek: CryptoKey) {
     setKeySave(null);
   }
   enter(u);
-  // Nodes for tools Brain no longer uses (and empty placeholders) are archived, reversibly, on every sign-in.
+  // Nodes for tools Brain no longer uses are archived, reversibly, on every sign-in.
   if (u.role === 'admin') {
     const next = structuredClone(useStore.getState().mem);
-    const cleaned = archiveEmptyAndRetiredNodes(next);
+    const cleaned = archiveRetiredToolNodes(next);
     if (cleaned) {
       useStore.getState().commit(m => Object.assign(m, next));
-      useStore.setState({ status: `Cleaned up ${cleaned} retired or empty node(s); they stay in the archive.` });
+      useStore.setState({ status: `Cleaned up ${cleaned} node(s) for removed tools; they stay in the archive.` });
     }
   }
   if (restored) {
