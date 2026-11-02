@@ -204,6 +204,23 @@ describe('accounts function: setup can never wipe a live Brain', () => {
   });
 });
 
+describe('accounts function: status (setupNeeded)', () => {
+  it('reports setupNeeded true only while no account exists', async () => {
+    const r = await call({ action: 'status' });
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ setupNeeded: true });
+  });
+
+  it('reports setupNeeded false as soon as any account exists, so the page shows Login, not Setup', async () => {
+    seedLiveBrain();
+    expect((await call({ action: 'status' })).body).toEqual({ setupNeeded: false });
+    fake.state.tables.profiles.push({ id: 'u2', name: 'Spare', role: 'admin' });
+    expect((await call({ action: 'status' })).body).toEqual({ setupNeeded: false });
+    expect(fake.state.calls).not.toContain('rpc claim_open_setup');
+    expect(fake.state.tables.vaults[0].rev).toBe(7);
+  });
+});
+
 describe('accounts function: admins only', () => {
   it('refuses to create a viewer (or any non-admin role)', async () => {
     seedLiveBrain();
@@ -266,6 +283,22 @@ describe('accounts function: no sign-in token is refused', () => {
       const r = await call(body);
       expect(r.status).toBe(401);
       expect(r.body.error).toBe('Sign in first.');
+    }
+    expect(fake.state.tables).toEqual(before);
+    expect(fake.state.authUsers.map(u => u.id)).toEqual(['u1']);
+  });
+
+  it('refuses create, reset and remove with a bogus token: 401 and changes nothing', async () => {
+    seedLiveBrain();
+    const before = structuredClone(fake.state.tables);
+    for (const body of [
+      { action: 'create', name: 'Intruder', role: 'admin', password: PASS, wrap: WRAP },
+      { action: 'reset', id: 'u1', password: PASS, wrap: WRAP },
+      { action: 'remove', id: 'u1' },
+    ]) {
+      const r = await call(body, 'bogus-token');
+      expect(r.status).toBe(401);
+      expect(r.body.error).toBe('Sign in again.');
     }
     expect(fake.state.tables).toEqual(before);
     expect(fake.state.authUsers.map(u => u.id)).toEqual(['u1']);

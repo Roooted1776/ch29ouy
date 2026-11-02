@@ -10,6 +10,13 @@ The Brain project is `iihjcqiiavleyheqzotl`, in us-east-1. This deployment uses 
 - Provider keys are sealed on the device and never uploaded to the database.
 - Recovery: keep a spare admin login that only the owner uses. A lone admin who forgets the passcode cannot reopen memory any other way.
 
+## Admin-only (current rule)
+
+Brain is admin-only. Migration `20261031150000_admin_only_accounts.sql` makes `admin` the only role
+and overrides the older viewer mentions in `20261024170000_brain_schema.sql` (line 12, the
+`admin`/`viewer` role check) and `20261030224500_admin_only_persistent_memory.sql` (line 2, "viewers
+may open"). Those files are already applied and stay as they are.
+
 ## Config (`config.toml`)
 
 `supabase/config.toml` holds only the settings below. Everything else (site address, redirect addresses, token expiry, password length, rate limits, email and MFA) lives only in the dashboard. Do not run `config push`; sign-in settings are changed only in the dashboard.
