@@ -20,27 +20,26 @@ The Brain project is `iihjcqiiavleyheqzotl`, in us-east-1. This deployment uses 
 | `auth.email.enable_signup` | `true` | This turns on email sign-in, which is the only way in. New sign-ups are still refused by `auth.enable_signup`. |
 | `auth.sms.enable_signup`, `auth.enable_anonymous_sign_ins` | `false` | No phone or anonymous sign-in. |
 | `auth.email.enable_confirmations` | `true` | Accounts are created already confirmed, so a hand-made auth user is not a usable back door. |
+| `auth.sms.enable_confirmations` | `true` | Phone sign-in is off. This only matters if it's ever turned on. |
 | `api.schemas` | `["public"]` | No `graphql_public`: Brain has no GraphQL client, and the resolver is revoked in SQL too. |
 | `api.auto_expose_new_tables` | `false` | New tables need an explicit grant instead of the cloud default of granting first. |
 | `api.max_rows` | `200` | The page reads at most 60 log rows and a handful of profiles. |
 
-Apply it to the project from the repo root, reviewing the diff first:
+Don't run `config push`. It replaces the whole sign-in section on the live project, so any setting this file leaves out falls back to Supabase's default. Change live sign-in settings in the dashboard instead. To compare this file with the live project without changing anything, and to apply migrations:
 
 ```bash
 supabase login                                  # once, with a scoped personal access token
-supabase config diff --project-ref iihjcqiiavleyheqzotl
-supabase config push --project-ref iihjcqiiavleyheqzotl
-supabase db push --project-ref iihjcqiiavleyheqzotl    # the tighten_access migration
+supabase config diff --project-ref iihjcqiiavleyheqzotl   # read-only comparison
+supabase db push --project-ref iihjcqiiavleyheqzotl       # migrations only
 ```
 
-`config push` only writes the properties this file declares; anything it does not support is reported
-and left alone. Settings that exist only in the dashboard and are **not** in `config.toml`:
+Settings that live only in the dashboard and aren't in `config.toml`:
 
 1. **Auth → Passwords → leaked password protection**: enable it (checks new passwords against Have I
    Been Pwned). Brain's derived passwords never match, so it costs nothing.
 2. **Database → Network restrictions**: once `supabase db push` is no longer run from Owner's own
    network, allow **no** CIDRs. The page and the Edge Function reach Postgres only over HTTPS.
-3. **Auth → Rate limits**: confirm the email and sign-in limits shown in `config.toml`.
+3. **Auth → Rate limits**: check the email and sign-in limits in the dashboard. This file doesn't set any.
 4. **Backups**: confirm the plan's daily backups are on. Losing every admin passcode still loses the
    memory, so the encrypted offline backup in the Admin tab stays the real recovery path.
 
