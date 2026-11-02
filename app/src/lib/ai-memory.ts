@@ -66,8 +66,19 @@ export function fileMemories(m: Mem, items: AiMemory[], s: Session, t: Tally, no
     ref: s.id,
   };
   const made: Entry[] = [];
+  const seenElsewhere: Entry[] = [];
   for (const it of items) {
-    const old = m.entries.find(e => e.key.startsWith(AI_KEY) && e.title.toLowerCase() === it.title.toLowerCase());
+    const same = (e: Entry) => e.title.toLowerCase() === it.title.toLowerCase();
+    // A read-only project row with this title is linked, never rewritten.
+    const ro = m.entries.find(e => e.key.startsWith('source:') && same(e));
+    if (ro) {
+      seenElsewhere.push(ro);
+      continue;
+    }
+    // Reuse a memory another agent or Owner already holds under this title (team notes, imports).
+    const old =
+      m.entries.find(e => e.key.startsWith(AI_KEY) && same(e)) ||
+      m.entries.find(e => e.status === 'fresh' && !e.key.startsWith('project:') && same(e));
     const e = upsert(
       m,
       {
@@ -84,6 +95,7 @@ export function fileMemories(m: Mem, items: AiMemory[], s: Session, t: Tally, no
     if (e) made.push(e);
   }
   for (let i = 0; i < made.length; i++) for (let j = i + 1; j < made.length; j++) link(made[i], made[j]);
+  for (const e of made) for (const ro of seenElsewhere) link(e, ro);
   for (const id of s.used || []) for (const e of made) link(e, byId(m, id));
   if (s.project) {
     const projNode = ensureProjectNode(m, s.project, s, now);

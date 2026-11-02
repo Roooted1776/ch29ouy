@@ -196,7 +196,10 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
     set(x => ({ active: 'grokbot', stages: { ...x.stages, grokbot: 'working' } }));
     addPulse('grokbot', 'brain', color, { words: words(msgs.filter(x => x.from === 'grokbot').at(-1)?.text) });
     try {
-      const known = st.mem.entries.filter(e => e.key.startsWith(AI_KEY)).map(e => e.title);
+      // All titles Brain holds (from every agent and project), so Grok Bot reinforces instead of duplicating.
+      const known = [
+        ...new Set([...st.mem.entries.filter(e => e.key.startsWith(AI_KEY)).map(e => e.title), ...indexTitles(st.mem)]),
+      ];
       const res = await callAs(
         MEMORY_SYSTEM,
         memoryPrompt(sess.q, sess.msgs, known, st.mem.settings.instructions),

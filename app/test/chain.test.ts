@@ -52,7 +52,7 @@ describe('live chain', () => {
     expect(prompts[8]).toContain('HANDOFF FROM Xcode');
     expect(prompts[8]).toMatch(/FINAL SITUATION REPORT/);
     expect(prompts[0]).toContain('BRAIN CONTEXT');
-    expect(prompts[1]).not.toContain('BRAIN CONTEXT');
+    expect(prompts.every(p => p.includes('BRAIN CONTEXT'))).toBe(true); // every agent reads memory
     expect(prompts[8]).toContain('BRAIN CONTEXT');
     expect(hand[0]).toBe('owner>gemini');
     expect(hand).toContain('xcode>grokbot');
