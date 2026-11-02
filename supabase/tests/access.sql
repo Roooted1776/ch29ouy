@@ -69,6 +69,14 @@ select tests.count_is($$select 1 where public.claim_open_setup()$$, 0, 'setup cl
 delete from public.profiles;
 select tests.count_is($$select 1 where public.claim_open_setup()$$, 1, 'setup on an empty project');
 rollback;
+-- The real setup_needed(): true with no profiles at all, false once one admin exists.
+begin;
+alter table public.profiles disable trigger profiles_keep_last_admin;
+delete from public.profiles;
+select tests.count_is($$select 1 where public.setup_needed()$$, 1, 'setup_needed() with no profiles');
+insert into public.profiles (id, name, role) values ('11111111-1111-1111-1111-111111111111', 'Owner', 'admin');
+select tests.count_is($$select 1 where public.setup_needed()$$, 0, 'setup_needed() once one admin exists');
+rollback;
 select tests.count_is('select 1 from private.setup_lease', 0, 'the rolled-back setup lease');
 select tests.count_is('select 1 from public.profiles', 2, 'fixtures after the setup checks');
 
