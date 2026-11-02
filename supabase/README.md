@@ -12,7 +12,7 @@ The Brain project is `iihjcqiiavleyheqzotl`, in us-east-1. This deployment uses 
 
 ## Config (`config.toml`)
 
-`supabase/config.toml` holds only the settings below. Everything else (site address, redirect addresses, token expiry, password length, rate limits, email and MFA) lives only in the dashboard. Don't run `config push` until those are copied in from the dashboard.
+`supabase/config.toml` holds only the settings below. Everything else (site address, redirect addresses, token expiry, password length, rate limits, email and MFA) lives only in the dashboard. Do not run `config push`; sign-in settings are changed only in the dashboard.
 
 | Setting | Value | Why |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ Don't run `config push`. It replaces the whole sign-in section on the live proje
 ```bash
 supabase login                                  # once, with a scoped personal access token
 supabase config diff --project-ref iihjcqiiavleyheqzotl   # read-only comparison
-supabase db push --project-ref iihjcqiiavleyheqzotl       # live change: applies migrations; goes through the build chain and Director's publish step
+supabase db push --project-ref iihjcqiiavleyheqzotl       # changes the live database; build chain and Director only
 ```
 
 Settings that live only in the dashboard and aren't in `config.toml`:
