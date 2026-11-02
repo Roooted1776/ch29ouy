@@ -16,6 +16,48 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Cursor — Nov 2, 2026: Re-delete resurrected agent tsconfigs
+
+## Overview & Request
+User: "we have a lot of code errors now go find and fix"
+Desktop TypeScript Problems flooded again after a later main merge reintroduced three agent scratch `tsconfig*.json` files that PR #73 had already deleted. Those configs point at absolute `/Users/claude/Projects/Brain/Nodes/...` paths that do not exist on Max's machines (TS5083 / TS2688). `app/` typecheck, lint, and tests were already clean.
+
+## What Changed & Why
+1. Deleted the resurrected scratch configs:
+   - `.agents/teamwork/teamwork_preview_auditor_m1/tsconfig.audit.json`
+   - `.agents/teamwork/teamwork_preview_reviewer_m1_1/tsconfig.check.json`
+   - `.agents/teamwork/teamwork_preview_reviewer_m1_2/tsconfig.check.json`
+2. Added `.agents/**/tsconfig*.json` to `.gitignore` so agent workflows cannot commit another absolute-path scratch tsconfig and break Desktop again.
+3. No `app/` source changes. RedMed untouched. Only `app/tsconfig.json` remains as a TypeScript project.
+
+## Files Touched
+- `.agents/teamwork/teamwork_preview_auditor_m1/tsconfig.audit.json` (deleted)
+- `.agents/teamwork/teamwork_preview_reviewer_m1_1/tsconfig.check.json` (deleted)
+- `.agents/teamwork/teamwork_preview_reviewer_m1_2/tsconfig.check.json` (deleted)
+- `.gitignore`
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `npm run format`: clean (122 files)
+- `npm run lint`: 0 errors (39 warnings, 2 infos — baseline)
+- `npm run typecheck`: clean
+- `npm test`: 45 suites passed, 1 skipped (**484 passed**, 3 skipped)
+- `npm run build`: single-file `index.html` (1746 KB) with CSP hash
+- `npm run e2e`: 3 passed in 1.1m (Chromium)
+
+## How the Next AI Should Check It
+```bash
+find . -name 'tsconfig*.json' -not -path '*/node_modules/*'
+# expect only ./app/tsconfig.json
+cd app && npm run typecheck && npm test && npm run build && npm run e2e
+```
+Problems panel on Desktop should no longer list missing `/Users/claude/...` paths.
+
+## Git State
+Branch `cursor/fix-resurrected-agent-tsconfigs-fddd` — push PR for Owner/Director merge after Audits and Security.
+
+---
+
 # Handoff from Claude — Nov 2, 2026: Teamwork Multi-Agent Runtime & Collaborative Flow Expansion
 
 ## Overview & Request
