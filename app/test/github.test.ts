@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  commitBot,
   fetchAndConvertGitHub,
   fetchGitHubCommits,
   fetchGitHubIssues,
@@ -345,14 +346,37 @@ describe('GitHub Connector - Memory Items Conversion', () => {
     expect(issueItem?.type).toBe('entity');
     expect(issueItem?.sources[0].ref).toBe('https://github.com/Roooted1776/Brain/issues/42');
 
-    // Commits: one digest, rewritten on each sync, never one memory per commit
+    // Commits: one growing log per bot, drawn under that bot's colour node
     const commitItems = items.filter(it => /commit/i.test(it.title));
     expect(commitItems.length).toBe(1);
-    expect(commitItems[0].title).toBe('Brain: recent commits');
+    expect(commitItems[0].title).toBe('Brain: Claude Code commits');
     expect(commitItems[0].type).toBe('workstream');
     expect(commitItems[0].note).toContain('7177295');
-    expect(commitItems[0].note).toContain('Claude');
-    expect(commitItems[0].replace).toBe(true);
+    expect(commitItems[0].agent).toBe('claude');
+    expect(commitItems[0].mergeLines).toBe(true);
+  });
+
+  it('files every commit under the bot that made it, and people under Owner', () => {
+    expect(commitBot({ author: 'Max', message: 'Fix\n\nCo-Authored-By: Claude Opus <noreply@anthropic.com>' })).toBe(
+      'claude',
+    );
+    expect(commitBot({ author: 'cursoragent', message: 'x' })).toBe('cursor');
+    expect(commitBot({ author: 'Max', message: 'Plain change' })).toBeNull();
+    const items = githubToMemoryItems(
+      {
+        repoInfo,
+        readme: null,
+        commits: [
+          { sha: 'aaaaaaa1', message: 'one', author: 'Codex', date: '', htmlUrl: 'u' },
+          { sha: 'bbbbbbb2', message: 'two', author: 'Max', date: '', htmlUrl: 'u' },
+        ],
+      },
+      'Brain',
+    ).filter(it => /commits/.test(it.title));
+    expect(items.map(it => [it.title, it.agent])).toEqual([
+      ['Brain: ChatGPT commits', 'chatgpt'],
+      ['Brain: Owner commits', undefined],
+    ]);
   });
 
   it('converts GitHub releases into workstream memory items', () => {

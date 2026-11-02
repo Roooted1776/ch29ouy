@@ -1,4 +1,5 @@
 import type { EntryType, Source } from './memory';
+import { AGENT, type AgentId } from '../data/team';
 import { redact } from './redact';
 import { keywords } from './text';
 
@@ -85,6 +86,10 @@ export interface GitHubRawMemoryItem {
   sources: Source[];
   /** Replace the stored note instead of adding to it (a digest that is rewritten on every sync). */
   replace?: boolean;
+  /** Keep every line ever seen (a commit log that only grows). */
+  mergeLines?: boolean;
+  /** The bot this page belongs to, so it is drawn under that bot's colour node. */
+  agent?: AgentId;
 }
 
 /** Parse various forms of GitHub repository input into owner and repo names. */
@@ -375,6 +380,27 @@ export async function fetchGitHubIssues(
   }
 }
 
+// Words in a commit's author or Co-Authored-By lines that name the bot that made it.
+const BOT_WORDS: [RegExp, AgentId][] = [
+  [/\bclaude\b|anthropic/i, 'claude'],
+  [/\bcodex\b|chatgpt|openai/i, 'chatgpt'],
+  [/cursor/i, 'cursor'],
+  [/copilot/i, 'copilot'],
+  [/\bgemini\b|\bjules\b/i, 'gemini'],
+  [/grok bot|grokbot/i, 'grokbot'],
+  [/\bgrok\b|\bxai\b/i, 'grok'],
+  [/perplexity/i, 'perplexity'],
+  [/\bmuse\b/i, 'muse'],
+  [/\bxcode\b/i, 'xcode'],
+];
+
+/** Which bot made a commit, from its author name or its Co-Authored-By lines; null when a person made it. */
+export function commitBot(c: Pick<GitHubCommit, 'author' | 'message'>): AgentId | null {
+  const who = [c.author, ...(c.message.match(/^co-authored-by:.*$/gim) || [])].join('\n');
+  for (const [re, id] of BOT_WORDS) if (re.test(who)) return id;
+  return null;
+}
+
 /** Fetch recent commits from a repository. */
 export async function fetchGitHubCommits(
   repoInput: string,
@@ -384,29 +410,29 @@ export async function fetchGitHubCommits(
   const parsed = parseRepoInput(repoInput);
   if (!parsed) return [];
 
-  const limit = Math.max(1, Math.min(30, options?.limit || 10));
-  let url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=${limit}`;
+  // Every commit is kept (Owner, Nov 2 2026): page through up to 500 at a time.
+  const total = Math.max(1, Math.min(500, options?.limit || 500)),
+    perPage = Math.min(100, total);
+  let base = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=${perPage}`;
   if (options?.since) {
-    url += `&since=${encodeURIComponent(options.since)}`;
+    base += `&since=${encodeURIComponent(options.since)}`;
   }
 
+  const out: GitHubCommit[] = [];
   try {
-    const res = await fetchImpl(url, { headers: getHeaders(options?.token) });
-    if (!res.ok) return [];
-
-    const data = (await res.json()) as unknown;
-    if (!Array.isArray(data)) return [];
-
-    return data
-      .filter((it): it is Record<string, unknown> => !!it && typeof it === 'object')
-      .map(it => {
+    for (let page = 1; out.length < total; page++) {
+      const res = await fetchImpl(page === 1 ? base : `${base}&page=${page}`, { headers: getHeaders(options?.token) });
+      if (!res.ok) break;
+      const data = (await res.json()) as unknown;
+      if (!Array.isArray(data)) break;
+      for (const it of data.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')) {
         const commit = (typeof it.commit === 'object' && it.commit ? it.commit : {}) as Record<string, unknown>;
         const author = (typeof commit.author === 'object' && commit.author ? commit.author : {}) as Record<
           string,
           unknown
         >;
         const commitAuthor = (typeof it.author === 'object' && it.author ? it.author : {}) as Record<string, unknown>;
-        return {
+        out.push({
           sha: typeof it.sha === 'string' ? it.sha : '',
           message: typeof commit.message === 'string' ? commit.message : '',
           author:
@@ -420,11 +446,14 @@ export async function fetchGitHubCommits(
             typeof it.html_url === 'string'
               ? it.html_url
               : `https://github.com/${parsed.owner}/${parsed.repo}/commit/${it.sha}`,
-        };
-      });
+        });
+      }
+      if (data.length < perPage) break;
+    }
   } catch {
-    return [];
+    // keep what arrived
   }
+  return out.slice(0, total);
 }
 
 /** Fetch releases and milestones from a repository. */
@@ -580,23 +609,30 @@ export function githubToMemoryItems(
     });
   }
 
-  // 4. Recent commits: one digest under the project, rewritten on each sync.
-  // Single commits are not saved one by one (Owner, Nov 2026: they waste space).
-  if (commits.length) {
-    const lines = commits
-      .slice(0, 12)
-      .map(
-        c =>
-          `${c.sha.slice(0, 7)} ${c.message.split('\n')[0].trim()} (${c.author}, ${c.date ? c.date.slice(0, 10) : 'recent'})`,
-      );
+  // 4. Commits: every commit is kept, one short line each, in a log per bot that only grows
+  // (Owner, Nov 2 2026). Each bot's log sits under that bot's colour node; the rest stay under the project.
+  const byBot = new Map<AgentId | '', GitHubCommit[]>();
+  for (const c of commits) {
+    const bot = commitBot(c) || '';
+    byBot.set(bot, [...(byBot.get(bot) || []), c]);
+  }
+  for (const [bot, list] of byBot) {
+    const who = bot ? AGENT[bot].name : 'Owner';
+    const lines = list.map(c =>
+      `${c.sha.slice(0, 7)} ${c.date ? c.date.slice(0, 10) : 'recent'} ${c.message.split('\n')[0].trim()}`.slice(
+        0,
+        120,
+      ),
+    );
     items.push({
-      title: `${repoInfo.name}: recent commits`.slice(0, 80),
-      note: redact(lines.join('\n')).text.slice(0, 600),
+      title: `${repoInfo.name}: ${who} commits`.slice(0, 80),
+      note: redact(lines.join('\n')).text,
       type: 'workstream',
       project,
-      kws: keywords(`commits ${repoInfo.name} ${lines.join(' ')}`).slice(0, 8),
-      sources: [{ kind: 'github', label: `GitHub: ${repoInfo.name} commits`, ref: commits[0].htmlUrl }],
-      replace: true,
+      kws: keywords(`commits ${repoInfo.name} ${who}`).slice(0, 8),
+      sources: [{ kind: 'github', label: `GitHub: ${repoInfo.name} commits`, ref: list[0].htmlUrl }],
+      mergeLines: true,
+      ...(bot ? { agent: bot } : {}),
     });
   }
 

@@ -284,8 +284,29 @@ export function route(a: string, b: string): P3[] | null {
 const DEPTH = { concept: 0.96, workstream: 0.9, entity: 0.72 } as const;
 export function placeMemory(entries: Entry[]): Map<string, P3> {
   const out = new Map<string, P3>();
+  // A bot's own pages (its commit logs) sit in a small cluster just under that bot's colour node.
+  const byBot = new Map<string, Entry[]>();
+  for (const e of entries) if (e.agent && station(e.agent)) byBot.set(e.agent, [...(byBot.get(e.agent) || []), e]);
+  for (const [bot, list] of byBot) {
+    const [sx, sy, sz] = station(bot)!;
+    list
+      .sort((a, b) => a.created - b.created || (a.id < b.id ? -1 : 1))
+      .forEach((e, k) => {
+        const r = 6 + 5 * Math.sqrt(k),
+          th = k * 2.399963;
+        let x = sx + r * Math.cos(th),
+          y = sy + 16 + r * 0.6 * Math.abs(Math.sin(th));
+        if (edgeDist(x, y) <= 8) {
+          x = sx;
+          y = sy + 12;
+        }
+        out.set(e.id, [x, y, sz]);
+      });
+  }
   for (const type of ['concept', 'entity', 'workstream'] as const) {
-    const list = entries.filter(e => e.type === type).sort((a, b) => a.created - b.created || (a.id < b.id ? -1 : 1));
+    const list = entries
+      .filter(e => e.type === type && !out.has(e.id))
+      .sort((a, b) => a.created - b.created || (a.id < b.id ? -1 : 1));
     const reg = OUTLINE.regions[type],
       N = list.length,
       grow = Math.min(2.4, Math.max(1, Math.sqrt(N / 14)));
