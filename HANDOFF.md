@@ -16,6 +16,26 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Cursor — Nov 2, 2026, 1:53 AM America/New_York: deploy is GitHub Pages only
+
+## Overview & Request
+Owner: everything deploys at https://roooted1776.github.io/ch29ouy/. Brain moved onto GitHub.
+
+## What Changed & Why
+- Confirmed Pages (legacy, `main` `/`) already serves the same `index.html` as `origin/main` (SHA-256 `3c86922e…`, last-modified 2026-11-02 06:52 UTC).
+- `DEPLOYMENT.md` now says do not pin Hostinger. `supabase/README.md` names GitHub Pages as the live origin.
+- Did not change the accounts allowlist and did not touch RedMed.
+
+## Files Touched
+- `DEPLOYMENT.md`
+- `supabase/README.md`
+- `HANDOFF.md`
+
+## Checks
+Docs only. Live compare: `curl -sL https://roooted1776.github.io/ch29ouy/ | sha256sum` equals `curl -sL https://raw.githubusercontent.com/Roooted1776/ch29ouy/main/index.html | sha256sum`.
+
+---
+
 # Handoff from Cursor — Nov 2, 2026, 1:48 AM America/New_York: #59/#62 live errors closed
 
 ## Overview & Request

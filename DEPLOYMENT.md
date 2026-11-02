@@ -2,19 +2,17 @@
 
 Repository: https://github.com/Roooted1776/ch29ouy (renamed from Nodes). Work on `main` only.
 
-## Now: GitHub Pages + redeemed.live (Owner, 2026-11-02)
+## Now: GitHub Pages only (Owner, 2026-11-02, 1:53 AM America/New_York)
 
-Brain is served by GitHub Pages at https://roooted1776.github.io/ch29ouy/ straight from the root `index.html` on `main`. Every merge to `main` updates Pages; `.nojekyll` makes Pages serve the file as is.
+Owner moved Brain onto GitHub. The only place a build is published is https://roooted1776.github.io/ch29ouy/.
 
-`https://redeemed.live` (and `www`) is active again on Hostinger VPS `brain-site`. It pins the same `index.html` via `BUILD_URL` / `BUILD_SHA256`. The accounts Edge Function allows both the GitHub Pages origin and the redeemed.live origins.
+GitHub Pages serves the root `index.html` on `main` (legacy Pages, source branch `main`, path `/`). `.nojekyll` is in the repo root so Pages does not rewrite the file. Every merge to `main` is the deploy. Do not pin Hostinger, do not recreate `brain-site`, and do not treat `redeemed.live` as the live site.
+
+Checked 2026-11-02, 1:53 AM America/New_York: Pages, raw `main`, and the repo `index.html` share SHA-256 `3c86922e07108dac6e817c676791a82549caa057aa2fdef2a338f070732a33c4`. Pages last-modified `2026-11-02T06:52:07Z`.
 
 Keep `users.redeemed.live` (account sign-in names) and the `brain.redeemed.live:` salt exactly as they are: they are identifiers inside existing accounts, not web addresses, and changing them would lock every account out.
 
-Current Hostinger pin (2026-11-02, 1:50 AM America/New_York), after squash-merge of #65 onto `main`:
-- `BUILD_SHA256`=`3c86922e07108dac6e817c676791a82549caa057aa2fdef2a338f070732a33c4` (root `index.html`; docs commits do not change it)
-- `BUILD_URL` is the raw `index.html` of current `origin/main` (synced and redeployed in the same step)
-
-Everything below keeps the earlier Hostinger layout and history.
+Everything below is the earlier Hostinger setup, kept for history.
 
 ## Layout
 
@@ -74,7 +72,7 @@ Codex checked the layout and integration. Gemini context review, Muse audit, col
 ## Single page, simple login and pinned deploys (2026-10-24, Claude)
 
 - **Deploy:** the `brain-site` compose project's `init` container downloads `index.html` from a pinned GitHub commit (`BUILD_URL`), checks `BUILD_SHA256`, backs up the served file to `/var/backups/nodes/` and swaps it in atomically. On any failure it keeps the current page. To deploy: merge the reviewed PR, then update `BUILD_URL`/`BUILD_SHA256` in the compose project (Hostinger `vps_docker_create` with the same name) and check the `init` log line `deployed <sha>`.
-- **Main tip pin:** see the current Hostinger pin in the “Now: GitHub Pages + redeemed.live” section at the top of this file (updated 2026-11-02).
+- **Main tip:** publish is GitHub Pages only. See “Now: GitHub Pages only” at the top of this file (Owner, 2026-11-02).
 - **Login:** username + password only (6+ characters). No setup code and no date-of-birth check: while Brain has no accounts, the first visitor creates the admin (`claim_open_setup` lease). Admins add users. `accounts` function v5, migration `open_first_setup`.
 - **Screen:** one page. 3D brain (unchanged), live chat beside it, admin panel as a horizontal strip along the bottom. No text outside the chat. Bot names use their node colours with a fixed pixel icon; a bot that hits a token/rate/credit limit shows a red name until it answers again.
 - **Favicon:** pixel brain, inline data URI (`app/src/assets/favicon.svg`).
