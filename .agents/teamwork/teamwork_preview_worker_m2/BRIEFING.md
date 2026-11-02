@@ -1,7 +1,7 @@
-# BRIEFING — 2026-11-02T09:40:20Z
+# BRIEFING — 2026-11-02T04:54:10Z
 
 ## Mission
-Implement Milestone 2: Streaming Handoff Metrics & Fluid State (enriched metrics, real transit latency / TTFT, batched fan-in state updates, UI auto-scroll & selector optimization, regex polish, and tests).
+Milestone 2 (Streaming Handoff Metrics & Fluid State) implementation and automated verification.
 
 ## 🔒 My Identity
 - Archetype: worker
@@ -29,22 +29,26 @@ Implement Milestone 2: Streaming Handoff Metrics & Fluid State (enriched metrics
 
 ## Current Parent
 - Conversation ID: d8106e50-8d34-4bff-8263-21cf982431cb
-- Updated: 2026-11-02T09:40:20Z
+- Updated: 2026-11-02T04:54:10Z
 
 ## Task Summary
 - **What to build**:
-  1. Enriched Handoff & Session Metrics (`stageTokens`, `transitLatencies`, sanitize in `cleanFlow`/`cleanMs` while keeping legacy tuples valid, record tin/tout/words in `run-task.ts`).
-  2. Real Transit Latency & TTFT Tracking in `run-task.ts` / `providers.ts` (time to first token chunk from request dispatch, record in `transitLatencies[bot]`).
-  3. Batched Fan-in State Updates (`b === 'grokbot'` batched atomic state update).
-  4. UI Auto-Scroll & Selector Optimization (`ChatPanel.tsx` RAF `scrollTop = scrollHeight`, programmatic scroll guard; pulse selector optimization in `ChatPanel.tsx` and `FlowPane.tsx`).
-  5. Minor Regex Polish in `approval.ts` (hyphenated negations `zero-failure run`, plural forms `failures`, `blockers`).
-  6. Comprehensive testing and verification (all 6 checks in `app/`).
-- **Success criteria**: All checks pass (`format`, `lint`, `typecheck`, `test`, `build`), tests updated/added.
+  1. Enriched Handoff & Session Metrics: `FlowTuple`, `FlowMetric`, `Session.stageTokens`, `Session.transitLatencies`. Sanitization via `cleanFlow`, `cleanMs`, `cleanStageTokens`, `cleanTransitLatencies` in `app/src/lib/memory.ts`.
+  2. Real Transit Latency & TTFT Tracking: Measured Time To First Token in `providers.ts` (`readStream` / `callModel`) and stored in `transitLatencies[bot]` in `run-task.ts`.
+  3. Batched Fan-in State Updates: Grok Bot fan-in flows batched in single atomic `set()` call in `run-task.ts`.
+  4. UI Auto-Scroll & Selector Optimization: `ChatPanel.tsx` uses RAF-aligned `scrollTop = scrollHeight`, removes `scrollIntoView()`, adds `isProgrammaticScroll` guard, uses `selectActivePulse`. `FlowPane.tsx` uses `selectActivePulse`.
+  5. Minor Regex Polish in `approval.ts`: Hyphenated negations (e.g. `zero-failure run`) supported in `hasFailureVerdict` while keeping fallback morphology exact.
+  6. Comprehensive testing and verification across unit, integration, and e2e suites.
+- **Success criteria**: All checks pass (`format`, `lint`, `typecheck`, `test`, `build`, `e2e`).
 - **Interface contracts**: `/Users/claude/Projects/Brain/Nodes/.agents/teamwork/PROJECT.md`
 - **Code layout**: `app/src/`
 
 ## Key Decisions Made
-- Initializing work environment.
+- `Flow` preserved as `FlowTuple = [string, string, number]` for complete backward compatibility with stored vaults.
+- Enriched metrics stored in `Session.stageTokens` and `Session.transitLatencies`.
+- `readStream` and `callModel` record elapsed milliseconds from dispatch to arrival of first SSE text chunk as real TTFT.
+- `selectActivePulse` reverse-iterates without array allocation, eliminating render-loop GC churn.
+- Grok Bot fan-in updates batched in a single state update, preserving identical tuple ordering while avoiding 8 consecutive Zustand state dispatches.
 
 ## Artifact Index
 - `DISPATCH.md` — assignment
@@ -53,11 +57,20 @@ Implement Milestone 2: Streaming Handoff Metrics & Fluid State (enriched metrics
 - `handoff.md` — final handoff report
 
 ## Change Tracker
-- **Files modified**: none yet
-- **Build status**: pending
-- **Pending issues**: none
+- **Files modified**:
+  - `app/src/lib/memory.ts`: types and sanitizers for stageTokens and transitLatencies
+  - `app/src/lib/providers.ts`: TTFT measurement in readStream and callModel
+  - `app/src/store.ts`: stageTokens, transitLatencies in State, and selectActivePulse
+  - `app/src/lib/run-task.ts`: stageTokens / transitLatencies tracking and batched fan-in flow update
+  - `app/src/components/ChatPanel.tsx`: RAF single-container auto-scroll, programmatic guard, selectActivePulse
+  - `app/src/components/FlowPane.tsx`: selectActivePulse usage
+  - `app/src/lib/approval.ts`: hyphenated negation regex support
+  - `app/test/task-flow.test.ts`: verified stageTokens and transitLatencies in session and store
+  - `app/test/stream.test.ts`: verified ttftMs, sanitization, and hyphenated negation recognition
+- **Build status**: All checks pass (`format`, `lint`, `typecheck`, `test` [44 files, 454 passed], `build`, `e2e` [3 passed])
+- **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: pending
-- **Lint status**: pending
-- **Tests added/modified**: pending
+- **Build/test result**: PASS (vitest 454 passed, 3 skipped; Playwright 3 passed)
+- **Lint status**: 0 errors
+- **Tests added/modified**: `task-flow.test.ts`, `stream.test.ts`
