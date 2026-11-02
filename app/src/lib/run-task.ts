@@ -326,6 +326,8 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
       );
     // Approval only records state for Director's review; it never runs git or deploy.
     const grokFinalReview = finalReviewFor(hasFailures);
+    // Steps are kept short; only the question and Grok Bot's final answer are kept in full (handoffs waste space).
+    const finalAt = result.msgs.map(x => x.from).lastIndexOf('grokbot');
     const sess: Session = {
       id: 's' + m.nextSession++,
       ts: Date.now(),
@@ -340,9 +342,9 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
       flow: get().flow,
       ms: get().timing,
       grokFinalReview,
-      msgs: result.msgs.map(x => ({
+      msgs: result.msgs.map((x, i) => ({
         from: x.from,
-        text: clean(x.text).slice(0, 4000),
+        text: clean(x.text).slice(0, x.from === 'owner' || i === finalAt ? 4000 : 600),
         tag: x.tag.startsWith('live') ? x.tag : x.tag === 'page' ? 'page' : '',
       })),
       cover: Object.fromEntries(

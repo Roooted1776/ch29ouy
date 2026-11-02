@@ -83,6 +83,8 @@ export interface GitHubRawMemoryItem {
   project: string;
   kws?: string[];
   sources: Source[];
+  /** Replace the stored note instead of adding to it (a digest that is rewritten on every sync). */
+  replace?: boolean;
 }
 
 /** Parse various forms of GitHub repository input into owner and repo names. */
@@ -578,28 +580,23 @@ export function githubToMemoryItems(
     });
   }
 
-  // 4. Recent Commits
-  for (const commit of commits.slice(0, 8)) {
-    const shortSha = commit.sha.slice(0, 7);
-    const firstLine = commit.message.split('\n')[0].trim();
-    const title = `${repoInfo.name} Commit ${shortSha}: ${firstLine}`.slice(0, 80);
-    const note = redact(
-      `Author: ${commit.author} (${commit.date ? commit.date.slice(0, 10) : 'recent'}).\n${commit.message}`,
-    ).text.slice(0, 1000);
-
+  // 4. Recent commits: one digest under the project, rewritten on each sync.
+  // Single commits are not saved one by one (Owner, Nov 2026: they waste space).
+  if (commits.length) {
+    const lines = commits
+      .slice(0, 12)
+      .map(
+        c =>
+          `${c.sha.slice(0, 7)} ${c.message.split('\n')[0].trim()} (${c.author}, ${c.date ? c.date.slice(0, 10) : 'recent'})`,
+      );
     items.push({
-      title,
-      note,
+      title: `${repoInfo.name}: recent commits`.slice(0, 80),
+      note: redact(lines.join('\n')).text.slice(0, 600),
       type: 'workstream',
       project,
-      kws: keywords(`commit ${shortSha} ${firstLine} ${commit.author}`).slice(0, 8),
-      sources: [
-        {
-          kind: 'github',
-          label: `GitHub: ${repoInfo.name}@${shortSha}`,
-          ref: commit.htmlUrl,
-        },
-      ],
+      kws: keywords(`commits ${repoInfo.name} ${lines.join(' ')}`).slice(0, 8),
+      sources: [{ kind: 'github', label: `GitHub: ${repoInfo.name} commits`, ref: commits[0].htmlUrl }],
+      replace: true,
     });
   }
 

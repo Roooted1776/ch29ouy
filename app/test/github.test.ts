@@ -345,11 +345,14 @@ describe('GitHub Connector - Memory Items Conversion', () => {
     expect(issueItem?.type).toBe('entity');
     expect(issueItem?.sources[0].ref).toBe('https://github.com/Roooted1776/Brain/issues/42');
 
-    // Commit node
-    const commitItem = items.find(it => it.title.includes('7177295'));
-    expect(commitItem).toBeDefined();
-    expect(commitItem?.type).toBe('workstream');
-    expect(commitItem?.note).toContain('Claude');
+    // Commits: one digest, rewritten on each sync, never one memory per commit
+    const commitItems = items.filter(it => /commit/i.test(it.title));
+    expect(commitItems.length).toBe(1);
+    expect(commitItems[0].title).toBe('Brain: recent commits');
+    expect(commitItems[0].type).toBe('workstream');
+    expect(commitItems[0].note).toContain('7177295');
+    expect(commitItems[0].note).toContain('Claude');
+    expect(commitItems[0].replace).toBe(true);
   });
 
   it('converts GitHub releases into workstream memory items', () => {

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { archiveCommitNodes } from './lib/project-sync';
 import { AGENT, type AgentId } from './data/team';
 import { addNote, correctEntry, deleteEntry } from './lib/learn';
 import {
@@ -765,6 +766,7 @@ export const useStore = create<State>()((set, get) => {
       let result = { added: 0, updated: 0, total: 0 };
       get().commit(m => {
         result = importMemoryItems(m, items, proj, Date.now());
+        if (meta?.sourceKind === 'github') archiveCommitNodes(m);
         if (items.length > 0) {
           saveImportedListAsTask(m, items, proj, meta, Date.now());
         }
