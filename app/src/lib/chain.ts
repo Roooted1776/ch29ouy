@@ -1,4 +1,4 @@
-import { AGENT, IOS_RE, LIVE_ORDER, stagePrompt, systemPrompt, type AgentId } from '../data/team';
+import { AGENT, LIVE_ORDER, stagePrompt, systemPrompt, type AgentId } from '../data/team';
 import type { Msg } from './memory';
 import { QUOTA_LABEL } from './providers';
 
@@ -19,9 +19,42 @@ export interface ChainResult {
   failed: AgentId[];
 }
 
-export const chainFor = (task: string, inactiveBots?: ReadonlySet<AgentId> | AgentId[]): AgentId[] => {
+export interface StageMilestone {
+  id: AgentId;
+  name: string;
+  text: string;
+  failed?: boolean;
+}
+
+/**
+ * Constructs a structured summary of upstream milestone contributions
+ * (Gemini context, Muse audit, Claude builder proposal, and preceding specialist notes)
+ * so intermediate agents have full visibility into requirements and architecture.
+ */
+export function buildChainDigest(milestones: StageMilestone[]): string {
+  if (milestones.length === 0) return '';
+  return milestones
+    .map(m => {
+      let roleLabel = 'Specialist Note';
+      if (m.id === 'gemini') roleLabel = 'Check 1 Context & Requirements';
+      else if (m.id === 'muse') roleLabel = 'Check 2 Adversarial Audit & Risks';
+      else if (m.id === 'claude') roleLabel = 'Check 3 Builder Architecture Proposal';
+      else if (m.id === 'chatgpt') roleLabel = 'Check 3 Strategy & Execution Plan';
+      else if (m.id === 'cursor') roleLabel = 'Check 3 Code & Repo Fit';
+      else if (m.id === 'copilot') roleLabel = 'Check 3 Code Review & Refinements';
+      else if (m.id === 'perplexity') roleLabel = 'Check 3 Citations & Fact Check';
+      else if (m.id === 'grok') roleLabel = 'Check 3 Contrarian Challenges';
+      else if (m.id === 'xcode') roleLabel = 'Check 3 Platform & Build Feasibility';
+
+      const status = m.failed ? ' [INCOMPLETE/FAILED]' : '';
+      return `[${m.name} - ${roleLabel}${status}]\n${m.text}`;
+    })
+    .join('\n\n');
+}
+
+export const chainFor = (_task?: string, inactiveBots?: ReadonlySet<AgentId> | AgentId[]): AgentId[] => {
   const inactiveSet = Array.isArray(inactiveBots) ? new Set(inactiveBots) : inactiveBots;
-  return LIVE_ORDER.filter(id => (id !== 'xcode' || IOS_RE.test(task)) && !inactiveSet?.has(id));
+  return LIVE_ORDER.filter(id => !inactiveSet?.has(id));
 };
 
 export async function runChain(
@@ -44,7 +77,7 @@ export async function runChain(
     msgs: Msg[] = [],
     failed: AgentId[] = [];
   const clean = opts.clean || (t => t),
-    cap = opts.perTaskCap ?? 9;
+    cap = opts.perTaskCap ?? 10;
   const say = (m: Msg & { cls?: 'warn' }) => {
     msgs.push({ from: m.from, text: m.text, tag: m.tag });
     hooks.say(m);
@@ -62,7 +95,6 @@ export async function runChain(
       'Handoff chain: ' +
       bots.map(b => `${AGENT[b].name} (${AGENT[b].company})`).join(' → ') +
       '.' +
-      (IOS_RE.test(task) ? '' : ' Xcode sits this one out because it is not an iOS task.') +
       (inactiveCount > 0 ? ` [${inactiveCount} inactive bot(s) filtered out]` : '') +
       ' One team of people and bots. Pipeline: Collect → Review → Edit → Review → Pass to next → Review. Text only; no files change.',
   });
@@ -70,6 +102,7 @@ export async function runChain(
     calls = 0,
     completed = 0;
   const handoffs: string[] = [];
+  const milestones: StageMilestone[] = [];
   for (let i = 0; i < bots.length; i++) {
     const bot = bots[i],
       next = bots[i + 1] || null;
@@ -82,6 +115,7 @@ export async function runChain(
     calls++;
     const incomingFrom = i === 0 ? 'Owner' : AGENT[bots[i - 1]].name;
     const incoming = bot === 'grokbot' ? handoffs.join('\n\n') || previous : previous;
+    const chainDigest = bot === 'grokbot' ? '' : buildChainDigest(milestones);
     // Every agent reads Brain's memory, so the whole team works from what all agents learned before.
     const ctx =
       bot === bots[0] || bot === 'grokbot'
@@ -99,7 +133,7 @@ export async function runChain(
           .join('\n');
         r = await call(
           systemPrompt(bot, !!opts.web),
-          stagePrompt(bot, task, incomingFrom, incoming, next, ctx, chatter),
+          stagePrompt(bot, task, incomingFrom, incoming, next, ctx, chatter, chainDigest),
         );
       } finally {
         hooks.active(null);
@@ -111,9 +145,11 @@ export async function runChain(
       completed++;
       previous = `HANDOFF FROM ${AGENT[bot].name}:\n${text}`;
       handoffs.push(previous);
-    } catch (e: any) {
-      const errStr = String(e?.message || e);
-      const isCredits = e?.outOfCredits || /credit|quota|billing|payment|balance|402/i.test(errStr);
+      milestones.push({ id: bot, name: AGENT[bot].name, text });
+    } catch (e: unknown) {
+      const err = e as { message?: string; outOfCredits?: boolean } | null;
+      const errStr = String(err?.message || e);
+      const isCredits = !!err?.outOfCredits || /credit|quota|billing|payment|balance|402/i.test(errStr);
       const msg = isCredits
         ? `${AGENT[bot].name} did not finish: ${QUOTA_LABEL}. Nothing was made up in its place.`
         : `${AGENT[bot].name} did not finish: ${clean(errStr)}. Nothing was made up in its place.`;
@@ -122,6 +158,7 @@ export async function runChain(
       if (isCredits) hooks.onCreditFailure?.(bot, errStr);
       previous = `HANDOFF STATUS FOR ${AGENT[bot].name}:\n${msg}\n(Next worker: review the last available handoff above and continue autonomously.)`;
       handoffs.push(previous);
+      milestones.push({ id: bot, name: AGENT[bot].name, text: msg, failed: true });
     }
     if (next) hooks.handoff(bot, next, previous);
   }

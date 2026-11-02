@@ -96,6 +96,28 @@ export const KEY_GUIDE: Record<ProviderId, KeyGuide> = {
       'Billing may be needed before calls work',
     ],
   },
+  perplexity: {
+    site: 'Perplexity AI',
+    url: 'https://www.perplexity.ai/settings/api',
+    prefix: 'pplx-',
+    steps: [
+      'Sign in at perplexity.ai',
+      'Open Settings and find API',
+      'Generate a new API key',
+      'Copy the key. It starts with pplx-',
+    ],
+  },
+  github: {
+    site: 'GitHub Settings',
+    url: 'https://github.com/settings/tokens',
+    prefix: 'ghp_',
+    steps: [
+      'Sign in at github.com',
+      'Open Settings -> Developer settings -> Personal access tokens',
+      'Generate a token with model and repository access',
+      'Copy the token (ghp_... or github_pat_...)',
+    ],
+  },
 };
 
 /** Which provider a pasted key most likely belongs to, from its prefix. */
@@ -105,6 +127,8 @@ export function guessProvider(key: string): ProviderId | null {
   if (k.startsWith('sk-or-')) return 'openrouter';
   if (k.startsWith('xai-')) return 'xai';
   if (k.startsWith('gsk_')) return 'groq';
+  if (k.startsWith('pplx-')) return 'perplexity';
+  if (k.startsWith('ghp_') || k.startsWith('github_pat_')) return 'github';
   if (k.startsWith('AIza') || k.startsWith('AQ.')) return 'google';
   if (k.startsWith('sk-')) return 'openai';
   return null;

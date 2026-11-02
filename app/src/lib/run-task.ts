@@ -1,6 +1,6 @@
 // Runs one live task: checks, memory context, the bot chain with streaming replies, then saving and learning.
 // Moved out of store.ts so the store holds state and this file holds the task steps.
-import { AGENT, IOS_RE, LIVE_ORDER, type AgentId } from '../data/team';
+import { AGENT, LIVE_ORDER, type AgentId } from '../data/team';
 import { TYPE_COLOR } from '../data/colors';
 import type { State } from '../store';
 import { finalReviewFor } from './approval';
@@ -88,14 +88,13 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
     task: clip(q, 300),
     draft: null,
     timing: {},
+    stageTokens: {},
+    transitLatencies: {},
     flow: [],
     ranOn: {},
     stages: Object.fromEntries(LIVE_ORDER.map(b => [b, bots.includes(b) ? 'waiting' : 'skipped'])),
     notes: Object.fromEntries(
-      LIVE_ORDER.filter(b => !bots.includes(b)).map(b => [
-        b,
-        s.inactiveBots.includes(b) ? 'Disabled' : IOS_RE.test(q) ? 'Not used' : 'Not an iOS task',
-      ]),
+      LIVE_ORDER.filter(b => !bots.includes(b)).map(b => [b, s.inactiveBots.includes(b) ? 'Disabled' : 'Not used']),
     ),
     status: `Live: ${PROV[pv].label} · ${model}`,
     autoRotate: false,
@@ -135,7 +134,7 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
   }
   const callAs = async (system: string, user: string, isStage = true) => {
     const st = get();
-    // Filing memory gets one call of its own on top of the cap, so a full nine-bot task can still be remembered
+    // Filing memory gets one call of its own on top of the cap, so a full task can still be remembered
     const cap = st.live.callCap + (isStage ? 0 : 1);
     if (st.calls >= cap) throw new Error(`the page call budget (${st.live.callCap}) is used`);
     set({ calls: st.calls + 1 });
@@ -143,10 +142,12 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
     ctls.add(ctl);
     const bot = st.active,
       t0 = performance.now();
+    let firstTokenAt: number | null = null;
     let shown = 0;
     // the reply streams in: the chat shows it growing, at most about 12 updates a second
     const onDelta = bot
       ? (t: string) => {
+          if (firstTokenAt === null) firstTokenAt = performance.now();
           const n = performance.now();
           if (n - shown < 80) return;
           shown = n;
@@ -174,11 +175,23 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
         signal: ctl.signal,
         onDelta,
       });
-      set(x => ({
-        tin: x.tin + res.tin,
-        tout: x.tout + res.tout,
-        ...(bot && x.limited.includes(bot) ? { limited: x.limited.filter(b => b !== bot) } : {}),
-      }));
+      const transitLatency =
+        res.ttftMs ?? (firstTokenAt !== null ? Math.round(firstTokenAt - t0) : Math.round(performance.now() - t0));
+      if (bot && isStage) {
+        set(x => ({
+          tin: x.tin + res.tin,
+          tout: x.tout + res.tout,
+          stageTokens: { ...x.stageTokens, [bot]: { in: res.tin, out: res.tout } },
+          transitLatencies: { ...x.transitLatencies, [bot]: transitLatency },
+          ...(x.limited.includes(bot) ? { limited: x.limited.filter(b => b !== bot) } : {}),
+        }));
+      } else {
+        set(x => ({
+          tin: x.tin + res.tin,
+          tout: x.tout + res.tout,
+          ...(bot && x.limited.includes(bot) ? { limited: x.limited.filter(b => b !== bot) } : {}),
+        }));
+      }
       return res;
     } catch (e) {
       if (e instanceof ProviderError && e.rejected) set(x => ({ dead: { ...x.dead, [activeProv]: true } }));
@@ -259,22 +272,27 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
       handoff: (a, b, payload) => {
         if (!liveReady()) return;
         const w = words(payload) || 0;
-        set(x => ({ flow: [...x.flow, [a, b, w] as Flow].slice(-40) }));
         addPulse(a, b, color, { words: w || undefined, dur: speedFor(a, b) });
         // Grok Bot reads every earlier handoff, so each finished bot sends its part in as well
-        if (b === 'grokbot')
-          Object.entries(get().stages)
-            .filter(([k, v]) => k !== a && k !== 'grokbot' && (v === 'done' || v === 'failed'))
-            .forEach(([k], i) => {
-              const w =
-                words(
-                  get()
-                    .log.filter(m => m.from === k)
-                    .at(-1)?.text,
-                ) || 0;
-              set(x => ({ flow: [...x.flow, [k, b, w] as Flow].slice(-40) }));
-              addPulse(k, b, color, { delay: 120 * (i + 1), words: w || undefined });
-            });
+        if (b === 'grokbot') {
+          const finished = Object.entries(get().stages).filter(
+            ([k, v]) => k !== a && k !== 'grokbot' && (v === 'done' || v === 'failed'),
+          );
+          const fanInFlows: Flow[] = [[a, b, w] as Flow];
+          finished.forEach(([k], i) => {
+            const fw =
+              words(
+                get()
+                  .log.filter(m => m.from === k)
+                  .at(-1)?.text,
+              ) || 0;
+            fanInFlows.push([k, b, fw] as Flow);
+            addPulse(k, b, color, { delay: 120 * (i + 1), words: fw || undefined });
+          });
+          set(x => ({ flow: [...x.flow, ...fanInFlows].slice(-40) }));
+        } else {
+          set(x => ({ flow: [...x.flow, [a, b, w] as Flow].slice(-40) }));
+        }
       },
       blocked: () => {
         const x = get();
@@ -318,14 +336,9 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
     const matchProj = q.match(/^\[([^\]]+)\]/);
     const assignedProj = matchProj ? matchProj[1].trim() : get().activeProject || 'Brain';
     const lastGrokBotMsg = result.msgs.filter(x => x.from === 'grokbot').at(-1)?.text || '';
-    const hasFailures =
-      result.failed.length > 0 ||
-      Object.values(get().stages).some(s => s === 'failed') ||
-      /\b(fail|failed|decline|declined|declines|reject|rejected|rejects|block|blocked|abort|aborted)\b/i.test(
-        lastGrokBotMsg,
-      );
+    const hasStageFailures = result.failed.length > 0 || Object.values(get().stages).some(s => s === 'failed');
     // Approval only records state for Director's review; it never runs git or deploy.
-    const grokFinalReview = finalReviewFor(hasFailures);
+    const grokFinalReview = finalReviewFor(hasStageFailures, lastGrokBotMsg);
     // Steps are kept short; only the question and Grok Bot's final answer are kept in full (handoffs waste space).
     const finalAt = result.msgs.map(x => x.from).lastIndexOf('grokbot');
     const sess: Session = {
@@ -341,6 +354,8 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
       learned: false,
       flow: get().flow,
       ms: get().timing,
+      stageTokens: get().stageTokens,
+      transitLatencies: get().transitLatencies,
       grokFinalReview,
       msgs: result.msgs.map((x, i) => ({
         from: x.from,

@@ -95,7 +95,7 @@ export default function AdminPanel() {
           <Switch
             on={live.web}
             set={v => s.setLive({ web: v })}
-            label="Bots can search the web (Anthropic, OpenAI, Google, xAI, Groq)"
+            label="Bots can search the web (Anthropic, OpenAI, Google, xAI, Groq, Perplexity)"
           />
           <select
             aria-label="Provider"
@@ -148,7 +148,13 @@ export default function AdminPanel() {
                   <div className="company-key-head">
                     <span className="company-tag" style={{ borderLeftColor: PROV[p].color }}>
                       <b style={{ color: PROV[p].color }}>
-                        {p === 'google' ? 'Google (Gemini)' : p === 'anthropic' ? 'Anthropic (Claude)' : PROV[p].label}
+                        {p === 'google'
+                          ? 'Google (Gemini)'
+                          : p === 'anthropic'
+                            ? 'Anthropic (Claude)'
+                            : p === 'github'
+                              ? 'GitHub (Copilot)'
+                              : PROV[p].label}
                       </b>
                       <small>{PROV[p].roles}</small>
                     </span>

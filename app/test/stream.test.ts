@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HANDOFF_RULE } from '../src/data/team';
 import { buildRequest, callModel, PROVIDERS, ProviderError, type ProviderId } from '../src/lib/providers';
-import { sanitizeMem } from '../src/lib/memory';
+import { cleanStageTokens, cleanTransitLatencies, sanitizeMem } from '../src/lib/memory';
+import { hasFailureVerdict } from '../src/lib/approval';
 
 /** A fake provider that answers with server-sent events, split at awkward places like a real network. */
 const sse = (events: unknown[], cut = 7) => {
@@ -63,6 +64,12 @@ const EVENTS: Record<ProviderId, unknown[]> = {
   get muse() {
     return this.groq;
   },
+  get perplexity() {
+    return this.groq;
+  },
+  get github() {
+    return this.groq;
+  },
 };
 const base = { key: 'k-123', model: 'm', system: 's', user: 'u', maxTokens: 50 };
 
@@ -100,13 +107,15 @@ describe('streaming replies', () => {
     expect((g.body as any).reasoning_effort).toBe('low');
     expect((buildRequest({ provider: 'openai', ...base }).body as any).stream).toBeUndefined();
   });
-  it('OpenRouter, OpenCode Zen and Muse use the chat format at their own addresses', () => {
+  it('chat-format providers use the chat format at their own addresses', () => {
     const urls: Record<string, string> = {
       openrouter: 'https://openrouter.ai/api/v1/chat/completions',
       opencode: 'https://opencode.ai/zen/v1/chat/completions',
       muse: 'https://api.meta.ai/v1/chat/completions',
+      perplexity: 'https://api.perplexity.ai/chat/completions',
+      github: 'https://models.inference.ai.azure.com/chat/completions',
     };
-    for (const p of ['openrouter', 'opencode', 'muse'] as ProviderId[]) {
+    for (const p of ['openrouter', 'opencode', 'muse', 'perplexity', 'github'] as ProviderId[]) {
       const r = buildRequest({ provider: p, ...base, model: 'm' }, true);
       expect(r.url).toBe(urls[p]);
       expect(r.headers.authorization).toBe('Bearer k-123');
@@ -114,7 +123,7 @@ describe('streaming replies', () => {
       expect((r.body as any).stream).toBe(true);
     }
   });
-  for (const p of ['anthropic', 'openai', 'xai', 'google', 'groq', 'muse'] as ProviderId[])
+  for (const p of ['anthropic', 'openai', 'xai', 'google', 'groq', 'muse', 'perplexity', 'github'] as ProviderId[])
     it(`${p}: text grows as it arrives and the totals are kept`, async () => {
       const seen: string[] = [];
       const r = await callModel({ provider: p, ...base, fetchImpl: sse(EVENTS[p]) as any, onDelta: t => seen.push(t) });
@@ -122,6 +131,8 @@ describe('streaming replies', () => {
       expect(r.tin).toBe(11);
       expect(r.tout).toBe(3);
       expect(seen).toEqual(['Hello ', 'Hello team']);
+      expect(typeof r.ttftMs).toBe('number');
+      expect(r.ttftMs).toBeGreaterThanOrEqual(0);
     });
   it('a stream error is reported honestly, not as a blocked call', async () => {
     const f = sse([
@@ -148,9 +159,10 @@ describe('streaming replies', () => {
           headers: { 'content-type': 'application/json' },
         }),
     );
-    expect((await callModel({ provider: 'openai', ...base, fetchImpl: f as any, onDelta: () => {} })).text).toBe(
-      'plain',
-    );
+    const r = await callModel({ provider: 'openai', ...base, fetchImpl: f as any, onDelta: () => {} });
+    expect(r.text).toBe('plain');
+    expect(typeof r.ttftMs).toBe('number');
+    expect(r.ttftMs).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -181,6 +193,56 @@ describe('saved flow', () => {
       ['grokbot', 'brain', 12],
     ]);
     expect(m.sessions[0].ms).toEqual({ gemini: 2400 });
+  });
+
+  it('preserves and sanitizes stageTokens and transitLatencies', () => {
+    const live = {
+      id: 's2',
+      ts: Date.now(),
+      q: 'metrics',
+      kws: [],
+      accepted: [],
+      uncovered: [],
+      msgs: [{ from: 'gemini', text: 'hi', tag: 'live · OpenAI · m · unverified' }],
+      flow: [['owner', 'gemini', 2] as [string, string, number]],
+      ms: { gemini: 200 },
+      stageTokens: {
+        gemini: { in: 120, out: 45 },
+        evil: { in: 10, out: 10 },
+        muse: { in: -5, out: 20 },
+      },
+      transitLatencies: {
+        gemini: 350,
+        evil: 50,
+        muse: -10,
+        cursor: 700000,
+      },
+    };
+    const m = sanitizeMem({ entries: [], sessions: [live as any] })!;
+    expect(m.sessions[0].stageTokens).toEqual({
+      gemini: { in: 120, out: 45 },
+    });
+    expect(m.sessions[0].transitLatencies).toEqual({
+      gemini: 350,
+      cursor: 600000,
+    });
+    expect(cleanStageTokens(undefined)).toBeUndefined();
+    expect(cleanTransitLatencies(undefined)).toBeUndefined();
+  });
+});
+
+describe('failure verdict recognition', () => {
+  it('ignores hyphenated negations and negated plurals', () => {
+    expect(hasFailureVerdict('This was a zero-failure run across all targets.')).toBe(false);
+    expect(hasFailureVerdict('Finished with a no-failure execution.')).toBe(false);
+    expect(hasFailureVerdict('Completed with zero failures.')).toBe(false);
+    expect(hasFailureVerdict('There are no blockers.')).toBe(false);
+  });
+
+  it('detects unnegated failures and explicit fail decisions', () => {
+    expect(hasFailureVerdict('We encountered a build failure in the pipeline.')).toBe(true);
+    expect(hasFailureVerdict('The task failed to meet requirements.')).toBe(true);
+    expect(hasFailureVerdict('Critical blockers remain.\nDECISION: FAIL')).toBe(true);
   });
 });
 

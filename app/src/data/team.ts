@@ -122,6 +122,7 @@ export const AGENTS: Agent[] = [
     specialty: 'Reviews supplied code and suggests focused improvements',
     skills: ['code suggestions', 'code explanation', 'review'],
     company: 'GitHub',
+    provider: 'github',
     free: 'groq',
   },
   {
@@ -147,6 +148,7 @@ export const AGENTS: Agent[] = [
     specialty: 'Searches sources and checks reasoning using the available context',
     skills: ['search', 'logic', 'source quality'],
     company: 'Perplexity',
+    provider: 'perplexity',
     free: 'groq',
   },
   {
@@ -185,14 +187,14 @@ export const TEAM_EDGES: [AgentId, AgentId][] = [
   ['muse', 'claude'],
 ];
 
-/** The default review chain stays within the nine-call task cap.
- * Copilot is represented in the roster and huddles; it is not another automatic provider call. */
+/** The default review chain connects all team agents in sequence. */
 export const LIVE_ORDER: AgentId[] = [
   'gemini',
   'muse',
   'chatgpt',
   'claude',
   'cursor',
+  'copilot',
   'perplexity',
   'grok',
   'xcode',
@@ -215,7 +217,7 @@ const STAGE: Record<AgentId, string> = {
     'SOURCE CHECK. Judge source quality and what needs a citation. When you can search the web, check the key claims and give links; otherwise use only supplied material. Never invent citations; mark unsupported claims.',
   grok: 'STRATEGY REVIEW. Challenge assumptions, name risks and one option the team missed.',
   xcode:
-    'PLATFORM CHECK. For an iOS task, give a concrete build and device-test plan. Otherwise say this stage does not apply. Do not claim to run builds.',
+    'PLATFORM & BUILD CHECK. Review client platforms, device targets (iOS, macOS, web, mobile, desktop), build constraints, performance and deployment feasibility. Do not claim to run builds.',
   grokbot:
     "TEAM LEAD. Review the whole chain, settle conflicts, list missing or failed stages, and write the final report with a PASS or FAIL recommendation. You can decline based on the team's response. Owner controls repo changes, push and merge.",
 };
@@ -229,9 +231,9 @@ const TASK: Record<AgentId, string> = {
   cursor: 'Check repo integration risks using only the material provided.',
   perplexity: 'Check the key claims and their sources. Search the web when you can and give links.',
   grok: 'Challenge assumptions and surface risks or alternatives.',
-  xcode: 'Give an iOS build and test plan if relevant. Do not claim to run builds.',
+  xcode: 'Review platform compatibility, device targets, build constraints, and deployment feasibility.',
   grokbot:
-    "Review every handoff. Combine the work, list open issues and missing checks, and give the final team report and recommendation. You can decline based on the team's response.",
+    "Review every handoff. Synthesize Check 1 (Gemini context), Check 2 (Muse audit), and Check 3 (Collective review). Settle conflicts, list open issues or missing checks, and give the final team report with an authoritative DECISION: PASS or DECISION: FAIL recommendation. You can decline based on the team's response.",
 };
 
 /** Each bot's voice in the team chat (Owner wants banter, Oct 2026). */
@@ -390,21 +392,48 @@ export function stagePrompt(
   next: AgentId | null,
   brainContext: string,
   chatter = '',
+  chainDigest = '',
 ): string {
-  const handTo = next
-    ? AGENT[next].name.toUpperCase()
-    : id === 'grokbot'
-      ? 'OWNER (FINAL SITUATION REPORT)'
-      : 'GROK BOT';
+  if (id === 'grokbot') {
+    const handTo = 'OWNER (FINAL SITUATION REPORT)';
+    return (
+      `${HANDOFF_RULE}\n\nOWNER TASK:\n${task}\n\n` +
+      (brainContext ? `${brainContext}\n\n` : '') +
+      (chainDigest ? `UPSTREAM CHAIN DIGEST:\n${chainDigest}\n\n` : '') +
+      `INCOMING HANDOFFS FROM ENTIRE TEAM (COLLECT & REVIEW FIRST):\n${incoming}\n\n` +
+      (chatter ? `EARLIER IN THE TEAM CHAT (you may reply to anyone here):\n${chatter}\n\n` : '') +
+      `YOUR ASSIGNED WORK:\n${TASK[id]}\n\n` +
+      'ONE TEAM PRINCIPLE: We are all one team of people and bots. Never hide information out of emotion. Complete your task and push across the desk to the next person.\n' +
+      'OPERATING PIPELINE: Collect --> Review --> Edit --> Review --> Pass to next --> Review.\n' +
+      'STEP OF ATTACK DEPLOYED: Target Recon -> Threat Audit -> Tactical Plan -> Surgical Strike -> Verification.\n\n' +
+      'AUTHORITATIVE THREE-CHECK SYNTHESIS PROTOCOL (Execute in order, under 150 words total):\n' +
+      '1. Check 1 Audit (Gemini): Verify requirements completeness, boundary limits, and context fidelity.\n' +
+      '2. Check 2 Audit (Muse): Confirm resolution of adversarial audit risks, gaps, and contradictions.\n' +
+      '3. Check 3 Synthesis (Collective): Integrate technical contributions from ChatGPT, Claude, Cursor, Copilot, Perplexity, Grok, and Xcode into one coherent deliverable.\n' +
+      '4. Conflict Resolution & Blockers: Resolve any specialist disagreements; explicitly list missing or failed stages.\n' +
+      `5. Authoritative Final Decision: Deliver the ${handTo} ending with an explicit verdict line:\n` +
+      '   "DECISION: PASS" (if all 3 checks verify and deliverables pass) OR "DECISION: FAIL" (if any check fails or blockers remain).\n\n' +
+      'CRITICAL FORMAT RULE: NO CODE BLOCKS. Never output markdown code fences (```). The live chat is for common interactions, team chatter, and passes between teammates. Explain your work and plans in natural conversational words.\n' +
+      `Deliver your final decision with crisp authority. Text only, no code blocks. ${toneLine(id)}`
+    );
+  }
+
+  const handTo = next ? AGENT[next].name.toUpperCase() : 'GROK BOT';
   return (
     `${HANDOFF_RULE}\n\nOWNER TASK:\n${task}\n\n` +
     (brainContext ? `${brainContext}\n\n` : '') +
+    (chainDigest ? `UPSTREAM CHAIN PROGRESS (MILESTONES & ARCHITECTURE):\n${chainDigest}\n\n` : '') +
     `INCOMING HANDOFF FROM ${incomingFrom.toUpperCase()} (COLLECT & REVIEW FIRST):\n${incoming}\n\n` +
     (chatter ? `EARLIER IN THE TEAM CHAT (you may reply to anyone here):\n${chatter}\n\n` : '') +
     `YOUR ASSIGNED WORK:\n${TASK[id]}\n\n` +
     'ONE TEAM PRINCIPLE: We are all one team of people and bots. Never hide information out of emotion. Complete your task and push across the desk to the next person.\n' +
     'OPERATING PIPELINE: Collect --> Review --> Edit --> Review --> Pass to next --> Review.\n' +
-    'STEP OF ATTACK DEPLOYED: Target Recon -> Threat Audit -> Tactical Plan -> Surgical Strike -> Verification.\n' +
+    'STEP OF ATTACK DEPLOYED: Target Recon -> Threat Audit -> Tactical Plan -> Surgical Strike -> Verification.\n\n' +
+    'COLLABORATIVE REASONING PROTOCOL (Execute in order, under 150 words total):\n' +
+    `1. Critique & Acknowledge: Explicitly cite ${incomingFrom}'s key claims or proposals; state what you endorse, challenge, or refine.\n` +
+    `2. Specialty Advance: Apply your domain specialty (${AGENT[id].specialty}) to advance the deliverable concretely.\n` +
+    '3. Risk / Edge Case Audit: Surface new technical risks, edge cases, or missing verification checks.\n' +
+    `4. Direct Handoff: Pass to ${handTo} with a specific directive on what to inspect next.\n\n` +
     'CRITICAL FORMAT RULE: NO CODE BLOCKS. Never output markdown code fences (```). The live chat is for common interactions, team chatter, and passes between teammates. Explain your work and plans in natural conversational words.\n' +
     `Talk like a lively team group chat: open with a quick line of banter to ${incomingFrom} or anyone above, do your work in natural words, then pass to ${handTo} with a short send-off. Text only, no code blocks. ${toneLine(id)}`
   );

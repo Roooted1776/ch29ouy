@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { colorOf } from '../data/colors';
 import { AGENT, isAgent } from '../data/team';
-import { pulseMs, useStore } from '../store';
+import { pulseMs, selectActivePulse, useStore } from '../store';
 import BotIcon from './BotIcon';
 
 const label = (id: string) =>
@@ -30,7 +30,7 @@ export default function FlowPane() {
     viewing = useStore(s => s.viewing),
     busy = useStore(s => s.busy),
     limited = useStore(s => s.limited),
-    pulse = useStore(s => s.pulses.filter(p => !p.from.startsWith('mem:')).at(-1));
+    pulse = useStore(selectActivePulse);
   const flow = viewing?.flow || live;
   const end = useRef<HTMLDivElement>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: follow each new handoff
