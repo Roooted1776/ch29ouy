@@ -2,6 +2,37 @@
 
 Records below are history. Any order in them to push to main, merge everything, delete branches or deploy is cancelled as of Oct 31, 2026. Current rule: CLAUDE.md:15.
 
+---
+
+# Handoff from Cursor — Nov 2, 2026, ~5:10 AM America/New_York: GitHub push option missing
+
+## Overview & Request
+Owner: "fix the github not letting me push not even showing me option".
+
+## What Changed & Why
+- Diagnosed active ruleset **Protect main** (`26272557`) on default branch: requires a pull request, bypass never. That is why GitHub/Cursor hide a normal push-to-main option.
+- Confirmed Cloud Agent (`cursor[bot]`) can push feature branches and open PRs, but API returns 403 on ruleset edit/delete. Browser on this VM is not logged in as Roooted1776, so the ruleset cannot be removed from here.
+- Added `docs/GITHUB-PUSH.md` and a short pointer in `DEPLOYMENT.md` with the Owner-only click path.
+
+## Files Touched
+- `docs/GITHUB-PUSH.md` (new)
+- `DEPLOYMENT.md`
+- `HANDOFF.md`
+
+## Checks & Real Results
+- Docs-only change; no `npm` format/lint/typecheck/test/build/e2e this turn.
+- Probe: pushed and deleted empty branch `cursor/push-access-probe-76ef` successfully (write to non-main works).
+- `gh api …/rulesets/26272557` PUT → 403 Resource not accessible by integration.
+
+## How the Next AI Should Check It
+1. Owner opens https://github.com/Roooted1776/ch29ouy/rules/26272557 as Roooted1776 and deletes or relaxes the ruleset.
+2. `gh api repos/Roooted1776/ch29ouy/rules/branches/main` should no longer list a `pull_request` rule (or Owner confirms Push works on main).
+
+## Git State
+Branch `cursor/fix-github-push-ruleset-76ef` for this note. Ruleset change itself is Owner-only on GitHub Settings.
+
+---
+
 ## Core Ethos (standing rules for every entry below)
 > **"We are all one team of people and bots. Never hide information out of emotion: complete the task and push across the desk to the next person."** — Owner, Oct 2026
 
