@@ -24,8 +24,9 @@ The Brain project is `iihjcqiiavleyheqzotl`, in us-east-1. This deployment uses 
 | `api.schemas` | `["public"]` | No `graphql_public`: Brain has no GraphQL client, and the resolver is revoked in SQL too. |
 | `api.auto_expose_new_tables` | `false` | New tables need an explicit grant instead of the cloud default of granting first. |
 | `api.max_rows` | `200` | The page reads at most 60 log rows and a handful of profiles. |
+| `functions.accounts.verify_jwt` | `false` | The function checks every caller itself; setup and status must work before sign-in. |
 
-Don't run `config push`. It replaces the whole sign-in section on the live project, so any setting this file leaves out falls back to Supabase's default. Change live sign-in settings in the dashboard instead. To compare this file with the live project without changing anything, use `config diff`. `db push` applies migrations to the live database, so it goes through the build chain and Director's publish step.
+A `config push` replaces the whole sign-in section on the live project, so any setting this file leaves out falls back to Supabase's default. Change live sign-in settings in the dashboard instead. To compare this file with the live project without changing anything, use `config diff`. `db push` applies migrations to the live database, so it goes through the build chain and Director's publish step.
 
 ```bash
 supabase login                                  # once, with a scoped personal access token

@@ -63,3 +63,7 @@ enable_confirmations = true
 # live: phone = false, phone_autoconfirm = false
 enable_signup = false
 enable_confirmations = true
+
+[functions.accounts]
+# The accounts function checks every caller itself (sign-in token, then admin role).
+verify_jwt = false
