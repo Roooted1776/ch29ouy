@@ -394,27 +394,24 @@ async function readStream(
   return { ...acc, ttftMs };
 }
 
-/** Some models answer by "calling" a tool that was never offered (e.g. one named JSON). The provider rejects it. */
-export function isStrayToolCall(e: unknown): boolean {
+/** Groq's gpt-oss sometimes calls a tool it was never given (e.g. 'JSON'); Groq then rejects the reply. */
+export function isToolCallError(e: unknown): boolean {
   const m = e instanceof Error ? e.message : String(e);
-  return /tool call validation failed|attempted to call tool|not in request\.tools/i.test(m);
-}
-
-const PLAIN_TEXT_RULE =
-  'Answer in plain text only. Do not call any tool or function, not even one named JSON. Write any JSON as normal text.';
-
-/** One call to one provider. If the model makes a stray tool call, try once more in plain text. */
-export async function callModel(o: CallOpts): Promise<CallResult> {
-  try {
-    return await callModelOnce(o);
-  } catch (e) {
-    if (!isStrayToolCall(e) || o.signal?.aborted) throw e;
-    return callModelOnce({ ...o, web: false, system: `${o.system}\n\n${PLAIN_TEXT_RULE}` });
-  }
+  return /tool call validation failed|attempted to call tool/i.test(m);
 }
 
 /** One call to one provider. The key goes only to that provider and is never logged. */
-async function callModelOnce(o: CallOpts): Promise<CallResult> {
+export async function callModel(o: CallOpts): Promise<CallResult> {
+  try {
+    return await callOnce(o);
+  } catch (e) {
+    // A made-up tool call is a random slip, not a bad key: ask once more, without the web tool.
+    if (!isToolCallError(e) || o.signal?.aborted) throw e;
+    return callOnce({ ...o, web: false });
+  }
+}
+
+async function callOnce(o: CallOpts): Promise<CallResult> {
   const req = buildRequest(o, !!o.onDelta),
     ctl = new AbortController();
   const wait = o.timeoutMs ?? (o.web ? 60000 : 30000);

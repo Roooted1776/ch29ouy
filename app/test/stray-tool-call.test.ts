@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { callModel, isStrayToolCall } from '../src/lib/providers';
+import { callModel, isToolCallError } from '../src/lib/providers';
 
 const bad = () =>
   new Response(
@@ -13,10 +13,10 @@ const good = () =>
 
 describe('stray tool call', () => {
   it('spots the error', () => {
-    expect(isStrayToolCall(new Error("attempted to call tool 'JSON' which was not in request.tools"))).toBe(true);
-    expect(isStrayToolCall(new Error('HTTP 429'))).toBe(false);
+    expect(isToolCallError(new Error("attempted to call tool 'JSON' which was not in request.tools"))).toBe(true);
+    expect(isToolCallError(new Error('HTTP 429'))).toBe(false);
   });
-  it('retries once in plain text', async () => {
+  it('retries once', async () => {
     let n = 0;
     const r = await callModel({
       provider: 'groq',
