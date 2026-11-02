@@ -57,6 +57,37 @@ describe('absorbing memory other agents saved', () => {
     expect(absorbMemory(mem, db)).toEqual({ added: 0, updated: 0, sessions: 0, projects: 0 });
     expect(mem).toEqual(again);
   });
+  it('does not report sessions the local cap drops again', () => {
+    const mem = blankMem();
+    const db = blankMem();
+    for (let i = 0; i < 40; i++) db.sessions.push({ ...session('s' + (i + 1), 1000 + i), q: 'task ' + i });
+    absorbMemory(mem, db);
+    expect(mem.sessions.length).toBeLessThan(40);
+    expect(absorbMemory(mem, db)).toEqual({ added: 0, updated: 0, sessions: 0, projects: 0 });
+  });
+  it('never gives a renumbered entry an id another database row holds', () => {
+    const mem = blankMem();
+    add(mem, 'note:a', 'Local a.'); // e1
+    const db = blankMem();
+    add(db, 'ai:concept:x', 'Remote x.'); // e1, collides
+    const y = add(db, 'ai:concept:y', 'Remote y.'); // e2, blocked here
+    mem.blocked.push(y.key);
+    absorbMemory(mem, db);
+    const x = mem.entries.find(e => e.key === 'ai:concept:x')!;
+    expect(x.id).not.toBe('e1');
+    expect(x.id).not.toBe(y.id);
+  });
+  it('does not bring back project rows archived here', () => {
+    const mem = blankMem();
+    const db = blankMem();
+    const row = add(db, 'source:alpha:empty', 'Alpha.', 1000, {
+      project: 'Alpha',
+      sources: [{ kind: 'tool', label: 'Read-only project sync', ref: 'file:///Alpha/x.md' }],
+    });
+    mem.archived.push(structuredClone(row));
+    absorbMemory(mem, db);
+    expect(mem.entries.some(e => e.key === row.key)).toBe(false);
+  });
   it('absorbs read-only project rows through the project-sync rules', () => {
     const mem = blankMem();
     const db = blankMem();
@@ -72,7 +103,7 @@ describe('absorbing memory other agents saved', () => {
 });
 
 describe('Grok Bot files into memory all agents share', () => {
-  it('reuses a title another agent already saved and links read-only project rows', () => {
+  it('saves its own memory and links same-titled Owner notes and project rows without changing them', () => {
     const mem = blankMem();
     const team = add(mem, 'note:concept:vault', 'Memory lives in the vault.');
     const ro = add(mem, 'source:alpha:release', 'Alpha release notes.');
@@ -82,16 +113,16 @@ describe('Grok Bot files into memory all agents share', () => {
       mem,
       [
         { type: 'concept', title: 'Vault', note: 'Encrypted before saving.' },
-        { type: 'concept', title: 'Release', note: 'Should not rewrite the project row.' },
-        { type: 'concept', title: 'Sync', note: 'Agents pull every minute.' },
+        { type: 'concept', title: 'Release', note: 'Blocked on audit.' },
       ],
       s,
       tally(),
       2000,
     );
-    expect(made.map(e => e.key)).toEqual(['note:concept:vault', 'ai:concept:sync']);
-    expect(team.note).toContain('Encrypted before saving.');
+    expect(made.map(e => e.key)).toEqual(['ai:concept:vault', 'ai:concept:release']);
+    expect(team.note).toBe('Memory lives in the vault.');
     expect(ro.note).toBe('Alpha release notes.');
+    expect(team.links).toContain(made[0].id);
     expect(ro.links).toContain(made[1].id);
   });
 });

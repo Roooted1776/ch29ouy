@@ -66,19 +66,12 @@ export function fileMemories(m: Mem, items: AiMemory[], s: Session, t: Tally, no
     ref: s.id,
   };
   const made: Entry[] = [];
-  const seenElsewhere: Entry[] = [];
+  const linkTo = new Map<Entry, Entry[]>();
   for (const it of items) {
     const same = (e: Entry) => e.title.toLowerCase() === it.title.toLowerCase();
-    // A read-only project row with this title is linked, never rewritten.
-    const ro = m.entries.find(e => e.key.startsWith('source:') && same(e));
-    if (ro) {
-      seenElsewhere.push(ro);
-      continue;
-    }
-    // Reuse a memory another agent or Owner already holds under this title (team notes, imports).
-    const old =
-      m.entries.find(e => e.key.startsWith(AI_KEY) && same(e)) ||
-      m.entries.find(e => e.status === 'fresh' && !e.key.startsWith('project:') && same(e));
+    // Grok Bot only rewrites its own memories. A same-titled Owner note, import or project row is linked, never changed.
+    const old = m.entries.find(e => e.key.startsWith(AI_KEY) && same(e));
+    const others = m.entries.filter(e => !e.key.startsWith(AI_KEY) && !e.key.startsWith('project:') && same(e));
     const e = upsert(
       m,
       {
@@ -92,10 +85,13 @@ export function fileMemories(m: Mem, items: AiMemory[], s: Session, t: Tally, no
       t,
       now,
     );
-    if (e) made.push(e);
+    if (e) {
+      made.push(e);
+      linkTo.set(e, others);
+    }
   }
   for (let i = 0; i < made.length; i++) for (let j = i + 1; j < made.length; j++) link(made[i], made[j]);
-  for (const e of made) for (const ro of seenElsewhere) link(e, ro);
+  for (const [e, others] of linkTo) for (const o of others) link(e, o);
   for (const id of s.used || []) for (const e of made) link(e, byId(m, id));
   if (s.project) {
     const projNode = ensureProjectNode(m, s.project, s, now);

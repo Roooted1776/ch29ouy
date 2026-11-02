@@ -33,7 +33,7 @@ const projectOf = (e: Entry, incoming: Mem): string =>
   incoming.entries.find(p => p.key.startsWith('project:') && e.links.includes(p.id))?.title.trim() ||
   'Brain';
 
-function mergeSources(current: Source[], incoming: Source[]): Source[] {
+export function mergeSources(current: Source[], incoming: Source[]): Source[] {
   const sources: Source[] = [];
   for (const source of [...cleanSources(current), ...cleanSources(incoming)]) {
     const at = sources.findIndex(s => s.kind === source.kind && s.label === source.label && s.ref === source.ref);
