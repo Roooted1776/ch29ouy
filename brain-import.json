@@ -283,7 +283,7 @@
       "title": "Brain AI key options",
       "type": "concept",
       "project": "Nodes",
-      "note": "Brain needs a provider key. xAI's API is prepaid with no free or student tier. Free routes Brain supports: Groq (gsk_), Gemini via AI Studio (AIza), Cerebras free tier. Choice presented 2026-10-26; awaiting Maximilian.",
+      "note": "Brain needs a provider key. xAI's API is prepaid with no free or student tier. Free routes Brain supports: Groq (gsk_), Gemini via AI Studio (AIza), OpenRouter and OpenCode Zen free models. Choice presented 2026-10-26; awaiting Maximilian.",
       "kws": [
         "groq",
         "gemini",

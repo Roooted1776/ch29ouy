@@ -5,7 +5,7 @@ const PAGE = pathToFileURL(fileURLToPath(new URL('../../index.html', import.meta
 test('keys: paste, test, survive lock, clear', async ({ page, context }) => {
   await fakeBackend(context);
   const hits: string[] = [];
-  for (const host of ['api.cerebras.ai', 'api.meta.ai', 'api.groq.com'])
+  for (const host of ['openrouter.ai', 'api.meta.ai', 'api.groq.com'])
     await context.route(`https://${host}/**`, async route => {
       hits.push(route.request().url() + ' ' + route.request().headers().authorization);
       await route.fulfill({
@@ -30,7 +30,7 @@ test('keys: paste, test, survive lock, clear', async ({ page, context }) => {
   await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 30000 });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   for (const [label, key, word] of [
-    ['Cerebras (free) key', 'csk-abc123', 'Cerebras'],
+    ['OpenRouter (free) key', 'sk-or-abc123', 'OpenRouter'],
     ['Muse (Meta) key', 'meta-key-xyz', 'Muse'],
   ] as const) {
     const box = page.getByLabel(label);
@@ -40,7 +40,7 @@ test('keys: paste, test, survive lock, clear', async ({ page, context }) => {
     await card.getByRole('button', { name: 'Test' }).click();
     await expect(page.getByText(new RegExp(`Connected to ${word}`)).first()).toBeVisible({ timeout: 15000 });
   }
-  expect(hits.some(h => h.includes('cerebras') && h.endsWith('Bearer csk-abc123'))).toBe(true);
+  expect(hits.some(h => h.includes('openrouter') && h.endsWith('Bearer sk-or-abc123'))).toBe(true);
   expect(hits.some(h => h.includes('meta.ai') && h.endsWith('Bearer meta-key-xyz'))).toBe(true);
   // lock, sign in: keys come back from the encrypted vault
   await page.waitForTimeout(1500);
@@ -50,11 +50,11 @@ test('keys: paste, test, survive lock, clear', async ({ page, context }) => {
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 30000 });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  const c = page.locator('.company-key-card', { has: page.getByLabel('Cerebras (free) key') });
+  const c = page.locator('.company-key-card', { has: page.getByLabel('OpenRouter (free) key') });
   await expect(c.locator('.pill')).toHaveText('Key set');
   // clear empties it
   await c.getByRole('button', { name: 'Clear' }).click();
   await expect(c.locator('.pill')).toHaveText('Not set');
-  await expect(page.getByLabel('Cerebras (free) key')).toHaveValue('');
+  await expect(page.getByLabel('OpenRouter (free) key')).toHaveValue('');
   expect(errs.filter(e => !/policy-check/.test(e))).toEqual([]);
 });

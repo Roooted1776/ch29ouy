@@ -150,7 +150,9 @@ export const blankMem = (): Mem => ({
 
 // Current provider labels plus read-only compatibility for saved replies from a retired provider.
 const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const LABELS = [...new Set([...PROVIDERS.map(p => PROV[p].label), 'Freebuff (free)'])].map(esc).join('|');
+const LABELS = [...new Set([...PROVIDERS.map(p => PROV[p].label), 'Freebuff (free)', 'Cerebras (free)'])]
+  .map(esc)
+  .join('|');
 export const LIVE_TAG = new RegExp(`^(live|chat) · (${LABELS}) · `);
 const TAG_RE = new RegExp(`^((live|chat) · (${LABELS}) · [A-Za-z0-9._:/-]{1,80}(?: · unverified)?|page|page checks)$`);
 const SPEAKER_RE = /^(owner|brain|queue|grok|grokbot|claude|cursor|gemini|chatgpt|copilot|perplexity|xcode|muse)$/;

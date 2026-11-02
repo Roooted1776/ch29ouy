@@ -12,7 +12,7 @@ const isSource = (e: Entry) =>
 
 /** Remove unused graph dots reversibly; their original records remain in the archive. */
 export function archiveEmptyAndRetiredNodes(mem: Mem): number {
-  const retired = new Set(['freebuff', 'archil', 'comet']);
+  const retired = new Set(['freebuff', 'archil', 'comet', 'cerebras']);
   const moved = mem.entries.filter(e => {
     if (e.corrected || (isSource(e) && e.note.trim())) return false;
     const exactRetiredTool = e.type === 'entity' && retired.has(e.title.trim().toLowerCase());

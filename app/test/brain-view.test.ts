@@ -58,7 +58,7 @@ describe('brain view', () => {
       (p?: string): p is ProviderId =>
         !!p && keys.includes(p);
     expect(pickBotProvider('anthropic', 'groq', 'openai', has(['groq', 'anthropic']))).toBe('groq');
-    expect(pickBotProvider('anthropic', 'groq', 'openai', has(['cerebras', 'anthropic']))).toBe('cerebras');
+    expect(pickBotProvider('anthropic', 'groq', 'openai', has(['openrouter', 'anthropic']))).toBe('openrouter');
     expect(pickBotProvider('anthropic', 'groq', 'openai', has(['anthropic']))).toBe('anthropic');
     expect(pickBotProvider('anthropic', 'groq', 'openai', has([]))).toBe('openai');
   });

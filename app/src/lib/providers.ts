@@ -1,16 +1,7 @@
 import { HANDOFF_RULE } from '../data/team';
 import { redact } from './redact';
 
-export type ProviderId =
-  | 'anthropic'
-  | 'openai'
-  | 'google'
-  | 'xai'
-  | 'groq'
-  | 'cerebras'
-  | 'openrouter'
-  | 'opencode'
-  | 'muse';
+export type ProviderId = 'anthropic' | 'openai' | 'google' | 'xai' | 'groq' | 'openrouter' | 'opencode' | 'muse';
 export interface Provider {
   label: string;
   model: string;
@@ -49,14 +40,6 @@ export const PROV: Record<ProviderId, Provider> = {
     hint: 'key starts with gsk_',
     color: '#f55036',
     roles: 'Used first by every bot (free)',
-  },
-  /** Free tier, very fast open models. Limits per Cerebras' pricing page, Oct 2026. */
-  cerebras: {
-    label: 'Cerebras (free)',
-    model: 'gpt-oss-120b',
-    hint: 'key starts with csk-',
-    color: '#ffa24d',
-    roles: 'Any bot you pick as the main one',
   },
   /** One key for many companies' models (Owner, Nov 2 2026). Models ending in ":free" cost nothing, with daily limits. */
   openrouter: {
@@ -98,7 +81,6 @@ export const RETIRED = new Set([
 /** Providers that speak the common "chat completions" format. */
 const CHAT_URL: Partial<Record<ProviderId, string>> = {
   groq: 'https://api.groq.com/openai/v1/chat/completions',
-  cerebras: 'https://api.cerebras.ai/v1/chat/completions',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   opencode: 'https://opencode.ai/zen/v1/chat/completions',
   muse: 'https://api.meta.ai/v1/chat/completions',
@@ -196,7 +178,7 @@ export function buildRequest(
   if (isChat(o.provider)) {
     headers.authorization = 'Bearer ' + o.key;
     // gpt-oss thinks before it answers; the thinking counts toward the limit, so it gets room and is kept short
-    const reasoning = (o.provider === 'groq' || o.provider === 'cerebras') && /gpt-oss/i.test(o.model);
+    const reasoning = o.provider === 'groq' && /gpt-oss/i.test(o.model);
     return {
       url: CHAT_URL[o.provider]!,
       headers,
@@ -438,7 +420,7 @@ export async function callModel(o: CallOpts): Promise<CallResult> {
   return parseReply(o.provider, data);
 }
 
-/** Free services (Groq, Cerebras): tried first so paid keys are spent only when no free one works. */
+/** Free services (Groq, OpenRouter, OpenCode Zen): tried first so paid keys are spent only when no free one works. */
 export const FREE_PROVIDERS = PROVIDERS.filter(p => PROV[p].label.includes('(free)'));
 
 /**

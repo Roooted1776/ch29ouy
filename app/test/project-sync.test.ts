@@ -129,15 +129,15 @@ describe('read-only project mirror reconciliation', () => {
 describe('reversible empty and retired node cleanup', () => {
   it('archives exact retired tool entities while preserving notes that merely mention them', () => {
     const mem = blankMem();
-    for (const title of ['Freebuff', 'Archil', 'Comet'])
+    for (const title of ['Freebuff', 'Archil', 'Comet', 'Cerebras'])
       add(mem, `note:${title}`, '', 1000, { type: 'entity', title, sources: [], note: `Former tool: ${title}.` });
     const history = add(mem, 'note:migration', '', 1000, {
       title: 'Freebuff migration history',
       sources: [],
       note: 'Replaced Freebuff with the current tools.',
     });
-    const original = structuredClone(mem.entries.slice(0, 3));
-    expect(archiveEmptyAndRetiredNodes(mem)).toBe(3);
+    const original = structuredClone(mem.entries.slice(0, 4));
+    expect(archiveEmptyAndRetiredNodes(mem)).toBe(4);
     expect(mem.entries).toEqual([history]);
     expect(mem.archived).toEqual(original);
     expect(mem.blocked).toEqual([]);
