@@ -147,6 +147,15 @@ async function call(body: Row, token?: string) {
   return { status: res.status, body: (await res.json()) as Row };
 }
 
+async function options(origin: string) {
+  return handler(
+    new Request('https://fn.test/accounts', {
+      method: 'OPTIONS',
+      headers: { origin, 'access-control-request-method': 'POST' },
+    }),
+  );
+}
+
 beforeEach(async () => {
   fake.state.tables = { profiles: [], account_keys: [], vaults: [], audit_log: [] };
   fake.state.authUsers = [];
@@ -251,6 +260,25 @@ describe('accounts function: removing accounts', () => {
     expect(r.body.error).toBe('Could not remove the account. Nothing was changed.');
     expect(fake.state.tables.profiles).toHaveLength(2);
     expect(fake.state.tables.audit_log).toEqual([]);
+  });
+});
+
+describe('accounts function: browser origins', () => {
+  it('allows GitHub Pages and redeemed.live, refuses other sites', async () => {
+    for (const origin of [
+      'https://roooted1776.github.io',
+      'https://redeemed.live',
+      'https://www.redeemed.live',
+      'http://localhost:5173',
+      'null',
+    ]) {
+      const res = await options(origin);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('access-control-allow-origin')).toBe(origin);
+    }
+    const blocked = await options('https://evil.example');
+    expect(blocked.status).toBe(200);
+    expect(blocked.headers.get('access-control-allow-origin')).toBeNull();
   });
 });
 
