@@ -2,6 +2,10 @@
 
 Repository: https://github.com/Roooted1776/ch29ouy (renamed from Nodes). Work on `main` only.
 
+## Push blocked on main? (Owner, 2026-11-02)
+
+If GitHub or Cursor hides a normal Push / Commit-to-main option and only offers Propose changes / a PR, the active repo ruleset **Protect main** is requiring a pull request with bypass set to never. Only Owner signed in as **Roooted1776** can change it: open https://github.com/Roooted1776/ch29ouy/rules/26272557 and delete the ruleset (or turn off Require a pull request). Full note: `docs/GITHUB-PUSH.md`. Cursor Cloud Agents can push feature branches but cannot edit rulesets.
+
 ## Now: GitHub Pages only (Owner, 2026-11-02)
 
 Owner moved Brain onto GitHub. The only place a build is published is https://roooted1776.github.io/ch29ouy/.
