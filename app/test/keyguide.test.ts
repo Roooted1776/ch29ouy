@@ -12,6 +12,7 @@ describe('key guide', () => {
     expect(guessProvider('sk-ant-api03-x')).toBe('anthropic');
     expect(guessProvider('sk-proj-x')).toBe('openai');
     expect(guessProvider('AIzaSyX')).toBe('google');
+    expect(guessProvider('AQ.Ab8RN6x')).toBe('google');
     expect(guessProvider('xai-123')).toBe('xai');
     expect(guessProvider('hello')).toBeNull();
   });

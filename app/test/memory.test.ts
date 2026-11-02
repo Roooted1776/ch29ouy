@@ -170,6 +170,7 @@ describe('memory storage', () => {
     expect(r.text).not.toMatch(/sk-ant|hunter2|AIza/);
     expect(r.n).toBe(3);
     expect(redact('echo MYSECRETKEY12345', ['MYSECRETKEY12345']).text).toBe('echo [filtered]');
+    expect(redact('new google key AQ.Ab8RN6Iabcdefghijklmnopqrstu').text).toBe('new google key [filtered]');
   });
   it('keeps only AI-written memories and your own notes live; older text-analysis memories are archived, not lost', () => {
     const m = blankMem(),

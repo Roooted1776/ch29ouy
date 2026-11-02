@@ -344,3 +344,27 @@ textarea {
 .agent-inspector .ai-footer button {
   flex: 1;
 }
+
+/* Review fixes (Nov 2 2026): status pills and bot-card buttons stay on one line. */
+.settings-drawer .company-key-head {
+  align-items: center !important;
+  gap: 6px !important;
+}
+.settings-drawer .company-key-head .company-tag {
+  min-width: 0;
+  flex: 1;
+}
+.settings-drawer .company-key-head .pill {
+  flex: none;
+  white-space: nowrap;
+}
+.agent-inspector .ai-footer button {
+  flex: 1 1 auto !important;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-inspector .ai-footer button + button {
+  flex: none !important;
+}
