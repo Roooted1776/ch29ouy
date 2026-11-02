@@ -103,7 +103,8 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
   const notes: string[] = []; // Brain's own notes go to the status line; the chat holds only AI replies
   const matchProj = q.match(/^\[([^\]]+)\]/);
   const assignedProj = matchProj ? matchProj[1].trim() : s.activeProject || 'Brain';
-  let ctxBlock = '';
+  let ctxBlock = '',
+    ctxShort = '';
   if (s.mem.settings.brain && s.mem.settings.useMemory) {
     const hits = relevant(s.mem, q, 6, assignedProj);
     set({ used: hits.map(h => h.e.id) });
@@ -124,6 +125,11 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
     ctxBlock = contextBlock(
       hits.map(h => h.e),
       indexTitles(s.mem),
+    );
+    // Middle stages get the same memories, clipped, without the index: they still work from Brain, for fewer tokens.
+    ctxShort = contextBlock(
+      hits.map(h => ({ ...h.e, note: clip(h.e.note, 160) })),
+      [],
     );
     notes.push(hits.length ? `${hits.length} memories sent as context` : 'no memory matched');
   }
@@ -196,7 +202,10 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
     set(x => ({ active: 'grokbot', stages: { ...x.stages, grokbot: 'working' } }));
     addPulse('grokbot', 'brain', color, { words: words(msgs.filter(x => x.from === 'grokbot').at(-1)?.text) });
     try {
-      const known = st.mem.entries.filter(e => e.key.startsWith(AI_KEY)).map(e => e.title);
+      // All titles Brain holds (from every agent and project), so Grok Bot reinforces instead of duplicating.
+      const known = [
+        ...new Set([...st.mem.entries.filter(e => e.key.startsWith(AI_KEY)).map(e => e.title), ...indexTitles(st.mem)]),
+      ];
       const res = await callAs(
         MEMORY_SYSTEM,
         memoryPrompt(sess.q, sess.msgs, known, st.mem.settings.instructions),
@@ -283,7 +292,13 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
         }));
       },
     },
-    { brainContext: ctxBlock, clean, inactiveBots: get().inactiveBots, web: get().live.web },
+    {
+      brainContext: ctxBlock,
+      brainContextShort: ctxShort,
+      clean,
+      inactiveBots: get().inactiveBots,
+      web: get().live.web,
+    },
   );
   set(x => ({
     stages: Object.fromEntries(Object.entries(x.stages).map(([k, v]) => [k, v === 'waiting' ? 'skipped' : v])),

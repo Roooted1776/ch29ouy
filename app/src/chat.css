@@ -563,3 +563,150 @@
   padding: 4px 8px;
   border-bottom: 1px solid #444;
 }
+
+/* Perplexity-style answer page: question, sources, collapsible steps, then one answer */
+.chat.grok.px .px-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: #8a93a6;
+}
+.chat.grok.px .px-done {
+  color: #4ade80;
+}
+.chat.grok.px .px-thread {
+  display: grid;
+  gap: 10px;
+  padding: 10px 2px 14px;
+  border-bottom: 1px solid rgba(154, 163, 180, 0.14);
+}
+.chat.grok.px .px-thread:last-of-type {
+  border-bottom: 0;
+}
+.chat.grok.px .px-q {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: #f2f4f8;
+  overflow-wrap: anywhere;
+}
+.chat.grok.px .px-head {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a93a6;
+  margin-bottom: 4px;
+}
+.chat.grok.px .px-sources ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.chat.grok.px .px-src {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 6px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid rgba(154, 163, 180, 0.22);
+  border-left: 2px solid var(--c);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.chat.grok.px .px-src:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.chat.grok.px .px-src b {
+  grid-row: span 2;
+  color: var(--c);
+}
+.chat.grok.px .px-src span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat.grok.px .px-src small {
+  color: #8a93a6;
+}
+.chat.grok.px .px-steps {
+  display: grid;
+  gap: 4px;
+}
+.chat.grok.px .px-step {
+  border: 1px solid rgba(154, 163, 180, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.chat.grok.px .px-step > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  list-style: none;
+}
+.chat.grok.px .px-step > summary::-webkit-details-marker {
+  display: none;
+}
+.chat.grok.px .px-step > summary::after {
+  content: "▸";
+  margin-left: auto;
+  color: #8a93a6;
+}
+.chat.grok.px .px-step[open] > summary::after {
+  content: "▾";
+}
+.chat.grok.px .px-step > .msg {
+  margin: 0 6px 6px;
+}
+.chat.grok.px .px-mark {
+  color: var(--c, #4ade80);
+  width: 1em;
+  text-align: center;
+}
+.chat.grok.px .px-mark.working {
+  animation: px-blink 1s ease-in-out infinite;
+}
+.chat.grok.px .px-answer .px-final p {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.chat.grok.px .px-cite {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.4em;
+  height: 1.4em;
+  margin: 0 2px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(147, 197, 253, 0.18);
+  color: #93c5fd;
+  font: inherit;
+  font-size: 10px;
+  vertical-align: super;
+  cursor: pointer;
+}
+@keyframes px-blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat.grok.px .px-mark.working {
+    animation: none;
+  }
+}

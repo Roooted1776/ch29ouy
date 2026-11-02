@@ -66,8 +66,12 @@ export function fileMemories(m: Mem, items: AiMemory[], s: Session, t: Tally, no
     ref: s.id,
   };
   const made: Entry[] = [];
+  const linkTo = new Map<Entry, Entry[]>();
   for (const it of items) {
-    const old = m.entries.find(e => e.key.startsWith(AI_KEY) && e.title.toLowerCase() === it.title.toLowerCase());
+    const same = (e: Entry) => e.title.toLowerCase() === it.title.toLowerCase();
+    // Grok Bot only rewrites its own memories. A same-titled Owner note, import or project row is linked, never changed.
+    const old = m.entries.find(e => e.key.startsWith(AI_KEY) && same(e));
+    const others = m.entries.filter(e => !e.key.startsWith(AI_KEY) && !e.key.startsWith('project:') && same(e));
     const e = upsert(
       m,
       {
@@ -81,9 +85,13 @@ export function fileMemories(m: Mem, items: AiMemory[], s: Session, t: Tally, no
       t,
       now,
     );
-    if (e) made.push(e);
+    if (e) {
+      made.push(e);
+      linkTo.set(e, others);
+    }
   }
   for (let i = 0; i < made.length; i++) for (let j = i + 1; j < made.length; j++) link(made[i], made[j]);
+  for (const [e, others] of linkTo) for (const o of others) link(e, o);
   for (const id of s.used || []) for (const e of made) link(e, byId(m, id));
   if (s.project) {
     const projNode = ensureProjectNode(m, s.project, s, now);
