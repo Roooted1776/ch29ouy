@@ -1,7 +1,16 @@
 import { HANDOFF_RULE } from '../data/team';
 import { redact } from './redact';
 
-export type ProviderId = 'anthropic' | 'openai' | 'google' | 'xai' | 'groq' | 'cerebras' | 'muse';
+export type ProviderId =
+  | 'anthropic'
+  | 'openai'
+  | 'google'
+  | 'xai'
+  | 'groq'
+  | 'cerebras'
+  | 'openrouter'
+  | 'opencode'
+  | 'muse';
 export interface Provider {
   label: string;
   model: string;
@@ -49,6 +58,23 @@ export const PROV: Record<ProviderId, Provider> = {
     color: '#ffa24d',
     roles: 'Any bot you pick as the main one',
   },
+  /** One key for many companies' models (Owner, Nov 2 2026). Models ending in ":free" cost nothing, with daily limits. */
+  openrouter: {
+    label: 'OpenRouter (free)',
+    model: 'openai/gpt-oss-120b:free',
+    hint: 'key starts with sk-or-',
+    color: '#8c7cf0',
+    roles: 'Free models first; any model by name',
+  },
+  /** OpenCode Zen, the model service from the OpenCode coding agent (Owner, Nov 2 2026). Free model name is from
+   *  third-party docs, Nov 2026 (unverified): change the Model box if it is refused. */
+  opencode: {
+    label: 'OpenCode Zen (free)',
+    model: 'big-pickle',
+    hint: 'paste your key from opencode.ai/zen',
+    color: '#c9c9cf',
+    roles: 'Free coding models',
+  },
   /** Meta's Model API (api.meta.ai). Model name is unverified: check dev.meta.ai and change the Model box if needed. */
   muse: {
     label: 'Muse (Meta)',
@@ -73,6 +99,8 @@ export const RETIRED = new Set([
 const CHAT_URL: Partial<Record<ProviderId, string>> = {
   groq: 'https://api.groq.com/openai/v1/chat/completions',
   cerebras: 'https://api.cerebras.ai/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  opencode: 'https://opencode.ai/zen/v1/chat/completions',
   muse: 'https://api.meta.ai/v1/chat/completions',
 };
 const isChat = (p: ProviderId) => p in CHAT_URL;
