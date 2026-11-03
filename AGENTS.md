@@ -2,7 +2,7 @@
 
 Brain is Owner's personal "Orchestration Brain": one page (`index.html`) that shows his AI programs working together, plus a small memory that learns from those sessions the way the Perplexity help article "What is Brain?" describes.
 
-Canonical repo: **`Roooted1776/Brain`**.
+Canonical repo: **`Roooted1776/ch29ouy`** (the old `Roooted1776/Brain` name no longer exists).
 
 ## Standard Team Workflow (For Every AI and Tool)
 

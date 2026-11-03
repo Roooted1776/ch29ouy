@@ -169,7 +169,7 @@ export async function testGitHubConnection(
     return {
       ok: false,
       status: 'error',
-      message: 'Invalid repository format. Use "owner/repo" (e.g. Roooted1776/Brain).',
+      message: 'Invalid repository format. Use "owner/repo" (e.g. Roooted1776/ch29ouy).',
     };
   }
 
