@@ -177,6 +177,9 @@ function httpMessage(status: number, body: string, key: string) {
 /** Build the request for one provider. Exported for tests. */
 /** Providers whose own API can search the web. Checked Oct 2026 against each company's docs; see WEB_TOOL. */
 export const CAN_SEARCH = new Set<ProviderId>(['anthropic', 'openai', 'xai', 'google', 'groq', 'perplexity']);
+/** True when this provider and model really get a web search tool from buildRequest (Groq only on gpt-oss models). */
+export const canSearch = (p: ProviderId, model: string): boolean =>
+  CAN_SEARCH.has(p) && (p !== 'groq' || /gpt-oss/i.test(model));
 export function buildRequest(
   o: Pick<CallOpts, 'provider' | 'key' | 'model' | 'system' | 'user' | 'maxTokens' | 'web'>,
   stream = false,

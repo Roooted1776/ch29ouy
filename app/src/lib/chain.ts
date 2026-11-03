@@ -17,6 +17,7 @@ export interface ChainResult {
   msgs: Msg[];
   completed: number;
   failed: AgentId[];
+  owner: AgentId | null;
 }
 
 export interface StageMilestone {
@@ -52,10 +53,63 @@ export function buildChainDigest(milestones: StageMilestone[]): string {
     .join('\n\n');
 }
 
-export const chainFor = (_task?: string, inactiveBots?: ReadonlySet<AgentId> | AgentId[]): AgentId[] => {
-  const inactiveSet = Array.isArray(inactiveBots) ? new Set(inactiveBots) : inactiveBots;
-  return LIVE_ORDER.filter(id => !inactiveSet?.has(id));
+/** Always in a task: Gemini reads context, Muse audits, Grok Bot gives the final PASS or FAIL. */
+export const CORE: readonly AgentId[] = ['gemini', 'muse', 'grokbot'];
+
+/** Task words that call for each specialist (Owner, Nov 3 2026: "agents work together based on skills"). */
+const SKILL_RE: Partial<Record<AgentId, RegExp>> = {
+  xcode: /\b(ios|iphone|ipad|ipados|macos|watchos|xcode|swift|swiftui|testflight|app store)\b/i,
+  claude:
+    /\b(code|coding|repo|repository|bug|bugs|fix|build|refactor|function|typescript|javascript|react|python|api|script|test|tests|write|draft|explain|design|essay|reason)\b/i,
+  cursor:
+    /\b(code|coding|repo|repository|bug|bugs|fix|refactor|integration|merge|branch|pr|pull request|commit|diff)\b/i,
+  copilot:
+    /\b(code|coding|repo|repository|bug|bugs|fix|refactor|function|review the code|code review|lint|typescript|javascript|python)\b/i,
+  perplexity:
+    /\b(source|sources|cite|citation|citations|research|fact|facts|fact-check|verify|evidence|link|links|news|latest|current|study|studies|compare)\b/i,
+  grok: /\b(risk|risks|risky|strategy|threat|threats|security|assumption|assumptions|tradeoff|trade-off|option|options|should we|decide|decision)\b/i,
+  chatgpt:
+    /\b(plan|plans|roadmap|steps|schedule|organi[sz]e|synthesi[sz]e|summari[sz]e|summary|tool|tools|workflow)\b/i,
 };
+
+const words = (t: string) => new Set(t.toLowerCase().match(/[a-z][a-z0-9+#.-]{2,}/g) || []);
+
+/** How well a task fits one bot: a hit on its task words counts 3, each of its skill or specialty words in the task counts 1. */
+export function skillScore(task: string, id: AgentId): number {
+  const t = task || '';
+  const re = SKILL_RE[id];
+  const hits = re ? 3 * (t.match(new RegExp(re.source, 'gi'))?.length || 0) : 0;
+  const tw = words(t);
+  const own = words([...AGENT[id].skills, AGENT[id].specialty].join(' '));
+  let overlap = 0;
+  for (const w of own) if (w.length > 3 && tw.has(w)) overlap++;
+  return hits + overlap;
+}
+
+export interface Route {
+  bots: AgentId[];
+  /** The one bot that owns the task: the best fit among the specialists. */
+  owner: AgentId | null;
+}
+
+/**
+ * Skill-based routing. Gemini, Muse and Grok Bot always run; only specialists whose skills match the task join.
+ * The best fit is named owner and always runs; with no match, Claude Code (reasoning, writing, build) owns it.
+ * Order follows LIVE_ORDER, so Grok Bot stays last. Switched-off bots never run.
+ */
+export function routeTask(task?: string, inactiveBots?: ReadonlySet<AgentId> | AgentId[]): Route {
+  const off = Array.isArray(inactiveBots) ? new Set(inactiveBots) : inactiveBots;
+  const on = (id: AgentId) => !off?.has(id);
+  const specialists = LIVE_ORDER.filter(id => !CORE.includes(id) && on(id));
+  const scored = specialists.map(id => ({ id, n: skillScore(task || '', id) })).filter(x => x.n >= 3);
+  const best = [...scored].sort((a, b) => b.n - a.n || LIVE_ORDER.indexOf(a.id) - LIVE_ORDER.indexOf(b.id))[0];
+  const owner = best?.id ?? (on('claude') ? 'claude' : (specialists[0] ?? null));
+  const pick = new Set<AgentId>([...CORE.filter(on), ...scored.map(x => x.id), ...(owner ? [owner] : [])]);
+  return { bots: LIVE_ORDER.filter(id => pick.has(id)), owner };
+}
+
+export const chainFor = (task?: string, inactiveBots?: ReadonlySet<AgentId> | AgentId[]): AgentId[] =>
+  routeTask(task, inactiveBots).bots;
 
 export async function runChain(
   task: string,
@@ -71,9 +125,14 @@ export async function runChain(
     inactiveBots?: ReadonlySet<AgentId> | AgentId[];
     /** Bots may search the web. */
     web?: boolean;
+    /** A fixed team instead of skill routing (still minus switched-off bots). */
+    team?: AgentId[];
   } = {},
 ): Promise<ChainResult> {
-  const bots = chainFor(task, opts.inactiveBots),
+  const routed = routeTask(task, opts.inactiveBots);
+  const off = new Set(opts.inactiveBots || []);
+  const bots = opts.team ? opts.team.filter(id => !off.has(id)) : routed.bots,
+    route = { bots, owner: routed.owner && bots.includes(routed.owner) ? routed.owner : null },
     msgs: Msg[] = [],
     failed: AgentId[] = [];
   const clean = opts.clean || (t => t),
@@ -96,6 +155,7 @@ export async function runChain(
       bots.map(b => `${AGENT[b].name} (${AGENT[b].company})`).join(' → ') +
       '.' +
       (inactiveCount > 0 ? ` [${inactiveCount} inactive bot(s) filtered out]` : '') +
+      (route.owner ? ` Owner of this task: ${AGENT[route.owner].name} (best skill fit).` : '') +
       ' One team of people and bots. Pipeline: Collect → Review → Edit → Review → Pass to next → Review. Text only; no files change.',
   });
   let previous = 'Owner task: ' + task,
@@ -168,5 +228,5 @@ export async function runChain(
       tag: 'page',
       text: `${completed} stage(s) done. Model text is unverified. Brain changed no files.${opts.web ? ' Bots could search the web; check their links.' : ''}`,
     });
-  return { msgs, completed, failed };
+  return { msgs, completed, failed, owner: route.owner };
 }

@@ -49,17 +49,20 @@ describe('a real task, streamed', () => {
     useStore.setState({ keys: { openai: 'sk-test' } });
     await useStore.getState().send('task: write a plan');
     const s = useStore.getState();
-    expect(f).toHaveBeenCalledTimes(11); // 10 bots, then Grok Bot files memory
+    // skill routing: Gemini, Muse, ChatGPT (plan, owner), Claude Code (write), Grok Bot, then Grok Bot files memory
+    expect(f).toHaveBeenCalledTimes(6);
+    expect(s.stages.xcode).toBe('skipped');
+    expect(s.notes.xcode).toBe('Not used');
     expect(JSON.parse((f.mock.calls[0] as any)[1].body).stream).toBe(true);
     expect(s.draft).toBeNull();
     expect(s.busy).toBe(false);
     expect(s.flow[0]).toEqual(['owner', 'gemini', 3]); // the owner's task, three words
     expect(s.flow).toContainEqual(['gemini', 'muse', 6]); // "HANDOFF FROM Gemini:" + the three streamed words
     expect(s.flow).toContainEqual(['grokbot', 'brain', 3]);
-    expect(Object.keys(s.timing).length).toBe(10);
-    expect(Object.keys(s.stageTokens || {}).length).toBe(10);
+    expect(Object.keys(s.timing).length).toBe(5);
+    expect(Object.keys(s.stageTokens || {}).length).toBe(5);
     expect(s.stageTokens?.gemini).toEqual({ in: 5, out: 3 });
-    expect(Object.keys(s.transitLatencies || {}).length).toBe(10);
+    expect(Object.keys(s.transitLatencies || {}).length).toBe(5);
     expect(typeof s.transitLatencies?.gemini).toBe('number');
     expect(s.transitLatencies?.gemini).toBeGreaterThanOrEqual(0);
     const sess = s.mem.sessions.at(-1)!;
@@ -68,6 +71,7 @@ describe('a real task, streamed', () => {
     expect(sess.stageTokens).toEqual(s.stageTokens);
     expect(sess.transitLatencies).toEqual(s.transitLatencies);
     expect(sess.project).toBe('Brain');
+    expect(sess.owner).toBe('chatgpt');
     expect(s.log.filter(m => m.from === 'gemini')[0].text).toBe('one two three');
     expect(s.mem.entries.map(e => e.key)).toContain('project:brain');
     expect(s.mem.entries.map(e => e.key)).toContain('ai:concept:plan first');
@@ -137,7 +141,8 @@ describe('a real task, streamed', () => {
     useStore.getState().setLive({ provider: 'openai' });
     useStore.setState({ keys: { openai: 'sk-test' } });
 
-    await useStore.getState().send('task: evaluate security architecture');
+    // a task that needs every skill brings in the whole team
+    await useStore.getState().send('task: plan the iOS code fix, cite sources and flag security risks');
     const s = useStore.getState();
 
     // The chain continued despite Muse failing: Gemini (1) + ChatGPT..Xcode..GrokBot (8 more) + Dream filing (1) = 11 calls

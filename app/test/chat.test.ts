@@ -173,7 +173,8 @@ describe('runChat', () => {
     // group chat: one lead reply on the task budget, then teammates chime in on the side-chat budget
     const bots = state.mem.sessions[0].msgs.filter((m: { from: string }) => m.from !== 'owner');
     expect(bots).toHaveLength(1 + SIDE_CHAT_PER_MESSAGE);
-    expect(new Set(bots.map((m: { from: string }) => m.from)).size).toBe(bots.length);
+    // bots may answer each other, but never the same bot twice in a row
+    for (let i = 1; i < bots.length; i++) expect(bots[i].from).not.toBe(bots[i - 1].from);
     // every line is one call inside the page's call cap (AGENTS.md: the 9-call maximum stays)
     expect(state.calls).toBe(1 + SIDE_CHAT_PER_MESSAGE);
   });

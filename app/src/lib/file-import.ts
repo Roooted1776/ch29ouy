@@ -230,7 +230,7 @@ export async function parseMemoryFile(file: File, defaultProject = 'Brain'): Pro
   return parseMarkdownMemory(text, file.name, defaultProject);
 }
 
-function importKey(project: string, type: EntryType, title: string): string {
+export function importKey(project: string, type: EntryType, title: string): string {
   // Compact, project-scoped identity stays inside the stored 120-character key limit.
   const identity = JSON.stringify([project.toLowerCase(), type, title.toLowerCase()]);
   let hash = 2166136261;

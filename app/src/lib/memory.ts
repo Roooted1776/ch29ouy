@@ -109,6 +109,8 @@ export interface Session {
   nodeId?: string;
   nodeTitle?: string;
   grokFinalReview?: string;
+  /** The one bot that owned the task (best skill fit, chosen by routeTask). */
+  owner?: string;
   /** One-sentence summary written by Dream. */
   sum?: string;
   /** Defaults to task when missing (older saves). */
@@ -356,6 +358,7 @@ export function sanitizeMem(d: any, fromBackup = false): Mem | null {
     project: typeof s.project === 'string' ? scrub(s.project.slice(0, 80)) : undefined,
     ...(typeof s.sum === 'string' ? { sum: scrub(s.sum.slice(0, 300)) } : {}),
     projectId: typeof s.projectId === 'string' ? scrub(s.projectId.slice(0, 40)) : undefined,
+    ...(typeof s.owner === 'string' && isAgent(s.owner) ? { owner: s.owner } : {}),
     ...(s.kind === 'chat' || s.kind === 'task' ? { kind: s.kind as SessionKind } : {}),
     used: Array.isArray(s.used)
       ? s.used.filter((u: unknown) => typeof u === 'string' && ids.has(u as string)).slice(0, 12)

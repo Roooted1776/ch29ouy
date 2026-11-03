@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { LIVE_ORDER, type AgentId } from '../src/data/team';
-import { buildChainDigest, runChain, type ChainHooks, type StageMilestone } from '../src/lib/chain';
+import { buildChainDigest, runChain as routedRunChain, type ChainHooks, type StageMilestone } from '../src/lib/chain';
 import { hasFailureVerdict, finalReviewFor, APPROVED_FOR_DIRECTOR_REVIEW } from '../src/lib/approval';
 import { parseStageError } from '../src/lib/run-task';
 import { cleanFlow, cleanMs, cleanStageTokens, cleanTransitLatencies } from '../src/lib/memory';
 import { cleanChatText } from '../src/components/ChatPanel';
 import { redact } from '../src/lib/redact';
 import { pulseMs } from '../src/store';
+
+// These tests check the chain's mechanics with the whole team on board; skill routing has its own tests.
+const runChain: typeof routedRunChain = (task, tag, call, hooks, opts = {}) =>
+  routedRunChain(task, tag, call, hooks, { team: LIVE_ORDER, ...opts });
 
 describe('Tier 5 Adversarial Hardening: parseStageError', () => {
   it('correctly parses Pattern A ("<Agent> did not finish: <reason>")', () => {
