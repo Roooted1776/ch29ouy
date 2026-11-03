@@ -1,5 +1,9 @@
-/** Radius the camera keeps in view: the skull with its labels plus a small margin (measured at about 4.8). */
-export const HEAD_RADIUS = 5.6;
+/**
+ * Radius the camera keeps in view: the skull with its labels (measured at about 4.8) plus a thin margin.
+ * 5.35 fills about 83% of the brain view's height, the most that still clears the top bar and the search bar
+ * (Owner, Nov 3 2026: "make skull and brain bigger").
+ */
+export const HEAD_RADIUS = 5.35;
 
 /**
  * Fit the whole schematic head inside the limiting viewport dimension. Recomputed whenever the brain view

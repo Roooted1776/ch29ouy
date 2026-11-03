@@ -89,7 +89,6 @@ test('built page: set up admin, draw brain, pass System check, lock', async ({ p
     await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2 + 20, { steps: 8 });
     await page.mouse.up();
   }
-  await page.getByRole('button', { name: 'Reset view', exact: true }).click();
   await page.getByRole('button', { name: 'Hide chat', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Live chat' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Show chat', exact: true }).click();

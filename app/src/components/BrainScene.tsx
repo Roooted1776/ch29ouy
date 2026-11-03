@@ -4,8 +4,7 @@ import type React from 'react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { STAGE_COLOR, TYPE_COLOR, colorOf } from '../data/colors';
-import { AGENT, AGENTS, LIVE_ORDER, isAgent } from '../data/team';
-import { capWords } from '../lib/text';
+import { AGENTS, LIVE_ORDER, isAgent } from '../data/team';
 import { OUTLINE } from '../data/outline';
 import { buildSkull, skullLines } from '../lib/skull';
 import { brainEntries, brainTasks, taskPath } from '../lib/brain-view';
@@ -706,12 +705,6 @@ function Memories() {
               <sphereGeometry args={[0.12, 8, 8]} />
               <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
-            <Html center distanceFactor={9} zIndexRange={[25, 0]} style={{ pointerEvents: 'none' }}>
-              <div className={'task-node-tag' + (on ? ' on' : '')}>
-                {n} task{n === 1 ? '' : 's'}
-                {on ? '' : ' · open'}
-              </div>
-            </Html>
           </group>
         );
       })}
@@ -831,6 +824,26 @@ function Transit({ p }: { p: Pulse }) {
         B = new THREE.Vector3(...toWorld(b as P3)),
         H = new THREE.Vector3(...toWorld(h as P3));
       pts = new THREE.QuadraticBezierCurve3(A, A.clone().lerp(B, 0.5).lerp(H, 0.35), B).getSpacedPoints(SAMPLES - 1);
+    } else if (p.to.startsWith('mem:')) {
+      // Memory goes home (Owner, Nov 3 2026): the new memory rides the data highway from the bot that filed it
+      // to the hub, then branches off to its own dot.
+      const m = memPos.get(p.to.slice(4)),
+        h = station('hub');
+      if (!m || !h) return null;
+      const road = route(p.from, 'hub') || [station(p.from) || h, h];
+      const raw = [...road, m]
+        .map(q => new THREE.Vector3(...toWorld(q)))
+        .filter((q, i, all) => i === 0 || q.distanceTo(all[i - 1]) > 1e-3);
+      if (raw.length < 2) return null;
+      if (raw.length === 2) {
+        // straight from the hub: bow the last stretch a little so it reads as a lane, not a ruler line
+        const A = raw[0],
+          B = raw[1],
+          C = A.clone()
+            .lerp(B, 0.5)
+            .add(new THREE.Vector3(0, A.distanceTo(B) * 0.25, 0));
+        pts = new THREE.QuadraticBezierCurve3(A, C, B).getSpacedPoints(SAMPLES - 1);
+      } else pts = new THREE.CatmullRomCurve3(raw, false, 'centripetal').getSpacedPoints(SAMPLES - 1);
     } else {
       const r = route(p.from, p.to);
       if (!r || r.length < 2) return null;
@@ -855,7 +868,7 @@ function Transit({ p }: { p: Pulse }) {
         .lerp(to, smooth(0, 1, u))
         .lerp(WHITE, 0.2 * Math.sin(Math.PI * u));
     });
-    return { pts, base, from, to, mid, dur: pulseMs(p) };
+    return { pts, base, from, to, mid, dur: pulseMs(p), home: p.to.startsWith('mem:') };
   }, [p, memPos, mem.entries]);
   const line = useMemo(() => {
     if (!data) return null;
@@ -914,7 +927,12 @@ function Transit({ p }: { p: Pulse }) {
       // lit behind the head, brightest at the head, dark ahead of it; the path keeps a soft afterglow
       const u = k / n,
         behind = h - u,
-        lit = behind < -0.01 ? 0 : (0.3 + 0.7 * Math.exp(-Math.max(0, behind) / 0.12)) * smooth(-0.01, 0.01, behind),
+        // a node going home lights a faint lane ahead of it, so the road to its dot is visible
+        ahead = data.home ? 0.3 * smooth(0, 0.12, t) : 0,
+        lit =
+          behind < -0.01
+            ? ahead
+            : Math.max(ahead, (0.3 + 0.7 * Math.exp(-Math.max(0, behind) / 0.12)) * smooth(-0.01, 0.01, behind)),
         b = data.base[k];
       col.setXYZ(k, b.r * lit * fade, b.g * lit * fade, b.b * lit * fade);
     }
@@ -924,14 +942,17 @@ function Transit({ p }: { p: Pulse }) {
       const u = h - j * 0.016;
       colAt(u, c);
       if (j === 0) c.lerp(WHITE, 0.4);
-      setDot(dots, j, at(u, v), c, 0.14 - j * 0.012, u >= 0 ? moving * (1 - j / TRAIL) : 0);
+      // the travelling neural node: a bigger, gently pulsing head when a memory is on its way home
+      const size = data.home && j === 0 ? 0.28 + 0.06 * Math.sin(ms / 90) : 0.14 - j * 0.012;
+      setDot(dots, j, at(u, v), c, size, u >= 0 ? moving * (1 - j / TRAIL) : 0);
     }
     const send = 1 - smooth(0, 0.3, t),
       recv = smooth(0.82, 1, t) * (t <= 1 ? 1 : fade);
     c.copy(data.from).lerp(data.mid, smooth(0, 0.3, t));
     setDot(dots, TRAIL, data.pts[0], c, 0.24 + 0.12 * (1 - send), t >= 0 ? send * 0.55 * fadeIn : 0);
     c.copy(data.mid).lerp(data.to, smooth(0.9, 1.6, t));
-    setDot(dots, TRAIL + 1, data.pts[n], c, 0.26 + 0.22 * smooth(0.85, 1.5, t), recv * 0.6);
+    // arrival: the home dot blooms as the node settles in
+    setDot(dots, TRAIL + 1, data.pts[n], c, 0.26 + (data.home ? 0.4 : 0.22) * smooth(0.85, 1.5, t), recv * 0.6);
     touched(dots);
     if (tag.current) at(h, tag.current.position);
     if (tagEl.current) tagEl.current.style.opacity = String(moving * (1 - smooth(0.85, 1, t)));
@@ -1063,38 +1084,6 @@ function TaskPath() {
 }
 /** A team task's work shows on the brain itself (Owner, Nov 2 2026): the step being written, or the last one
  *  finished, sits in a bubble at that bot's node. Grok Bot's review stays in the chat box. */
-function TaskBubble() {
-  const log = useStore(s => s.log),
-    draft = useStore(s => s.draft),
-    stages = useStore(s => s.stages);
-  const step = useMemo(() => {
-    if (draft && isAgent(draft.from) && draft.from !== 'grokbot' && stages[draft.from] === 'working')
-      return { from: draft.from, text: draft.text, live: true };
-    for (let i = log.length - 1; i >= 0; i--) {
-      const m = log[i];
-      if (m.from === 'owner') return null;
-      if (isAgent(m.from) && m.from !== 'grokbot' && m.tag.startsWith('live'))
-        return { from: m.from, text: m.text, live: false };
-    }
-    return null;
-  }, [log, draft, stages]);
-  const at = step ? station(step.from) : null;
-  if (!step || !at) return null;
-  return (
-    <group position={toWorld(at)}>
-      <Html distanceFactor={9} zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
-        <div
-          className={'task-bubble' + (step.live ? ' live' : '')}
-          style={{ '--c': colorOf(step.from) } as React.CSSProperties}
-          aria-live="off"
-        >
-          <b>{AGENT[step.from].name}</b>
-          <p>{capWords(step.text)}</p>
-        </div>
-      </Html>
-    </group>
-  );
-}
 const Transits = () => {
   const pulses = useStore(s => s.pulses);
   return (
@@ -1172,7 +1161,6 @@ export default function BrainScene({ locked = false, resetView = 0 }: { locked?:
         {!locked && <Memories />}
         {!locked && <History />}
         {!locked && <TaskPath />}
-        {!locked && <TaskBubble />}
         <Transits />
         <Outline />
         {/* biome-ignore lint/a11y/noStaticElementInteractions: three.js mesh; the memory list also opens from the search bar */}

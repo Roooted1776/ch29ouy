@@ -37,8 +37,7 @@ export default function Home() {
     inspectBot = useStore(s => s.inspectBot);
   const admin = user?.role === 'admin';
   const [settingsOpen, setSettingsOpen] = useState(false),
-    [chatOpen, setChatOpen] = useState(true),
-    [resetView, setResetView] = useState(0);
+    [chatOpen, setChatOpen] = useState(true);
   const status = useStore(s => s.status);
   // the Handoffs bar shows only when there is a handoff to list
   const hasFlow = useStore(s => (s.viewing?.flow || s.flow).length > 0);
@@ -93,31 +92,28 @@ export default function Home() {
         <main className="stage" aria-label="Brain view">
           <Boundary>
             <Suspense fallback={null}>
-              <BrainScene resetView={resetView} />
+              <BrainScene />
             </Suspense>
           </Boundary>
           {admin && <SearchBar />}
           {admin && <MemoryList />}
           {admin && <MemoryPage />}
           {inspectedBot && <AgentInspector id={inspectedBot} onClose={() => inspectBot(null)} />}
+          {/* The chat toggle sits on the chat's edge and moves with it; its arrow flips (Owner, Nov 3 2026). */}
+          <button
+            type="button"
+            className={'chat-toggle' + (chatOpen ? ' open' : '')}
+            aria-expanded={chatOpen}
+            aria-controls="brain-chat"
+            aria-label={chatOpen ? 'Hide chat' : 'Show chat'}
+            title={chatOpen ? 'Hide chat' : 'Show chat'}
+            onClick={() => setChatOpen(v => !v)}
+          >
+            <svg viewBox="0 0 12 24" width="12" height="24" aria-hidden="true">
+              <path d="M3 4l6 8-6 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
           <div className="view-tools">
-            <button
-              type="button"
-              onClick={() => {
-                useStore.getState().select(null);
-                setResetView(v => v + 1);
-              }}
-            >
-              Reset view
-            </button>
-            <button
-              type="button"
-              aria-expanded={chatOpen}
-              aria-controls="brain-chat"
-              onClick={() => setChatOpen(v => !v)}
-            >
-              {chatOpen ? 'Hide chat' : 'Show chat'}
-            </button>
             {admin && (
               <button
                 type="button"

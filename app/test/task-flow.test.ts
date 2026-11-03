@@ -81,6 +81,11 @@ describe('a real task, streamed', () => {
     });
     expect(s.log.some(m => m.from === 'brain')).toBe(false); // the chat holds only AI replies
     expect(s.status).toMatch(/Grok Bot filed 1 memory/);
+    // memory goes home: the filed memory rides from Grok Bot to its own dot in the brain
+    const home = s.mem.entries.find(e => e.key === 'ai:concept:plan first')!;
+    expect(s.pulses).toContainEqual(
+      expect.objectContaining({ from: 'grokbot', to: 'mem:' + home.id, dur: 2600, color: expect.any(String) }),
+    );
     delete (globalThis as any).localStorage;
   });
 
