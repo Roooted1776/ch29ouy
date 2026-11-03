@@ -167,3 +167,50 @@ export function personalityLine(id: AgentId, now = Date.now()): string {
     'Let that colour your tone and word choice, but stay kind, clear and work-safe. Never name your mood or mention numbers.'
   );
 }
+
+/**
+ * Fresh moods at every sign-in (Owner, Nov 3 2026: "randomize moods"): each bot wakes up somewhere random.
+ * Personalities stay fixed; the moods still drift back toward each bot's baseline and move with the room.
+ */
+export function randomizeMoods(rand: () => number = Math.random, now = Date.now()): void {
+  const all = load();
+  for (const a of AGENTS)
+    all[a.id] = { warmth: clamp((rand() * 2 - 1) * 0.9), energy: clamp((rand() * 2 - 1) * 0.9), ts: now };
+  save();
+}
+
+/** Short handoff confirms in chat: the sender hands over, the receiver says it takes over, both in their mood. */
+const GIVE: Record<Mood, string[]> = {
+  upbeat: ['Done! Over to you, {to}.', 'My part is in. {to}, you are up!', 'Wrapped. Take it away, {to}.'],
+  warm: [
+    'All yours, {to}. Thanks for picking it up.',
+    'Handing over to {to}. Good luck!',
+    'Done here. {to}, over to you.',
+  ],
+  steady: ['Done. Passing to {to}.', 'My part is finished. {to} next.', 'Handing off to {to}.'],
+  mellow: ['That is me done. Easy does it, {to}.', 'Passing it along to {to}.', 'Over to you, {to}, no rush.'],
+  sharp: ['Done. {to}, your turn.', 'Finished. Do not drop it, {to}.', 'Handed off. {to}, go.'],
+  weary: ['Done. {to}.', 'That is it from me. {to} has it.', 'Over to {to}.'],
+};
+const TAKE: Record<Mood, string[]> = {
+  upbeat: ['Got it, taking over!', 'On it, thanks {from}!', 'Love it, I have got this.'],
+  warm: ['Thanks, {from}. Taking over now.', 'Got it, I will take it from here.', 'Thank you, I have got it.'],
+  steady: ['Got it. Taking over.', 'Received. Working on it.', 'Taking it from here.'],
+  mellow: ['Sure, I will take it from here.', 'Okay, picking it up.', 'Got it, settling in.'],
+  sharp: ['Fine. Taking over.', 'Got it. Let us see.', 'Mine now.'],
+  weary: ['Okay. On it.', 'Got it.', 'Taking it.'],
+};
+export function handoffLines(
+  from: AgentId,
+  to: AgentId,
+  names: { from: string; to: string },
+  rand: () => number = Math.random,
+  now = Date.now(),
+): { give: string; take: string } {
+  const pick = (list: string[]) => list[Math.min(list.length - 1, Math.floor(rand() * list.length))];
+  const fill = (t: string) => t.replace('{to}', names.to).replace('{from}', names.from);
+  return {
+    give: fill(pick(GIVE[moodOf(feelOf(from, now))])),
+    take: fill(pick(TAKE[moodOf(feelOf(to, now))])),
+  };
+}

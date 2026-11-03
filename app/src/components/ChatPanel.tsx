@@ -1,6 +1,6 @@
 import { splitLinks } from '../lib/search';
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { pulseMs, selectActivePulse, type Pulse } from '../store';
+import { selectActivePulse } from '../store';
 import { TYPE_COLOR, colorOf } from '../data/colors';
 import { AGENT, isAgent, type AgentId } from '../data/team';
 import { useStore } from '../store';
@@ -257,11 +257,13 @@ export default function ChatPanel() {
   }, [currentSession, stages]);
   // Perplexity layout: each question opens a thread with its sources, the team's steps, then one answer.
   type M = (typeof msgs)[number];
-  const threads: { q: M | null; steps: M[]; answer: M | null; task?: boolean }[] = [];
+  const threads: { q: M | null; steps: M[]; answer: M | null; task?: boolean; passes: M[] }[] = [];
   for (const m of msgs) {
     if (m.from === 'owner' || !threads.length)
-      threads.push({ q: m.from === 'owner' ? m : null, steps: [], answer: null });
-    if (m.from !== 'owner') threads[threads.length - 1].steps.push(m);
+      threads.push({ q: m.from === 'owner' ? m : null, steps: [], answer: null, passes: [] });
+    // quick handoff confirms (Owner, Nov 3 2026) read as short chat lines, apart from the steps
+    if (m.tag === 'handoff') threads[threads.length - 1].passes.push(m);
+    else if (m.from !== 'owner') threads[threads.length - 1].steps.push(m);
   }
   const lastIndex = (list: M[], ok: (m: M) => boolean) => {
     for (let i = list.length - 1; i >= 0; i--) if (ok(list[i])) return i;
@@ -324,7 +326,6 @@ export default function ChatPanel() {
   };
   return (
     <section className="panel chat grok px" aria-label="Live chat">
-      {live && <Handoff />}
       {currentSession && !log.length && (
         <div className="session-banner px-banner">
           <span>
@@ -335,7 +336,6 @@ export default function ChatPanel() {
               : currentSession.kind === 'chat'
                 ? 'Latest chat'
                 : 'Latest task'}
-            {currentSession.kind === 'chat' ? <small> · not wiki memory</small> : null}
           </span>
           <div className="session-actions">
             <button
@@ -372,6 +372,16 @@ export default function ChatPanel() {
           return (
             <section key={t.q ? `q${t.q.id}` : `t${ti}`} className="px-thread">
               {(t.q || (ti === 0 && currentSession)) && <h3 className="px-q">{t.q ? t.q.text : currentSession?.q}</h3>}
+              {t.passes.length > 0 && (
+                <ol className="px-passes" aria-label="Handoffs in chat">
+                  {t.passes.map(m => (
+                    <li key={m.id} style={{ '--c': colorOf(m.from) } as CSSProperties}>
+                      {isAgent(m.from) && <BotIcon id={m.from} size={12} />}
+                      <b>{nameOf(m.from)}</b> <span>{m.text}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
               {last && sources.length > 0 && (
                 <div className="px-sources">
                   <div className="px-head">Sources from Brain</div>
@@ -562,28 +572,4 @@ function BanterBar() {
       <span className="doing">team is chatting…</span>
     </div>
   ) : null;
-}
-
-/** The handoff in flight: a light moves from the sender to the receiver in the same time as the 3D view. */
-function Handoff() {
-  const p: Pulse | undefined = useStore(selectActivePulse);
-  if (!p) return null;
-  return (
-    <div
-      className="transit"
-      key={p.id}
-      style={{ '--c': colorOf(p.to), '--c0': colorOf(p.from), '--d': pulseMs(p) + 'ms' } as CSSProperties}
-      role="status"
-    >
-      <b>{nameOf(p.from)}</b>
-      <span className="track" aria-hidden="true">
-        <i />
-      </span>
-      <b>{nameOf(p.to)}</b>
-      {p.words ? <small className="tag">{p.words} words</small> : null}
-      <span className="sr">
-        Handoff from {nameOf(p.from)} to {nameOf(p.to)}
-      </span>
-    </div>
-  );
 }

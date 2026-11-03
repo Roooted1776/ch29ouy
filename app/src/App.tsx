@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useAuth } from './auth-store';
+import { randomizeMoods } from './lib/personality';
 import { Login, Setup } from './components/Access';
 import Home from './components/Home';
 
@@ -15,6 +16,12 @@ export default function App() {
   useEffect(() => {
     void useAuth.getState().init();
   }, []);
+  // Signed-in screens use the Electrolize font (see compact.css).
+  // and every sign-in starts each bot in a random mood (Owner, Nov 3 2026)
+  useEffect(() => {
+    document.documentElement.classList.toggle('signed-in', phase === 'app');
+    if (phase === 'app') randomizeMoods();
+  }, [phase]);
   if (phase === 'app')
     return (
       <>
