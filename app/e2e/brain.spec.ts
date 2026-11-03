@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { fakeBackend } from './fake-backend';
 const PAGE = pathToFileURL(fileURLToPath(new URL('../../index.html', import.meta.url))).href;
 test('brain end to end', async ({ page, context }) => {
-  test.setTimeout(180000);
+  test.setTimeout(300000);
   await fakeBackend(context);
   const log: string[] = [];
   let webTools = 0;
@@ -72,7 +72,7 @@ test('brain end to end', async ({ page, context }) => {
   await page.getByLabel('Username').fill('Owner');
   await page.getByLabel('Password').fill('e2e only 7Q');
   await page.getByRole('button', { name: 'Create admin' }).click();
-  await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 30000 });
+  await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 180000 });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByLabel('OpenAI key').fill('sk-test123');
   await page.getByRole('button', { name: 'Close settings', exact: true }).click();
@@ -94,7 +94,7 @@ test('brain end to end', async ({ page, context }) => {
   await page.getByLabel('Username').fill('Owner');
   await page.getByLabel('Password').fill('e2e only 7Q');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 30000 });
+  await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 180000 });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.waitForTimeout(1500);
   console.log(

@@ -115,7 +115,7 @@ export function feelOf(id: AgentId, now = Date.now()): Feel {
   const base = dayBase(id, now),
     f = load()[id];
   if (!f) return { warmth: base.warmth, energy: base.energy, ts: now };
-  const k = Math.pow(0.5, Math.max(0, now - f.ts) / HALF_LIFE_MS);
+  const k = 0.5 ** (Math.max(0, now - f.ts) / HALF_LIFE_MS);
   return {
     warmth: base.warmth + (f.warmth - base.warmth) * k,
     energy: base.energy + (f.energy - base.energy) * k,

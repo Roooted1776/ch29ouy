@@ -103,7 +103,7 @@ describe('runChat', () => {
   it('does not count as a team task and does not file memories on success', async () => {
     const mem = blankMem();
     mem.settings.useMemory = false;
-    let state: any = {
+    const state: any = {
       role: 'admin',
       mem,
       keys: { openai: 'sk-test' },

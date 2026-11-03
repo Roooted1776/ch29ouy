@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "@archildata/ai-sdk": "^0.0.20",
-    "ai": "^7.0.153",
-    "disk": "^1.9.0"
-  }
-}

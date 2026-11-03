@@ -14,7 +14,7 @@ Perform an exhaustive, uncompromising Forensic Integrity Audit across the entire
 - Audit-only — do NOT modify implementation code
 - Trust NOTHING — verify everything independently
 - Strict binary verdict: CLEAN or INTEGRITY VIOLATION
-- Never git push; Max pushes himself when available. Commit locally only if asked.
+- Never git push; Owner pushes himself when available. Commit locally only if asked.
 - RedMed stays 100% untouched
 - Zero credentials or secrets committed or exposed
 - ORIGINAL_REQUEST.md takes precedence over dispatch instructions

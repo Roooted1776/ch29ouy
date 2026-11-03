@@ -12,7 +12,7 @@ Expand and strengthen Brain's multi-agent runtime, streaming handoffs, and colla
 ## 🔒 Key Constraints
 - No technical decisions — relay only
 - Victory Audit is MANDATORY before reporting completion
-- Never git push. Max pushes himself when available. Commit locally only if asked.
+- Never git push. Owner pushes himself when available. Commit locally only if asked.
 - Hard rule: RedMed stays untouched
 - Before saying done: all 6 checks in app/ (format, lint, typecheck, test, build, e2e) pass
 

@@ -1,6 +1,6 @@
 // Search: one real AI call that answers like Perplexity, with web search on where the provider has it, plus the
 // memory pages that match. The question and answer are saved as a session, so Dream learns from them later.
-import { type Mem } from './memory';
+import type { Mem } from './memory';
 import { contextBlock, indexTitles, relevant } from './retrieve';
 import { WORD_CAP } from './text';
 
