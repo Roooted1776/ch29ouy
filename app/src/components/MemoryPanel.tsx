@@ -818,7 +818,7 @@ function ImportModal({
                 <input
                   type="text"
                   value={ghRepo}
-                  placeholder="e.g. Roooted1776/Brain"
+                  placeholder="e.g. Roooted1776/ch29ouy"
                   onChange={e => setGhRepo(e.target.value)}
                   aria-label="GitHub Repository"
                 />

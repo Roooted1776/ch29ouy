@@ -239,7 +239,7 @@ export default function AdminPanel() {
                 <input
                   type="text"
                   value={ghRepo}
-                  placeholder="e.g. Roooted1776/Brain"
+                  placeholder="e.g. Roooted1776/ch29ouy"
                   onChange={e => {
                     setGhRepo(e.target.value);
                     s.setGithubConfig({ repo: e.target.value });

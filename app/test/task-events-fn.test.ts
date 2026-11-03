@@ -37,7 +37,8 @@ const fake = vi.hoisted(() => {
     },
     async rpc(name: string) {
       state.calls.push(`rpc ${name}`);
-      if (name === 'prune_task_events' && state.pruneFails) return { data: null, error: { message: 'boom secret detail' } };
+      if (name === 'prune_task_events' && state.pruneFails)
+        return { data: null, error: { message: 'boom secret detail' } };
       if (name === 'prune_task_events') {
         const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
         state.events = state.events.filter(e => (e.created_at as number) >= cutoff);
@@ -223,7 +224,12 @@ describe('task-events function: Audits lows', () => {
 
   it('admin check matches private.is_admin(): only a profile whose role is exactly admin', async () => {
     fake.state.profiles.push({ id: 'u3', role: 'Admin' }, { id: 'u4', role: ' admin' }, { id: 'u5', role: null });
-    for (const [t, id] of [['t3', 'u3'], ['t4', 'u4'], ['t5', 'u5']]) fake.state.tokens.set(t, id);
+    for (const [t, id] of [
+      ['t3', 'u3'],
+      ['t4', 'u4'],
+      ['t5', 'u5'],
+    ])
+      fake.state.tokens.set(t, id);
     for (const t of ['t3', 't4', 't5']) expect((await call(GOOD, t)).status).toBe(403);
     expect((await call(GOOD, 'admin-token')).status).toBe(200);
     expect(fake.state.events.map(e => e.created_by)).toEqual(['u1']);
