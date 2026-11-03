@@ -8,19 +8,17 @@ const URL_ = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 
-// Same origins as the accounts function. The real gate is the admin check below.
-const ORIGINS = new Set([
-  'https://roooted1776.github.io',
-  'https://redeemed.live',
-  'https://www.redeemed.live',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'null',
-]);
+// Brain's live pages only. No `null` origin (a page opened from disk) here. Localhost is allowed only
+// when the function runs locally (`supabase functions serve` with BRAIN_LOCAL_DEV=1 in its env file).
+// The real gate is the admin check below.
+const LIVE_ORIGINS = ['https://roooted1776.github.io', 'https://redeemed.live', 'https://www.redeemed.live'];
+const LOCAL_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+export const allowedOrigins = () =>
+  new Set(Deno.env.get('BRAIN_LOCAL_DEV') === '1' ? [...LIVE_ORIGINS, ...LOCAL_ORIGINS] : LIVE_ORIGINS);
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') || '';
   return {
-    ...(ORIGINS.has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+    ...(allowedOrigins().has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
     'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '600',

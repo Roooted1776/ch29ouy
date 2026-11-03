@@ -9,6 +9,7 @@ const fake = vi.hoisted(() => {
     events: [] as Row[],
     tokens: new Map<string, string>(),
     calls: [] as string[],
+    localDev: '',
   };
   const client = {
     from(table: string) {
@@ -79,6 +80,7 @@ beforeEach(async () => {
   ];
   fake.state.events = [];
   fake.state.calls = [];
+  fake.state.localDev = '';
   fake.state.tokens = new Map([
     ['admin-token', 'u1'],
     ['viewer-token', 'u2'],
@@ -86,7 +88,7 @@ beforeEach(async () => {
   ]);
   if (!handler) {
     (globalThis as unknown as { Deno: unknown }).Deno = {
-      env: { get: () => 'fake-not-a-real-value' },
+      env: { get: (k: string) => (k === 'BRAIN_LOCAL_DEV' ? fake.state.localDev : 'fake-not-a-real-value') },
       serve: (h: typeof handler) => {
         handler = h;
       },
@@ -171,5 +173,26 @@ describe('task-events function: 7-day retention', () => {
     expect((await call(GOOD, 'admin-token')).status).toBe(200);
     expect(fake.state.calls).toContain('rpc prune_task_events');
     expect(fake.state.events.map(e => e.task_id)).toEqual(['recent', 't1']);
+  });
+});
+
+describe('task-events function: browser origins', () => {
+  const allow = async (origin: string) =>
+    (await handler(new Request('https://fn.test/task-events', { method: 'OPTIONS', headers: { origin } }))).headers.get(
+      'access-control-allow-origin',
+    );
+
+  it('allows the live Brain pages and refuses null, other sites and (in production) localhost', async () => {
+    for (const o of ['https://roooted1776.github.io', 'https://redeemed.live', 'https://www.redeemed.live'])
+      expect(await allow(o)).toBe(o);
+    for (const o of ['null', 'https://evil.example', 'http://localhost:5173', 'http://127.0.0.1:5173'])
+      expect(await allow(o)).toBeNull();
+  });
+
+  it('allows localhost only when running locally (BRAIN_LOCAL_DEV=1), never null', async () => {
+    fake.state.localDev = '1';
+    expect(await allow('http://localhost:5173')).toBe('http://localhost:5173');
+    expect(await allow('http://127.0.0.1:5173')).toBe('http://127.0.0.1:5173');
+    expect(await allow('null')).toBeNull();
   });
 });

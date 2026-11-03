@@ -9,6 +9,8 @@
 --   do $$ begin if exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime'
 --     and schemaname = 'public' and tablename = 'task_events') then
 --     alter publication supabase_realtime drop table public.task_events; end if; end $$;
+--   do $$ begin if exists (select 1 from pg_namespace where nspname = 'cron') then
+--     perform cron.unschedule(jobid) from cron.job where jobname = 'brain-prune-task-events'; end if; end $$;
 --   drop function if exists public.prune_task_events();
 --   drop table if exists public.task_events;
 -- The table only holds step metadata, so dropping it loses no user data.
@@ -56,5 +58,18 @@ begin
      and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime'
                      and schemaname = 'public' and tablename = 'task_events') then
     alter publication supabase_realtime add table public.task_events;
+  end if;
+end $$;
+
+-- Daily cleanup as well, so old rows go even on days with no writes. Uses pg_cron when the server
+-- offers it (Supabase does); skips cleanly when it does not (e.g. the plain Postgres used by run.sh).
+-- cron.schedule with a job name replaces an existing job of that name, so this is safe to apply twice.
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+    create extension if not exists pg_cron;
+    perform cron.schedule('brain-prune-task-events', '17 4 * * *', 'select public.prune_task_events()');
+  else
+    raise notice 'pg_cron not available: daily task_events cleanup not scheduled (each write still prunes)';
   end if;
 end $$;

@@ -220,6 +220,16 @@ insert into public.task_events (task_id, step, from_agent, to_agent, words, stat
 select public.prune_task_events();
 select tests.count_is($$select 1 from public.task_events where task_id = 'old'$$, 0, 'rows older than 7 days are pruned');
 select tests.count_is($$select 1 from public.task_events where task_id = 't1'$$, 1, 'fresh rows are kept');
+-- Daily cleanup job: present wherever pg_cron exists (live Supabase); skipped on plain Postgres.
+do $$
+declare n bigint;
+begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    execute $q$select count(*) from cron.job where jobname = 'brain-prune-task-events'
+      and command = 'select public.prune_task_events()'$q$ into n;
+    if n <> 1 then raise exception 'FAIL: the daily task_events cleanup job is missing'; end if;
+  end if;
+end $$;
 
 -- 4. Removing an account keeps its history and works at all -----------------------------------
 set request.jwt.claims = '';
