@@ -3,6 +3,7 @@
 import { AGENT, LIVE_ORDER, type AgentId } from '../data/team';
 import { TYPE_COLOR } from '../data/colors';
 import type { State } from '../store';
+import { HOME_GAP_MS, HOME_MS } from './geometry';
 import { finalReviewFor } from './approval';
 import { audit } from './audit';
 import { chainFor, runChain } from './chain';
@@ -312,7 +313,13 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
       let made = 0;
       get().commit(mm => {
         const ss = mm.sessions.find(x => x.id === sess.id) || sess;
-        made = fileMemories(mm, items, ss, t, Date.now()).length;
+        const filed = fileMemories(mm, items, ss, t, Date.now());
+        made = filed.length;
+        // Memory goes home (Owner, Nov 3 2026): each filed memory leaves Grok Bot as a glowing node,
+        // rides the data highway through the hub and settles into its own dot.
+        filed.forEach((e, i) =>
+          addPulse('grokbot', 'mem:' + e.id, TYPE_COLOR[e.type], { dur: HOME_MS, delay: 600 + i * HOME_GAP_MS }),
+        );
       });
       say({
         from: 'grokbot',

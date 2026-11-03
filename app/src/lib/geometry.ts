@@ -354,3 +354,8 @@ export function transitMs(a: string, b: string): number {
   if (!transitCache.has(k)) transitCache.set(k, Math.round(Math.max(1100, Math.min(3400, routeLength(a, b) * 380))));
   return transitCache.get(k)!;
 }
+
+/** How long a new memory takes to ride the data highway to its home dot (Owner, Nov 3 2026). */
+export const HOME_MS = 2600;
+/** Gap between memories sent home one after another. */
+export const HOME_GAP_MS = 450;

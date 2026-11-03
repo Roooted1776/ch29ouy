@@ -36,7 +36,8 @@ import {
   RETIRED,
 } from './lib/providers';
 import { redact } from './lib/redact';
-import { transitMs } from './lib/geometry';
+import { HOME_GAP_MS, HOME_MS, transitMs } from './lib/geometry';
+import { TYPE_COLOR } from './data/colors';
 import { runChat } from './lib/run-chat';
 import { NOT_ADMIN, runTask } from './lib/run-task';
 import { runBanter, type BanterOpts } from './lib/banter';
@@ -87,6 +88,7 @@ export interface Pulse {
   dur?: number;
 }
 export const PULSE_AFTERGLOW = 1400;
+
 export const pulseMs = (p: Pick<Pulse, 'from' | 'to' | 'dur'>) => p.dur ?? transitMs(p.from, p.to);
 export interface LiveCfg {
   on: boolean;
@@ -212,7 +214,7 @@ export interface State {
 export const selectActivePulse = (s: State): Pulse | undefined => {
   for (let i = s.pulses.length - 1; i >= 0; i--) {
     const p = s.pulses[i];
-    if (!p.from.startsWith('mem:')) return p;
+    if (!p.from.startsWith('mem:') && !p.to.startsWith('mem:')) return p;
   }
   return undefined;
 };
@@ -724,6 +726,10 @@ export const useStore = create<State>()((set, get) => {
           const out = applyDream(m, plan, gatherInbox(m), Date.now());
           made = out.pages.length;
           t = out.t;
+          // each new or updated page rides from the brain's hub to its own dot
+          out.pages.forEach((e, i) =>
+            addPulse('brain', 'mem:' + e.id, TYPE_COLOR[e.type], { dur: HOME_MS, delay: i * HOME_GAP_MS }),
+          );
         });
         set(x => ({
           tin: x.tin + r.tin,
