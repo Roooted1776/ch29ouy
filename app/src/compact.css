@@ -645,7 +645,7 @@ body,
   .home.single.brain-first,
   .home.single.brain-first.chat-hidden {
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: minmax(0, 44fr) minmax(0, 56fr) !important;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) !important;
     height: 100dvh !important;
     min-height: 0 !important;
     max-width: 100%;
@@ -671,22 +671,65 @@ body,
   .home.single.brain-first.chat-hidden .workspace {
     grid-row: 1;
   }
+  /* Phones (Owner, Nov 3 2026): stop iPhones zooming in when a box is tapped, and keep text at its set size. */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  input,
+  select,
+  textarea {
+    --fs: 16px;
+  }
+  /* One thin top row: search on the left, Settings and Lock on the right, no bar behind them. */
   .view-tools {
     top: max(2px, env(safe-area-inset-top, 0px)) !important;
-    left: 3px !important;
+    left: auto !important;
     right: 3px !important;
-    padding: 2px 3px !important;
+    padding: 0 !important;
     gap: 3px !important;
+    border: 0 !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+  .search-bar {
+    top: max(2px, env(safe-area-inset-top, 0px));
+    bottom: auto;
+    left: 3px;
+    right: 100px;
+    width: auto;
+    height: 32px;
+    gap: 6px;
+    padding: 0 2px 0 8px;
+    transform: none;
+  }
+  .search-bar input {
+    height: 28px;
+  }
+  .search-bar button {
+    height: 28px !important;
+    padding: 2px 10px;
   }
   .view-tools button {
-    min-height: 32px !important;
+    height: 32px !important;
   }
   .view-tools .icon-btn {
     width: 32px !important;
     height: 32px !important;
   }
+  /* The status line moves to the brain view's bottom edge, clear of the labels. */
   .workspace-status {
-    top: calc(40px + env(safe-area-inset-top, 0px)) !important;
+    top: auto !important;
+    bottom: 3px;
+    left: 6px !important;
+    right: 72px !important;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .handoff-summary {
+    top: calc(36px + env(safe-area-inset-top, 0px));
   }
   .settings-drawer {
     position: fixed !important;
@@ -714,7 +757,12 @@ body,
     padding: 4px 6px max(4px, env(safe-area-inset-bottom, 0px)) !important;
   }
   .composer-key-hint {
-    padding: 0 6px 3px !important;
+    margin: 0 !important;
+    padding: 0 8px 1px !important;
+    border: 0 !important;
+    background: none !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
   }
 }
 @media (max-width: 420px) {
@@ -725,7 +773,7 @@ body,
     padding: 3px 5px !important;
   }
   .agent-inspector {
-    top: calc(42px + env(safe-area-inset-top, 0px)) !important;
+    top: calc(36px + env(safe-area-inset-top, 0px)) !important;
     right: 4px !important;
     width: min(280px, calc(100% - 8px)) !important;
     max-height: calc(100% - 48px - env(safe-area-inset-top, 0px)) !important;
