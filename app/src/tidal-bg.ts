@@ -106,7 +106,7 @@ function frame(now: number) {
     const v = r / (rows - 1); // 0 far → 1 near
     const z = 0.6 + (1 - v) * 9; // depth in world units
     const scale = focal / z;
-    const depthFade = Math.pow(v, 1.15);
+    const depthFade = v ** 1.15;
 
     ctx.beginPath();
     for (let c = 0; c < cols; c++) {

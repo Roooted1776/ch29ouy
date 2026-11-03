@@ -645,13 +645,13 @@ export function agentActivityScores(m: Mem): Map<string, number> {
       if (s.projectId === node.id || s.nodeId === node.id) {
         score += 15 + agentDoneCount * 2;
       }
-      if (s.used && s.used.includes(node.id)) {
+      if (s.used?.includes(node.id)) {
         score += 10 + agentDoneCount;
       }
-      if (node.sources && node.sources.some(src => src.kind === 'session' && src.ref === s.id)) {
+      if (node.sources?.some(src => src.kind === 'session' && src.ref === s.id)) {
         score += 8;
       }
-      if (s.flow && (s.projectId === node.id || s.nodeId === node.id || (s.used && s.used.includes(node.id)))) {
+      if (s.flow && (s.projectId === node.id || s.nodeId === node.id || s.used?.includes(node.id))) {
         const words = s.flow.reduce((acc, f) => acc + (isAgent(f[0]) || isAgent(f[1]) ? f[2] : 0), 0);
         score += Math.min(20, Math.floor(words / 50));
       }
@@ -679,8 +679,8 @@ export function findMostWorkedNode(m: Mem, projectName: string, candidateItems?:
       e.id === projNode.id ||
       e.links.includes(projNode.id) ||
       projNode.links.includes(e.id) ||
-      (e.kws && e.kws.includes(nameLower)) ||
-      (candidateItems && candidateItems.some(it => it.title.toLowerCase() === e.title.toLowerCase())),
+      e.kws?.includes(nameLower) ||
+      candidateItems?.some(it => it.title.toLowerCase() === e.title.toLowerCase()),
   );
 
   const candidates = projectEntries.length > 0 ? projectEntries : m.entries;

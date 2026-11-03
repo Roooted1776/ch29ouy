@@ -127,7 +127,7 @@ export default function Tasks() {
           c.q.toLowerCase().includes(taskSearch.toLowerCase()) ||
           c.line.toLowerCase().includes(taskSearch.toLowerCase()) ||
           c.project.toLowerCase().includes(taskSearch.toLowerCase()) ||
-          (c.nodeTitle && c.nodeTitle.toLowerCase().includes(taskSearch.toLowerCase())),
+          c.nodeTitle?.toLowerCase().includes(taskSearch.toLowerCase()),
       )
     : nodeFiltered;
   const shown = all ? filtered : filtered.slice(0, SHOW);
