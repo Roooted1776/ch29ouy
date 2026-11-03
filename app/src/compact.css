@@ -751,3 +751,55 @@ body,
     border-left: 1px solid var(--line) !important;
   }
 }
+
+/* Chat toggle (Owner, Nov 3 2026): an arrow tab on the chat's edge. It moves with the chat (the brain view's
+   right edge) and flips: points right to hide the chat, left to bring it back. */
+.chat-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 56px;
+  padding: 0 !important;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  background: rgba(4, 5, 8, 0.78);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+}
+.chat-toggle:hover {
+  color: #fff;
+  background: rgba(20, 22, 30, 0.9);
+}
+.chat-toggle svg {
+  transform: scaleX(-1);
+  transition: transform 0.2s ease;
+}
+.chat-toggle.open svg {
+  transform: none;
+}
+@media (max-width: 900px) {
+  /* stacked layout: the chat sits below the brain, so the tab sits on the bottom edge and points down/up */
+  .chat-toggle {
+    top: auto;
+    bottom: 0;
+    right: 10px;
+    width: 56px;
+    height: 22px;
+    transform: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+  }
+  .chat-toggle svg {
+    transform: rotate(-90deg);
+  }
+  .chat-toggle.open svg {
+    transform: rotate(90deg);
+  }
+}
