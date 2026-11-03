@@ -241,7 +241,12 @@ describe('idle huddles in the store', () => {
     expect(s.tasks).toBe(0);
     expect(s.banterSessions).toBe(1);
     expect(s.bantering).toBe(false);
-    expect(s.mem.sessions).toEqual([]);
+    // the huddle is kept as one chat session and queued for Dream, so the bots learn from it (Owner, Nov 3 2026)
+    expect(s.mem.sessions).toHaveLength(1);
+    expect(s.mem.sessions[0].kind).toBe('chat');
+    expect(s.mem.sessions[0].msgs).toHaveLength(BANTER_MAX_LINES);
+    expect(s.mem.inbox).toEqual([{ kind: 'session', ref: s.mem.sessions[0].id }]);
+    expect(s.mem.entries).toHaveLength(0);
     // the switch off silences the room even with budget left
     s.setLive({ banter: false });
     await useStore

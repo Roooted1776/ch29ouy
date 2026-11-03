@@ -18,6 +18,7 @@ import {
   type Session,
 } from './memory';
 import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, type ProviderId, pickBotProvider } from './providers';
+import { handoffLines } from './personality';
 import { redact } from './redact';
 import { contextBlock, indexTitles, relevant } from './retrieve';
 import { clip } from './text';
@@ -362,6 +363,15 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
         if (!liveReady()) return;
         const w = words(payload) || 0;
         addPulse(a, b, color, { words: w || undefined, dur: speedFor(a, b) });
+        // Quick handoff confirms in chat (Owner, Nov 3 2026): who hands off, and who takes over, in their mood.
+        if (a in AGENT && b in AGENT) {
+          const l = handoffLines(a as AgentId, b as AgentId, {
+            from: AGENT[a as AgentId].name,
+            to: AGENT[b as AgentId].name,
+          });
+          say({ from: a, tag: 'handoff', text: l.give });
+          say({ from: b, tag: 'handoff', text: l.take });
+        }
         // Grok Bot reads every earlier handoff, so each finished bot sends its part in as well
         if (b === 'grokbot') {
           const finished = Object.entries(get().stages).filter(

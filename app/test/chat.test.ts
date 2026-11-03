@@ -166,7 +166,8 @@ describe('runChat', () => {
     });
 
     expect(state.tasks).toBe(0);
-    expect(state.mem.inbox).toHaveLength(0);
+    // chat feeds memory through Dream (Owner, Nov 3 2026): queued once, never filed as wiki pages directly
+    expect(state.mem.inbox).toEqual([{ kind: 'session', ref: state.mem.sessions[0].id }]);
     expect(state.mem.entries).toHaveLength(0);
     expect(state.mem.sessions[0].kind).toBe('chat');
     expect(state.mem.sessions[0].msgs.some((m: { tag: string }) => m.tag.startsWith('chat ·'))).toBe(true);

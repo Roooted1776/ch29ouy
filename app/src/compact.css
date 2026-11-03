@@ -15,6 +15,26 @@
   font-display: swap;
   src: url("@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2") format("woff2");
 }
+/* Once signed in, the page uses Electrolize (Owner, Nov 3 2026). Single weight 400. */
+@font-face {
+  font-family: "Electrolize";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("@fontsource/electrolize/files/electrolize-latin-400-normal.woff2") format("woff2");
+}
+:root.signed-in {
+  --font: "Electrolize", var(--px);
+  --sf: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, sans-serif;
+}
+/* Signed in: chat text (messages + typing box) and the brain's labels use San Francisco. */
+:root.signed-in :is(.chat .msgs, .composer textarea, .composer-key-hint) {
+  --font: var(--sf);
+}
+:root.signed-in :is(.agent-tag, .mem-tag, .task-node-tag, .packet, .task-bubble),
+:root.signed-in :is(.task-bubble, .mem-tag, .task-node-tag) * {
+  font-family: var(--sf) !important;
+}
 :root {
   --px: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --mono: var(--px);
@@ -54,8 +74,10 @@ strong {
 }
 
 /* ---------- Layout: a narrow side column, scroll to move through it ---------- */
+/* Chat open: a full-height side panel about the width of the Claude in Chrome side panel (Owner, Nov 3 2026).
+   Chat closed: the chat is gone and the brain takes the whole width, refitting itself (lib/scene-camera). */
 .home.single.brain-first {
-  grid-template-columns: minmax(0, 1fr) clamp(220px, 21vw, 290px) !important;
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 30vw, 440px) !important;
 }
 .home.single.brain-first.chat-hidden {
   grid-template-columns: minmax(0, 1fr) !important;
@@ -180,7 +202,38 @@ textarea:focus {
   right: 10px !important;
 }
 .handoff-summary {
-  padding: 6px 8px 0 !important;
+  position: absolute;
+  top: 58px;
+  left: 10px;
+  z-index: 4;
+  max-width: min(300px, 45%);
+  max-height: 40%;
+  overflow: auto;
+  padding: 6px 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  background: rgba(4, 5, 8, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+/* Quick handoff confirms in chat: one short line per bot */
+.px-passes {
+  list-style: none;
+  margin: 2px 0 4px;
+  padding: 0 8px;
+  display: grid;
+  gap: 2px;
+  color: var(--muted, #9aa0aa);
+}
+.px-passes li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.px-passes b {
+  color: var(--c, inherit);
+  flex: none;
 }
 
 /* Chat panel */
@@ -573,11 +626,21 @@ textarea:focus {
 }
 
 /* Mobile layout: automatically fit the viewport without hiding controls. */
-html, body, #root { width: 100%; min-width: 0; }
-.home.single.brain-first { min-width: 0; }
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+}
+.home.single.brain-first {
+  min-width: 0;
+}
 .home.single.brain-first .workspace,
 .home.single.brain-first .stage,
-.home.single.brain-first .side { min-width: 0; min-height: 0; }
+.home.single.brain-first .side {
+  min-width: 0;
+  min-height: 0;
+}
 @media (max-width: 900px) {
   .home.single.brain-first,
   .home.single.brain-first.chat-hidden {
@@ -605,7 +668,9 @@ html, body, #root { width: 100%; min-width: 0; }
     border-left: 0 !important;
     border-top: 1px solid var(--line) !important;
   }
-  .home.single.brain-first.chat-hidden .workspace { grid-row: 1; }
+  .home.single.brain-first.chat-hidden .workspace {
+    grid-row: 1;
+  }
   .view-tools {
     top: max(2px, env(safe-area-inset-top, 0px)) !important;
     left: 3px !important;
@@ -613,9 +678,16 @@ html, body, #root { width: 100%; min-width: 0; }
     padding: 2px 3px !important;
     gap: 3px !important;
   }
-  .view-tools button { min-height: 32px !important; }
-  .view-tools .icon-btn { width: 32px !important; height: 32px !important; }
-  .workspace-status { top: calc(40px + env(safe-area-inset-top, 0px)) !important; }
+  .view-tools button {
+    min-height: 32px !important;
+  }
+  .view-tools .icon-btn {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .workspace-status {
+    top: calc(40px + env(safe-area-inset-top, 0px)) !important;
+  }
   .settings-drawer {
     position: fixed !important;
     inset: auto 3px max(3px, env(safe-area-inset-bottom, 0px)) 3px !important;
@@ -624,34 +696,57 @@ html, body, #root { width: 100%; min-width: 0; }
     overflow-y: auto !important;
   }
   .home.single.brain-first .panel.chat,
-  .home.single.brain-first .chat.grok { min-width: 0; min-height: 0; }
+  .home.single.brain-first .chat.grok {
+    min-width: 0;
+    min-height: 0;
+  }
   .home.single.brain-first .panel.chat {
     padding: 3px 4px max(3px, env(safe-area-inset-bottom, 0px)) !important;
   }
-  .home.single.brain-first .handoff-summary { padding: 2px 5px 0 !important; }
-  .side .banter-bar { padding: 3px 5px !important; gap: 3px !important; }
-  .composer.minimal { padding: 4px 6px max(4px, env(safe-area-inset-bottom, 0px)) !important; }
-  .composer-key-hint { padding: 0 6px 3px !important; }
+  .home.single.brain-first .handoff-summary {
+    padding: 2px 5px 0 !important;
+  }
+  .side .banter-bar {
+    padding: 3px 5px !important;
+    gap: 3px !important;
+  }
+  .composer.minimal {
+    padding: 4px 6px max(4px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .composer-key-hint {
+    padding: 0 6px 3px !important;
+  }
 }
 @media (max-width: 420px) {
-  .view-tools { justify-content: flex-end; }
-  .view-tools button { padding: 3px 5px !important; }
+  .view-tools {
+    justify-content: flex-end;
+  }
+  .view-tools button {
+    padding: 3px 5px !important;
+  }
   .agent-inspector {
     top: calc(42px + env(safe-area-inset-top, 0px)) !important;
     right: 4px !important;
     width: min(280px, calc(100% - 8px)) !important;
     max-height: calc(100% - 48px - env(safe-area-inset-top, 0px)) !important;
   }
-  .memory-page { left: 4px; width: calc(100% - 8px); }
+  .memory-page {
+    left: 4px;
+    width: calc(100% - 8px);
+  }
 }
 @media (max-height: 500px) and (orientation: landscape) and (max-width: 900px) {
   .home.single.brain-first:not(.chat-hidden) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 42%) !important;
     grid-template-rows: minmax(0, 1fr) !important;
   }
-  .home.single.brain-first:not(.chat-hidden) .workspace { grid-column: 1; grid-row: 1; }
+  .home.single.brain-first:not(.chat-hidden) .workspace {
+    grid-column: 1;
+    grid-row: 1;
+  }
   .home.single.brain-first:not(.chat-hidden) .side {
-    grid-column: 2 !important; grid-row: 1 !important;
+    grid-column: 2 !important;
+    grid-row: 1 !important;
     border-top: 0 !important;
     border-left: 1px solid var(--line) !important;
   }

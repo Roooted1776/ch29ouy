@@ -128,9 +128,9 @@ describe('free group chat', () => {
     const count = new Map<string, number>();
     for (const l of lines) count.set(l.from, (count.get(l.from) || 0) + 1);
     for (const n of count.values()) expect(n).toBeLessThanOrEqual(MAX_LINES_PER_BOT);
-    // chat never files wiki memory or the Dream inbox
+    // chat is queued for Dream (Owner, Nov 3 2026) but never files wiki pages directly
     expect(state.mem.entries).toHaveLength(0);
-    expect(state.mem.inbox).toHaveLength(0);
+    expect(state.mem.inbox).toHaveLength(1);
   });
 
   it('Stop ends the side chat: no more lines are asked for', async () => {

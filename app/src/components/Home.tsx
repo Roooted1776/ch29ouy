@@ -135,6 +135,13 @@ export default function Home() {
               </svg>
             </button>
           </div>
+          {/* Only chat lives in the chat box (Owner, Nov 3 2026): the Handoffs list sits on the brain view. */}
+          {hasFlow && (
+            <details className="handoff-summary">
+              <summary>Handoffs</summary>
+              <FlowPane />
+            </details>
+          )}
           {status && (
             <p className="workspace-status" role="status">
               {status}
@@ -144,12 +151,6 @@ export default function Home() {
       </section>
       {chatOpen && (
         <aside className="side" id="brain-chat">
-          {hasFlow && (
-            <details className="handoff-summary">
-              <summary>Handoffs</summary>
-              <FlowPane />
-            </details>
-          )}
           <ChatPanel />
         </aside>
       )}

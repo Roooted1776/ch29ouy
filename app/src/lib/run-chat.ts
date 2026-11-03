@@ -1,5 +1,6 @@
 // Chat mode: a group chat. One bot answers Owner, then teammates chime in and talk to each other
-// (Owner, Nov 1 2026). Saved as a session. Never auto-files wiki memory or the Dream inbox.
+// (Owner, Nov 1 2026). Saved as a session and queued in the Dream inbox, so every bot learns from it
+// (Owner, Nov 3 2026: chat and banter feed memory; secrets are still scrubbed before anything is saved).
 import { TYPE_COLOR } from '../data/colors';
 import { AGENT, AGENTS, roomPrompt, roomSystem, toneOf, type AgentId, type WebMode } from '../data/team';
 import { skillScore } from './chain';
@@ -158,9 +159,15 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
           };
           m.sessions.push(sess);
           m.sessions = keepSessions(m.sessions, m.entries);
-          // Chat stays out of the Dream inbox — casual talk is not trusted wiki fact.
           threadId = sess.id;
         }
+        // Chat feeds memory (Owner, Nov 3 2026): Dream reads the thread later, once per queue.
+        if (
+          threadId &&
+          extra.some(x => x.from in AGENT) &&
+          !m.inbox.some(i => i.kind === 'session' && i.ref === threadId)
+        )
+          m.inbox.push({ kind: 'session', ref: threadId });
       });
     }
     if (threadId) set({ chatThreadId: threadId });
@@ -193,7 +200,7 @@ export async function runChat(raw: string, d: TaskDeps): Promise<void> {
       tin: x.tin + res.tin,
       tout: x.tout + res.tout,
       timing: { ...x.timing, [lead]: Math.round(performance.now() - t0) },
-      status: `Chat answered by ${AGENT[lead].name}. Not filed to wiki memory.`,
+      status: `Chat answered by ${AGENT[lead].name}. Queued for memory.`,
     }));
     const lines = [reply, ...(await sideChat(lead, ctxBlock, history, said, pv, d, ctl.signal))];
     persist(lines);
