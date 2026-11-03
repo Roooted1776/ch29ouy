@@ -446,6 +446,7 @@ export async function runTask(raw: string, d: TaskDeps): Promise<void> {
       stageTokens: get().stageTokens,
       transitLatencies: get().transitLatencies,
       grokFinalReview,
+      ...(result.owner ? { owner: result.owner } : {}),
       msgs: result.msgs.map((x, i) => ({
         from: x.from,
         text: clean(x.text).slice(0, x.from === 'owner' || i === finalAt ? 4000 : 600),

@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildChainDigest, chainFor, runChain } from '../src/lib/chain';
+import { buildChainDigest, chainFor, routeTask, runChain as routedRunChain, skillScore } from '../src/lib/chain';
+import { LIVE_ORDER } from '../src/data/team';
 import { buildRequest, callModel, parseReply, ProviderError, QUOTA_LABEL } from '../src/lib/providers';
 import { finalReviewFor } from '../src/lib/approval';
 import { parseStageError } from '../src/lib/run-task';
+
+// These tests check the chain's mechanics with the whole team on board; skill routing has its own tests.
+const runChain: typeof routedRunChain = (task, tag, call, hooks, opts = {}) =>
+  routedRunChain(task, tag, call, hooks, { team: LIVE_ORDER, ...opts });
 
 const hooks = () => {
   const log: any[] = [],
@@ -25,8 +30,13 @@ const hooks = () => {
 };
 
 describe('live chain', () => {
-  it('runs all agents in review order then the lead', () => {
-    expect(chainFor('write a plan')).toEqual([
+  it('routes by skill: Gemini, Muse and Grok Bot always, plus only the matching specialists', () => {
+    expect(chainFor('write a plan')).toEqual(['gemini', 'muse', 'chatgpt', 'claude', 'grokbot']);
+    expect(chainFor('ship the iPhone app')).toEqual(['gemini', 'muse', 'xcode', 'grokbot']);
+    expect(chainFor('fix the bug in the repo')).toEqual(['gemini', 'muse', 'claude', 'cursor', 'copilot', 'grokbot']);
+    expect(chainFor('find sources and cite them')).toEqual(['gemini', 'muse', 'perplexity', 'grokbot']);
+    expect(chainFor('what are the risks of this strategy?')).toEqual(['gemini', 'muse', 'grok', 'grokbot']);
+    expect(chainFor('plan the iOS code fix, cite sources and flag security risks')).toEqual([
       'gemini',
       'muse',
       'chatgpt',
@@ -38,7 +48,29 @@ describe('live chain', () => {
       'xcode',
       'grokbot',
     ]);
-    expect(chainFor('ship the iPhone app')).toContain('xcode');
+  });
+  it('names one owner: the best skill fit, or Claude Code when nothing matches', () => {
+    expect(routeTask('ship the iPhone app').owner).toBe('xcode');
+    expect(routeTask('find sources and cite them').owner).toBe('perplexity');
+    expect(routeTask('hello there').owner).toBe('claude');
+    expect(routeTask('hello there').bots).toEqual(['gemini', 'muse', 'claude', 'grokbot']);
+    // the owner is switched off: the next best fit owns it, and an off bot never runs
+    const r = routeTask('fix the bug in the repo', ['claude']);
+    expect(r.owner).toBe('cursor');
+    expect(r.bots).not.toContain('claude');
+    expect(skillScore('ship the iPhone app', 'xcode')).toBeGreaterThan(skillScore('ship the iPhone app', 'claude'));
+  });
+  it('names the owner in the chain header and the result', async () => {
+    const { h, log } = hooks();
+    const r = await routedRunChain(
+      'ship the iPhone app',
+      'live · OpenAI · m',
+      async () => ({ text: 'ok', why: '' }),
+      h,
+    );
+    expect(r.owner).toBe('xcode');
+    expect(r.completed).toBe(4);
+    expect(log.find((m: any) => m.text.startsWith('Handoff chain:')).text).toContain('Owner of this task: Xcode');
   });
   it('each stage reviews the previous handoff and Grok Bot gets the whole chain', async () => {
     const prompts: string[] = [];

@@ -11,7 +11,7 @@ import {
   toneLine,
   toneOf,
 } from '../src/data/team';
-import { chainFor, runChain, type ChainHooks } from '../src/lib/chain';
+import { chainFor, runChain as routedRunChain, type ChainHooks } from '../src/lib/chain';
 import {
   APPROVED_FOR_DIRECTOR_REVIEW,
   LEGACY_APPROVAL_PHRASE,
@@ -24,6 +24,10 @@ import { cleanChatText } from '../src/components/ChatPanel';
 import { transitMs } from '../src/lib/geometry';
 import { PULSE_AFTERGLOW, pulseMs } from '../src/store';
 import { parseReply, ProviderError, QUOTA_LABEL } from '../src/lib/providers';
+
+// These tests check the chain's mechanics with the whole team on board; skill routing has its own tests.
+const runChain: typeof routedRunChain = (task, tag, call, hooks, opts = {}) =>
+  routedRunChain(task, tag, call, hooks, { team: LIVE_ORDER, ...opts });
 
 // Standard live message required by memory.ts isLiveSession predicate
 const LIVE_MSG: Msg = {
@@ -86,10 +90,15 @@ describe('E2E Requirements Suite: 4-Tier Opaque-Box Specification Verification',
         expect(LIVE_ORDER).toHaveLength(10);
       });
 
-      it('F1-T1-2: chainFor defaults to full 10-agent sequence for any task', () => {
-        const chain = chainFor('Architect a secure cloud microservice');
-        expect(chain).toEqual(LIVE_ORDER);
-        expect(chain).toHaveLength(10);
+      it('F1-T1-2: chainFor routes by skill: core checks plus matching specialists, in canonical order', () => {
+        // "secure" is not a risk word, so no specialist matches: Claude Code owns it by default
+        expect(chainFor('Architect a cloud microservice')).toEqual(['gemini', 'muse', 'claude', 'grokbot']);
+        expect(chainFor('Assess the security risks of a cloud microservice')).toEqual([
+          'gemini',
+          'muse',
+          'grok',
+          'grokbot',
+        ]);
       });
 
       it('F1-T1-3: Grok Bot is strictly the final lead agent across the chain', () => {
@@ -113,10 +122,10 @@ describe('E2E Requirements Suite: 4-Tier Opaque-Box Specification Verification',
       });
 
       it('F1-T1-5: chainFor filters inactive bots while preserving relative order', () => {
-        const filtered = chainFor('task', ['muse', 'xcode']);
+        const filtered = chainFor('fix the iOS code', ['muse', 'xcode']);
         expect(filtered).not.toContain('muse');
         expect(filtered).not.toContain('xcode');
-        expect(filtered).toEqual(['gemini', 'chatgpt', 'claude', 'cursor', 'copilot', 'perplexity', 'grok', 'grokbot']);
+        expect(filtered).toEqual(['gemini', 'claude', 'cursor', 'copilot', 'grokbot']);
       });
     });
 
@@ -928,8 +937,8 @@ describe('E2E Requirements Suite: 4-Tier Opaque-Box Specification Verification',
     // -----------------------------------------------------------------------
     describe('Feature 1 Boundaries & Corners', () => {
       it('F1-T2-1: chainFor handles empty task string gracefully', () => {
-        expect(chainFor('')).toEqual(LIVE_ORDER);
-        expect(chainFor('   ')).toEqual(LIVE_ORDER);
+        expect(chainFor('')).toEqual(['gemini', 'muse', 'claude', 'grokbot']);
+        expect(chainFor('   ')).toEqual(['gemini', 'muse', 'claude', 'grokbot']);
       });
 
       it('F1-T2-2: chainFor returns empty array when all 10 bots are inactive', () => {
@@ -938,7 +947,7 @@ describe('E2E Requirements Suite: 4-Tier Opaque-Box Specification Verification',
 
       it('F1-T2-3: chainFor ignores unknown/invalid agent IDs in inactive list', () => {
         const invalidInactive = ['unknown-bot', 'ghost'] as unknown as AgentId[];
-        expect(chainFor('task', invalidInactive)).toEqual(LIVE_ORDER);
+        expect(chainFor('task', invalidInactive)).toEqual(chainFor('task'));
       });
 
       it('F1-T2-4: chainFor handles single active bot surviving filter', () => {

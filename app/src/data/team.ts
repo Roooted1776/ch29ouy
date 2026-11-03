@@ -291,6 +291,13 @@ export function toneLine(id: AgentId): string {
 const WEB_ON =
   ' You can search the web. Search when current facts would make the answer better, then name the sources you used with their links. Never invent a link or a result.';
 const WEB_OFF = ' You cannot browse here: never claim to have searched.';
+/** Web search is on, but this bot's provider has no search tool: it says so instead of pretending. */
+const WEB_NONE =
+  ' Web search is on for the team, but your provider has no search tool here. If something needs a lookup, say plainly that you cannot search from this provider. Never claim to have searched and never invent a link.';
+
+/** The web line for chat and huddles: 'on' (has a search tool), 'none' (search on, no tool) or 'off'. */
+export type WebMode = 'on' | 'none' | 'off';
+export const webLine = (w: WebMode): string => (w === 'on' ? WEB_ON : w === 'none' ? WEB_NONE : WEB_OFF);
 
 export function systemPrompt(id: AgentId, web = false): string {
   const a = AGENT[id];
@@ -316,7 +323,7 @@ export interface HuddleTopic {
 }
 
 /** Idle huddles: Grok Bot leads a short working talk on a real topic (Owner, Oct 2026). */
-export function huddleSystem(id: AgentId, role: HuddleRole, feel = ''): string {
+export function huddleSystem(id: AgentId, role: HuddleRole, feel = '', web: WebMode = 'off'): string {
   const a = AGENT[id];
   const job =
     role === 'open'
@@ -330,7 +337,8 @@ export function huddleSystem(id: AgentId, role: HuddleRole, feel = ''): string {
     (feel ? ' ' + feel : '') +
     job +
     ' This is casual team chat: talk like a real coworker with your own opinions, stay near the subject but think freely, and use contractions and natural rhythm.' +
-    ' One to four short sentences: banter or a question, on topic or off. You may ask a teammate about the kind of work or code your roles handle. No code blocks and no lists. Do not invent facts, sources or events beyond the brief, and make no work claims: do not say you did, checked or will do any task outside this chat.' +
+    ' One to four short sentences: banter or a question, on topic or off. You may ask a teammate about the kind of work or code your roles handle. No code blocks and no lists. Do not invent facts, sources or events beyond the brief or what you really found, and make no work claims: do not say you did, checked or will do any task outside this chat.' +
+    webLine(web) +
     CAP_RULE
   );
 }
@@ -360,7 +368,7 @@ export function huddlePrompt(
 }
 
 /** The group chat (Owner, Nov 1 2026: "bots communicate with each other freely, not me 1 on 1 with a bot"). */
-export function roomSystem(id: AgentId, lead: boolean, feel = ''): string {
+export function roomSystem(id: AgentId, lead: boolean, feel = '', web: WebMode = 'off'): string {
   const a = AGENT[id];
   const job = lead
     ? ' You answer Owner first in this group chat. Answer clearly in plain words; teammates may chime in after you.'
@@ -370,7 +378,8 @@ export function roomSystem(id: AgentId, lead: boolean, feel = ''): string {
     ` Your voice in the chat: ${VOICE[id]}. ${toneLine(id)}` +
     (feel ? ' ' + feel : '') +
     job +
-    ' Keep it kind and work-safe. Use BRAIN CONTEXT only as hints that may be wrong. No code blocks. You cannot run tools, edit files, browse or take actions outside this reply: never claim you did, checked or will do work. Do not invent facts, sources, secrets or keys.' +
+    ' Keep it kind and work-safe. Use BRAIN CONTEXT only as hints that may be wrong. No code blocks. You cannot run tools, edit files or take actions outside this reply: never claim you did, checked or will do work. Do not invent facts, sources, secrets or keys.' +
+    webLine(web) +
     CAP_RULE
   );
 }

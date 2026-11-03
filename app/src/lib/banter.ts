@@ -17,7 +17,16 @@ import {
 import type { State } from '../store';
 import { TYPE_LABEL, plainNote, weight, type Msg } from './memory';
 import { nudge, personalityLine } from './personality';
-import { PROV, PROVIDERS, ProviderError, callModel, isLimitError, pickBotProvider, type ProviderId } from './providers';
+import {
+  PROV,
+  PROVIDERS,
+  ProviderError,
+  callModel,
+  canSearch,
+  isLimitError,
+  pickBotProvider,
+  type ProviderId,
+} from './providers';
 import { clip } from './text';
 
 /** Lines in one idle huddle: 2 to 6, picked at random each time (Owner, Nov 1 2026). */
@@ -34,8 +43,8 @@ export const BANTER_GAP_MS = 20_000;
 export const BANTER_GAP_SPREAD_MS = 20_000;
 /** Quiet time between two huddles: the team talks every now and then, not back to back (Owner, Oct 31 2026). */
 export const BANTER_SESSION_GAP_MS = 10 * 60_000; // (Nov 1 2026: save credits)
-/** Teammates who chime in after the lead reply to one Owner chat message (Owner, Nov 1 2026: "banter and side chat enabled"). */
-export const SIDE_CHAT_PER_MESSAGE = 2;
+/** Most teammate lines after the lead reply to one Owner chat message: a free group room (Owner, Nov 3 2026). */
+export const SIDE_CHAT_PER_MESSAGE = 4;
 
 /** The provider a bot speaks through: free services first, then its own company, then the main one. */
 export function botProvider(s: State, bot: AgentId, main: ProviderId): ProviderId {
@@ -224,6 +233,8 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
       if (!key) break;
       const model = st.live.models[activeProv] || PROV[activeProv].model,
         tag = `live · ${PROV[activeProv].label} · ${model} · unverified`;
+      // open web (Owner, Nov 3 2026): every huddle line may search, not only the answers
+      const web = st.live.web && canSearch(activeProv, model);
       let shown = 0;
       const onDelta = (t: string) => {
         const n = performance.now();
@@ -236,11 +247,10 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
           provider: activeProv,
           key,
           model,
-          system: huddleSystem(bot, role, personalityLine(bot)),
+          system: huddleSystem(bot, role, personalityLine(bot), web ? 'on' : st.live.web ? 'none' : 'off'),
           user: huddlePrompt(bot, role, topic, lines),
           maxTokens: Math.min(st.live.maxTokens, BANTER_MAX_TOKENS),
-          // teammates may look things up when web search is on in Settings
-          web: role === 'respond' && st.live.web,
+          web,
           signal: ctl.signal,
           onDelta,
         });
