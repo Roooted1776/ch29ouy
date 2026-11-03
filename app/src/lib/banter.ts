@@ -3,7 +3,8 @@
 // an open thread from the last task, or what deserves Owner's attention — two or three teammates
 // answer it in their voices, and Grok Bot closes with a one-line collected summary.
 // Real AI only, through the same provider plumbing as tasks, on its own small budget:
-// never touching the task call count, never filing memory. Starting a task (busy), pressing
+// never touching the task call count. A finished huddle is saved as a chat session and queued in the
+// Dream inbox, so the bots learn from each other's talk (Owner, Nov 3 2026). Starting a task (busy), pressing
 // Stop, locking the page or switching huddles off ends it at once.
 import {
   AGENT,
@@ -15,7 +16,7 @@ import {
   type HuddleTopic,
 } from '../data/team';
 import type { State } from '../store';
-import { TYPE_LABEL, plainNote, weight, type Msg } from './memory';
+import { TYPE_LABEL, keepSessions, plainNote, weight, type Msg } from './memory';
 import { nudge, personalityLine } from './personality';
 import {
   PROV,
@@ -181,6 +182,8 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
   const ctl = new AbortController();
   ctls.add(ctl);
   const lines: { from: AgentId; text: string }[] = [];
+  const said: Msg[] = [];
+  let topicText = '';
   try {
     await wait(opts.firstDelayMs ?? BANTER_FIRST_DELAY_MS, ctl.signal);
     if (halted() || ctl.signal.aborted) return 0;
@@ -220,6 +223,7 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
       ...(closes ? [{ bot: 'grokbot' as AgentId, role: 'close' as const }] : []),
     ];
     const topic = pickTopic(get(), rand);
+    topicText = topic.text;
     set(x => ({ banterSessions: x.banterSessions + 1, lastBanterAt: Date.now() }));
     for (let i = 0; i < plan.length; i++) {
       if (i > 0) await wait(opts.gapMs ?? BANTER_GAP_MS + Math.random() * BANTER_GAP_SPREAD_MS, ctl.signal);
@@ -263,6 +267,7 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
         // a task may have started while this line was written; then the line is dropped, never mixed into the task
         if (!text || get().busy || get().stopped || ctl.signal.aborted) break;
         say({ from: bot, tag, text });
+        said.push({ from: bot, tag, text });
         nudge(bot, 'spoke');
         lines.push({ from: bot, text });
       } catch (e) {
@@ -279,5 +284,25 @@ export async function runBanter(d: BanterDeps, opts: BanterOpts = {}): Promise<n
   } finally {
     ctls.delete(ctl);
   }
+  // A real exchange (two lines or more) is kept as a chat session and queued for Dream.
+  const st = get();
+  if (said.length >= 2 && st.mem.settings?.brain && !st.incognito && typeof st.commit === 'function')
+    st.commit(m => {
+      const id = 's' + m.nextSession++;
+      m.sessions.push({
+        id,
+        ts: Date.now(),
+        q: clip('Team huddle: ' + (topicText || 'check-in'), 300),
+        kind: 'chat',
+        kws: [],
+        accepted: [],
+        uncovered: [],
+        used: [],
+        learned: false,
+        msgs: said,
+      });
+      m.sessions = keepSessions(m.sessions, m.entries);
+      m.inbox.push({ kind: 'session', ref: id });
+    });
   return lines.length;
 }

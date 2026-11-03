@@ -70,7 +70,7 @@ export function gatherInbox(m: Mem, max = DREAM_BATCH): Cite[] {
       const s = m.sessions.find(x => x.id === item.ref);
       if (!s) continue;
       const replies = s.msgs
-        .filter(x => x.tag.startsWith('live'))
+        .filter(x => x.tag.startsWith('live') || x.tag.startsWith('chat'))
         .map(x => `${x.from}: ${clip(x.text.replace(/\s+/g, ' '), 300)}`)
         .join('\n');
       out.push({
