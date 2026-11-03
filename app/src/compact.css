@@ -571,3 +571,88 @@ textarea:focus {
   border-color: rgba(147, 197, 253, 0.5) !important;
   color: #93c5fd !important;
 }
+
+/* Mobile layout: automatically fit the viewport without hiding controls. */
+html, body, #root { width: 100%; min-width: 0; }
+.home.single.brain-first { min-width: 0; }
+.home.single.brain-first .workspace,
+.home.single.brain-first .stage,
+.home.single.brain-first .side { min-width: 0; min-height: 0; }
+@media (max-width: 900px) {
+  .home.single.brain-first,
+  .home.single.brain-first.chat-hidden {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 44fr) minmax(0, 56fr) !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .home.single.brain-first.chat-hidden {
+    grid-template-rows: minmax(0, 1fr) !important;
+  }
+  .home.single.brain-first .workspace {
+    grid-column: 1;
+    grid-row: 1;
+    overflow: hidden;
+  }
+  .home.single.brain-first .side {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    width: 100%;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border-left: 0 !important;
+    border-top: 1px solid var(--line) !important;
+  }
+  .home.single.brain-first.chat-hidden .workspace { grid-row: 1; }
+  .view-tools {
+    top: max(2px, env(safe-area-inset-top, 0px)) !important;
+    left: 3px !important;
+    right: 3px !important;
+    padding: 2px 3px !important;
+    gap: 3px !important;
+  }
+  .view-tools button { min-height: 32px !important; }
+  .view-tools .icon-btn { width: 32px !important; height: 32px !important; }
+  .workspace-status { top: calc(40px + env(safe-area-inset-top, 0px)) !important; }
+  .settings-drawer {
+    position: fixed !important;
+    inset: auto 3px max(3px, env(safe-area-inset-bottom, 0px)) 3px !important;
+    width: auto !important;
+    max-height: min(76dvh, 700px) !important;
+    overflow-y: auto !important;
+  }
+  .home.single.brain-first .panel.chat,
+  .home.single.brain-first .chat.grok { min-width: 0; min-height: 0; }
+  .home.single.brain-first .panel.chat {
+    padding: 3px 4px max(3px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .home.single.brain-first .handoff-summary { padding: 2px 5px 0 !important; }
+  .side .banter-bar { padding: 3px 5px !important; gap: 3px !important; }
+  .composer.minimal { padding: 4px 6px max(4px, env(safe-area-inset-bottom, 0px)) !important; }
+  .composer-key-hint { padding: 0 6px 3px !important; }
+}
+@media (max-width: 420px) {
+  .view-tools { justify-content: flex-end; }
+  .view-tools button { padding: 3px 5px !important; }
+  .agent-inspector {
+    top: calc(42px + env(safe-area-inset-top, 0px)) !important;
+    right: 4px !important;
+    width: min(280px, calc(100% - 8px)) !important;
+    max-height: calc(100% - 48px - env(safe-area-inset-top, 0px)) !important;
+  }
+  .memory-page { left: 4px; width: calc(100% - 8px); }
+}
+@media (max-height: 500px) and (orientation: landscape) and (max-width: 900px) {
+  .home.single.brain-first:not(.chat-hidden) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 42%) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+  }
+  .home.single.brain-first:not(.chat-hidden) .workspace { grid-column: 1; grid-row: 1; }
+  .home.single.brain-first:not(.chat-hidden) .side {
+    grid-column: 2 !important; grid-row: 1 !important;
+    border-top: 0 !important;
+    border-left: 1px solid var(--line) !important;
+  }
+}
