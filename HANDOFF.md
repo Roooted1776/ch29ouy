@@ -20,7 +20,7 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ## Overview & Request
 User: "we have a lot of code errors now go find and fix"
-Desktop TypeScript Problems flooded again after a later main merge reintroduced three agent scratch `tsconfig*.json` files that PR #73 had already deleted. Those configs point at absolute `/Users/claude/Projects/Brain/Nodes/...` paths that do not exist on Max's machines (TS5083 / TS2688). `app/` typecheck, lint, and tests were already clean.
+Desktop TypeScript Problems flooded again after a later main merge reintroduced three agent scratch `tsconfig*.json` files that PR #73 had already deleted. Those configs point at absolute `/Users/claude/Projects/Brain/Nodes/...` paths that do not exist on Owner's machines (TS5083 / TS2688). `app/` typecheck, lint, and tests were already clean.
 
 ## What Changed & Why
 1. Deleted the resurrected scratch configs:
@@ -119,7 +119,7 @@ Open `index.html` in browser, verify all 10 bots participate in tasks, verify co
 
 ## Overview & Request
 User: "i want all agent involved"
-Ensured all 10 agents from Max's standing team (`gemini`, `muse`, `chatgpt`, `claude`, `cursor`, `copilot`, `perplexity`, `grok`, `xcode`, `grokbot`) are actively and unconditionally involved on every single task, without Xcode sitting out on non-iOS tasks or being filtered by keyword regex.
+Ensured all 10 agents from Owner's standing team (`gemini`, `muse`, `chatgpt`, `claude`, `cursor`, `copilot`, `perplexity`, `grok`, `xcode`, `grokbot`) are actively and unconditionally involved on every single task, without Xcode sitting out on non-iOS tasks or being filtered by keyword regex.
 
 ## What Changed & Why
 1. **Unconditional 10-Agent Chain (`app/src/lib/chain.ts`)**:
@@ -172,7 +172,7 @@ Ensured all 10 agents from Max's standing team (`gemini`, `muse`, `chatgpt`, `cl
 
 ## Overview & Request
 User: "incorporate all agents, all api keys"
-Fully incorporated all 10 agents from Max's standing team (`gemini`, `muse`, `chatgpt`, `claude`, `cursor`, `copilot`, `perplexity`, `grok`, `xcode`, `grokbot`) into the live review chain, task timeline, coverage bar, and 3D brain task path. Added first-class API key providers for Perplexity (`sonar`, `pplx-`) and GitHub Models / Copilot (`gpt-4o`, `ghp_` / `github_pat_`), complete with key guide documentation, automatic key prefix detection, bidirectional credential syncing, and Content Security Policy domain whitelisting.
+Fully incorporated all 10 agents from Owner's standing team (`gemini`, `muse`, `chatgpt`, `claude`, `cursor`, `copilot`, `perplexity`, `grok`, `xcode`, `grokbot`) into the live review chain, task timeline, coverage bar, and 3D brain task path. Added first-class API key providers for Perplexity (`sonar`, `pplx-`) and GitHub Models / Copilot (`gpt-4o`, `ghp_` / `github_pat_`), complete with key guide documentation, automatic key prefix detection, bidirectional credential syncing, and Content Security Policy domain whitelisting.
 
 ## What Changed & Why
 1. **All 10 Agents in Live Execution (`app/src/data/team.ts`, `app/src/lib/chain.ts`, `app/src/lib/run-task.ts`)**:
@@ -281,7 +281,7 @@ npm run e2e
 Open `index.html` in a real browser: test the new dark translucent glass aesthetic against the tidal background, test copying an answer, test exporting a task report to Markdown, and test the task shortcuts in the composer.
 
 ## Git State
-Working tree modified locally; `main` branch. Per Max's standing rule: never `git push`, commit locally only if asked. Ready for Cursor inspection and Grok Bot verification.
+Working tree modified locally; `main` branch. Per Owner's standing rule: never `git push`, commit locally only if asked. Ready for Cursor inspection and Grok Bot verification.
 
 ---
 
@@ -408,7 +408,7 @@ Squash-merged to `main` as requested (PR #65). Extra remote branches deleted. On
 # Handoff from Claude Code — Nov 2, 2026: commits under bots, task steps on the brain, 150-word cap
 
 ## Request (Owner)
-"Not every commit gets saved; put them under the colour node they represent." "Max 150 words a bot can post on the Brain site." "Tasks are supposed to be on the brain; only banter, chat and the review are in the chat box." Then: "make everything look modern and theme it like the background", then "prepare the handoff".
+"Not every commit gets saved; put them under the colour node they represent." "Owner 150 words a bot can post on the Brain site." "Tasks are supposed to be on the brain; only banter, chat and the review are in the chat box." Then: "make everything look modern and theme it like the background", then "prepare the handoff".
 
 ## Already on main (merged and live)
 - #50, #51 (key pills, bot-card buttons, Google `AQ.` keys), #52 (live task path), #54 (every commit kept, one growing log per bot, drawn under the bot's colour node).
@@ -958,7 +958,7 @@ npm run e2e
 - Branch: `add_github_connector`
 - Isolation: Verified (0 references to RedMed, 0 RedMed files touched).
 - Working tree: All files built and ready locally.
-- In accordance with Max's standing rule ("Never `git push`. Max pushes himself when available. Commit locally only if asked"), changes remain local for Max's inspection and push.
+- In accordance with Owner's standing rule ("Never `git push`. Owner pushes himself when available. Commit locally only if asked"), changes remain local for Owner's inspection and push.
 
 ---
 
@@ -1053,7 +1053,7 @@ npm run e2e
 - Branch: `add_github_connector`
 - Isolation: Verified (0 references to RedMed, 0 RedMed files touched).
 - Working tree: All files built and ready locally.
-- In accordance with Max's standing rule ("Never `git push`. Max pushes himself when available. Commit locally only if asked"), changes remain local for Max's inspection and push.
+- In accordance with Owner's standing rule ("Never `git push`. Owner pushes himself when available. Commit locally only if asked"), changes remain local for Owner's inspection and push.
 
 ---
 
@@ -1436,7 +1436,7 @@ To manually inspect the UI:
 - **Branch**: `main`
 - **Head Commit**: `2d09dac`
 - **State**: Uncommitted verified changes in working tree.
-- **Rule Compliance**: Never `git push`. Max pushes himself when available. No remote branches or tags were created.
+- **Rule Compliance**: Never `git push`. Owner pushes himself when available. No remote branches or tags were created.
 
 ---
 
