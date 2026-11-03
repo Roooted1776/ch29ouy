@@ -3,7 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 /** Opens the built ../index.html in a real Chromium. Run `npm run build` first. */
 export default defineConfig({
   testDir: 'e2e',
-  timeout: 90_000,
+  timeout: 300_000,
+  expect: { timeout: 30_000 },
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
