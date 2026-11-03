@@ -10,6 +10,7 @@ const fake = vi.hoisted(() => {
     tokens: new Map<string, string>(),
     calls: [] as string[],
     localDev: '',
+    pruneFails: false,
   };
   const client = {
     from(table: string) {
@@ -36,6 +37,7 @@ const fake = vi.hoisted(() => {
     },
     async rpc(name: string) {
       state.calls.push(`rpc ${name}`);
+      if (name === 'prune_task_events' && state.pruneFails) return { data: null, error: { message: 'boom secret detail' } };
       if (name === 'prune_task_events') {
         const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
         state.events = state.events.filter(e => (e.created_at as number) >= cutoff);
@@ -81,6 +83,7 @@ beforeEach(async () => {
   fake.state.events = [];
   fake.state.calls = [];
   fake.state.localDev = '';
+  fake.state.pruneFails = false;
   fake.state.tokens = new Map([
     ['admin-token', 'u1'],
     ['viewer-token', 'u2'],
@@ -194,5 +197,35 @@ describe('task-events function: browser origins', () => {
     expect(await allow('http://localhost:5173')).toBe('http://localhost:5173');
     expect(await allow('http://127.0.0.1:5173')).toBe('http://127.0.0.1:5173');
     expect(await allow('null')).toBeNull();
+  });
+});
+
+describe('task-events function: Audits lows', () => {
+  it('caps the body at 1 KB in bytes, not characters (multibyte)', async () => {
+    // 470 x 'é' is 470 characters but 940 bytes: the body is over 1024 bytes yet under 1024 characters.
+    const body = JSON.stringify({ ...GOOD, pad: 'é'.repeat(470) });
+    expect(body.length).toBeLessThan(1024);
+    expect(new TextEncoder().encode(body).length).toBeGreaterThan(1024);
+    expect((await call(body, 'admin-token')).status).toBe(413);
+    expect(fake.state.events).toEqual([]);
+  });
+
+  it('a failed cleanup is logged generically and the write still succeeds', async () => {
+    fake.state.pruneFails = true;
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await call(GOOD, 'admin-token');
+    expect(r.status).toBe(200);
+    expect(fake.state.events).toHaveLength(1);
+    expect(log).toHaveBeenCalledWith('Task event cleanup failed');
+    expect(JSON.stringify(log.mock.calls)).not.toContain('boom');
+    log.mockRestore();
+  });
+
+  it('admin check matches private.is_admin(): only a profile whose role is exactly admin', async () => {
+    fake.state.profiles.push({ id: 'u3', role: 'Admin' }, { id: 'u4', role: ' admin' }, { id: 'u5', role: null });
+    for (const [t, id] of [['t3', 'u3'], ['t4', 'u4'], ['t5', 'u5']]) fake.state.tokens.set(t, id);
+    for (const t of ['t3', 't4', 't5']) expect((await call(GOOD, t)).status).toBe(403);
+    expect((await call(GOOD, 'admin-token')).status).toBe(200);
+    expect(fake.state.events.map(e => e.created_by)).toEqual(['u1']);
   });
 });

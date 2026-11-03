@@ -89,20 +89,22 @@ export function checkEvent(b: unknown) {
   return { task_id, step, from_agent, to_agent, words: w, status };
 }
 
+// Same rule as private.is_admin(): a profile row for this user id whose role is exactly 'admin'.
+export const isAdminProfile = (p: { role?: unknown } | null | undefined) => !!p && p.role === 'admin';
 async function admin(req: Request) {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   if (!token) throw new Refuse('Sign in first.', 401);
   const { data, error } = await db.auth.getUser(token);
   if (error || !data.user) throw new Refuse('Sign in again.', 401);
   const { data: p } = await db.from('profiles').select('id, role').eq('id', data.user.id).maybeSingle();
-  if (!p || p.role !== 'admin') throw new Refuse('Only admins can write the live feed.', 403);
+  if (!isAdminProfile(p)) throw new Refuse('Only admins can write the live feed.', 403);
   return p.id as string;
 }
 
 async function handle(req: Request) {
   const who = await admin(req);
   const text = await req.text();
-  if (text.length > MAX_BODY) throw new Refuse('The step event is too long.', 413);
+  if (new TextEncoder().encode(text).length > MAX_BODY) throw new Refuse('The step event is too long.', 413);
   let body: unknown;
   try {
     body = JSON.parse(text);
@@ -112,7 +114,9 @@ async function handle(req: Request) {
   const row = checkEvent(body);
   const { error } = await db.from('task_events').insert({ ...row, created_by: who });
   if (error) throw new Refuse("Live feed couldn't save this step.", 409);
-  await db.rpc('prune_task_events');
+  // Cleanup failing must not lose the step that was just saved; log it without any details.
+  const { error: pe } = await db.rpc('prune_task_events');
+  if (pe) console.error('Task event cleanup failed');
   return { ok: true };
 }
 
