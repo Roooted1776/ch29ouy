@@ -179,6 +179,58 @@ reset role;
 select tests.count_is($$select 1 from public.vaults where rev = 2 and updated_at > '2001-01-01'$$, 1,
   'the vault keeps the database timestamp');
 
+-- 4b. The live feed (task_events): admins read it, nobody else does, and nobody writes it directly --
+-- Fixture rows go in as the migration role, standing in for the task-events function (service role).
+insert into public.task_events (created_by, task_id, step, from_agent, to_agent, words, status) values
+  ('11111111-1111-1111-1111-111111111111', 't1', 'handoff', 'grokbot', 'claude', 120, 'handoff');
+select tests.refused($$insert into public.task_events (task_id, step, from_agent, to_agent, words, status)
+  values ('t2', 'x', 'grokbot', 'stranger', 1, 'done')$$, 'a task event from an unknown agent');
+select tests.refused($$insert into public.task_events (task_id, step, from_agent, to_agent, words, status)
+  values ('t2', 'x', 'grokbot', 'claude', 100001, 'done')$$, 'a task event over the word cap');
+select tests.refused($$insert into public.task_events (task_id, step, from_agent, to_agent, words, status)
+  values ('t2', repeat('a', 25), 'grokbot', 'claude', 1, 'done')$$, 'a task event step over 24 characters');
+select tests.refused($$insert into public.task_events (task_id, step, from_agent, to_agent, words, status)
+  values ('eyJhbGciOiJIUzI1NiJ9.payload', 'x', 'grokbot', 'claude', 1, 'done')$$, 'a token as a task id');
+select tests.refused($$insert into public.task_events (task_id, step, from_agent, to_agent, words, status)
+  values ('t2', 'x', 'grokbot', 'claude', 1, 'free text')$$, 'free text as a status');
+-- anon: no grant at all, so any read is refused (zero rows ever reach anon).
+set role anon;
+select tests.refused('select 1 from public.task_events', 'anon reads the live feed');
+select tests.refused($$select public.prune_task_events()$$, 'anon prunes the live feed');
+reset role;
+set request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+set role authenticated;
+select tests.count_is('select 1 from public.task_events', 0, 'non-admin login reads the live feed');
+select tests.refused($$insert into public.task_events (task_id, step, from_agent, to_agent, words, status)
+  values ('t3', 'x', 'grokbot', 'claude', 1, 'done')$$, 'non-admin login writes the live feed');
+select tests.refused($$select public.prune_task_events()$$, 'non-admin login prunes the live feed');
+reset role;
+set request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+set role authenticated;
+select tests.count_is('select 1 from public.task_events', 1, 'admin reads the live feed');
+select tests.refused($$insert into public.task_events (task_id, step, from_agent, to_agent, words, status)
+  values ('t3', 'x', 'grokbot', 'claude', 1, 'done')$$, 'admin writes the live feed directly');
+select tests.refused('update public.task_events set words = 9', 'admin rewrites the live feed');
+select tests.refused('delete from public.task_events', 'admin deletes the live feed directly');
+reset role;
+set request.jwt.claims = '';
+-- 7-day retention: an 8-day-old row is removed, a fresh one is kept.
+insert into public.task_events (task_id, step, from_agent, to_agent, words, status, created_at) values
+  ('old', 'handoff', 'grok', 'claude', 5, 'done', now() - interval '8 days');
+select public.prune_task_events();
+select tests.count_is($$select 1 from public.task_events where task_id = 'old'$$, 0, 'rows older than 7 days are pruned');
+select tests.count_is($$select 1 from public.task_events where task_id = 't1'$$, 1, 'fresh rows are kept');
+-- Daily cleanup job: present wherever pg_cron exists (live Supabase); skipped on plain Postgres.
+do $$
+declare n bigint;
+begin
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    execute $q$select count(*) from cron.job where jobname = 'brain-prune-task-events'
+      and command = 'select public.prune_task_events()'$q$ into n;
+    if n <> 1 then raise exception 'FAIL: the daily task_events cleanup job is missing'; end if;
+  end if;
+end $$;
+
 -- 4. Removing an account keeps its history and works at all -----------------------------------
 set request.jwt.claims = '';
 delete from auth.users where id = '33333333-3333-3333-3333-333333333333';
