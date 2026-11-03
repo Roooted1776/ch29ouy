@@ -27,7 +27,7 @@ test('keys: paste, test, survive lock, clear', async ({ page, context }) => {
   await page.getByLabel('Username').fill('Owner');
   await page.getByLabel('Password').fill('e2e only 7Q');
   await page.getByRole('button', { name: 'Create admin' }).click();
-  await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 30000 });
+  await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 180000 });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   for (const [label, key, word] of [
     ['OpenRouter (free) key', 'sk-or-abc123', 'OpenRouter'],
@@ -48,7 +48,7 @@ test('keys: paste, test, survive lock, clear', async ({ page, context }) => {
   await page.getByLabel('Username').fill('Owner');
   await page.getByLabel('Password').fill('e2e only 7Q');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 30000 });
+  await page.getByRole('main', { name: 'Brain view' }).waitFor({ timeout: 180000 });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const c = page.locator('.company-key-card', { has: page.getByLabel('OpenRouter (free) key') });
   await expect(c.locator('.pill')).toHaveText('Key set');

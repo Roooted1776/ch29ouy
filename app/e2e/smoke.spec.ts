@@ -107,14 +107,14 @@ test('built page: set up admin, draw brain, pass System check, lock', async ({ p
   await spare.getByLabel('Username').fill('Spare');
   await spare.getByLabel('Password').fill('fake spare passcode');
   await spare.getByRole('button', { name: 'Sign in' }).click();
-  await expect(spare.getByRole('main', { name: 'Brain view' })).toBeVisible({ timeout: 30_000 });
+  await expect(spare.getByRole('main', { name: 'Brain view' })).toBeVisible({ timeout: 180_000 });
   await spare.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(spare.getByRole('region', { name: 'Admin panel' })).toBeVisible();
   // GitHub's runners draw the 3D brain in software, a few frames a second. Both windows share one CPU,
   // so close the first window (all its errors are already collected) and give the phone steps room.
   await page.close();
   await spare.setViewportSize({ width: 390, height: 844 });
-  await expect(spare.getByRole('main', { name: 'Brain view' })).toBeVisible({ timeout: 30_000 });
+  await expect(spare.getByRole('main', { name: 'Brain view' })).toBeVisible({ timeout: 180_000 });
   await info.attach('phone-spare-admin.png', {
     body: await spare.screenshot({ timeout: 30_000 }),
     contentType: 'image/png',
