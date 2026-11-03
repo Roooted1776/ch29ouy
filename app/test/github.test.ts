@@ -220,7 +220,7 @@ describe('GitHub Connector - Data Fetching & Decoding', () => {
             sha: 'abcdef1234567890abcdef1234567890abcdef12',
             commit: {
               message: 'feat: automated GitHub push pipeline\n\nVerified check workflow.',
-              author: { name: 'Max', date: '2026-10-25T01:15:00Z' },
+              author: { name: 'Owner', date: '2026-10-25T01:15:00Z' },
             },
             html_url: 'https://github.com/Roooted1776/Brain/commit/abcdef1',
           },
@@ -231,7 +231,7 @@ describe('GitHub Connector - Data Fetching & Decoding', () => {
     const commits = await fetchGitHubCommits('Roooted1776/Brain', { limit: 5 }, fakeFetch as typeof fetch);
     expect(commits.length).toBe(1);
     expect(commits[0].sha).toBe('abcdef1234567890abcdef1234567890abcdef12');
-    expect(commits[0].author).toBe('Max');
+    expect(commits[0].author).toBe('Owner');
     expect(commits[0].message).toContain('automated GitHub push pipeline');
   });
 
@@ -357,18 +357,18 @@ describe('GitHub Connector - Memory Items Conversion', () => {
   });
 
   it('files every commit under the bot that made it, and people under Owner', () => {
-    expect(commitBot({ author: 'Max', message: 'Fix\n\nCo-Authored-By: Claude Opus <noreply@anthropic.com>' })).toBe(
+    expect(commitBot({ author: 'Owner', message: 'Fix\n\nCo-Authored-By: Claude Opus <noreply@anthropic.com>' })).toBe(
       'claude',
     );
     expect(commitBot({ author: 'cursoragent', message: 'x' })).toBe('cursor');
-    expect(commitBot({ author: 'Max', message: 'Plain change' })).toBeNull();
+    expect(commitBot({ author: 'Owner', message: 'Plain change' })).toBeNull();
     const items = githubToMemoryItems(
       {
         repoInfo,
         readme: null,
         commits: [
           { sha: 'aaaaaaa1', message: 'one', author: 'Codex', date: '', htmlUrl: 'u' },
-          { sha: 'bbbbbbb2', message: 'two', author: 'Max', date: '', htmlUrl: 'u' },
+          { sha: 'bbbbbbb2', message: 'two', author: 'Owner', date: '', htmlUrl: 'u' },
         ],
       },
       'Brain',
