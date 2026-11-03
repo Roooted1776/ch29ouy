@@ -42,7 +42,7 @@ if ! "$sb" start >"$scratch/start.log" 2>&1; then
     | sed -E -e 's/eyJ[A-Za-z0-9._-]*/[redacted]/g' \
       -e 's/sb_secret_[A-Za-z0-9_-]*/[redacted]/g' \
       -e 's/sb_publishable_[A-Za-z0-9_-]*/[redacted]/g' \
-      -e 's/((key|secret|password)=)[^[:space:]]*/\1[redacted]/gI' \
+      -e 's/(([Kk][Ee][Yy]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd])=)[^[:space:]]*/\1[redacted]/g' \
       -e 's#(://[^:/@]+:)[^@]+@#\1[redacted]@#g' >&2 || true
   echo "supabase start failed" >&2
   exit 1

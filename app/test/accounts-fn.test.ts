@@ -11,6 +11,7 @@ const fake = vi.hoisted(() => {
     lease: false,
     calls: [] as string[],
     deleteFails: false,
+    localDev: '' as string,
   };
   function query(table: string) {
     const rows = () => {
@@ -163,9 +164,10 @@ beforeEach(async () => {
   fake.state.lease = false;
   fake.state.calls = [];
   fake.state.deleteFails = false;
+  fake.state.localDev = '';
   if (!handler) {
     (globalThis as unknown as { Deno: unknown }).Deno = {
-      env: { get: () => 'fake-not-a-real-value' },
+      env: { get: (k: string) => (k === 'BRAIN_LOCAL_DEV' ? fake.state.localDev : 'fake-not-a-real-value') },
       serve: (h: typeof handler) => {
         handler = h;
       },
@@ -282,13 +284,7 @@ describe('accounts function: removing accounts', () => {
 
 describe('accounts function: browser origins', () => {
   it('allows GitHub Pages and redeemed.live, refuses other sites', async () => {
-    for (const origin of [
-      'https://roooted1776.github.io',
-      'https://redeemed.live',
-      'https://www.redeemed.live',
-      'http://localhost:5173',
-      'null',
-    ]) {
+    for (const origin of ['https://roooted1776.github.io', 'https://redeemed.live', 'https://www.redeemed.live']) {
       const res = await options(origin);
       expect(res.status).toBe(200);
       expect(res.headers.get('access-control-allow-origin')).toBe(origin);
@@ -296,6 +292,22 @@ describe('accounts function: browser origins', () => {
     const blocked = await options('https://evil.example');
     expect(blocked.status).toBe(200);
     expect(blocked.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('refuses null and localhost origins unless running locally', async () => {
+    for (const origin of ['null', 'http://localhost:5173', 'http://127.0.0.1:5173'])
+      expect((await options(origin)).headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('allows localhost only when running locally (BRAIN_LOCAL_DEV=1), never null', async () => {
+    fake.state.localDev = '1';
+    expect((await options('http://localhost:5173')).headers.get('access-control-allow-origin')).toBe(
+      'http://localhost:5173',
+    );
+    expect((await options('http://127.0.0.1:5173')).headers.get('access-control-allow-origin')).toBe(
+      'http://127.0.0.1:5173',
+    );
+    expect((await options('null')).headers.get('access-control-allow-origin')).toBeNull();
   });
 });
 
