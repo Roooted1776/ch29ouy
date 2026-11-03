@@ -36,10 +36,14 @@ cd "$scratch"
 echo "starting a local Supabase stack from $scratch (output hidden; it contains local keys)"
 started=1
 if ! "$sb" start >"$scratch/start.log" 2>&1; then
+  # Drop any line naming a key/secret/token/password, then redact what is left.
   tail -n 20 "$scratch/start.log" \
+    | grep -viE 'key|secret|token|password' \
     | sed -E -e 's/eyJ[A-Za-z0-9._-]*/[redacted]/g' \
       -e 's/sb_secret_[A-Za-z0-9_-]*/[redacted]/g' \
-      -e 's/sb_publishable_[A-Za-z0-9_-]*/[redacted]/g' >&2 || true
+      -e 's/sb_publishable_[A-Za-z0-9_-]*/[redacted]/g' \
+      -e 's/((key|secret|password)=)[^[:space:]]*/\1[redacted]/gI' \
+      -e 's#(://[^:/@]+:)[^@]+@#\1[redacted]@#g' >&2 || true
   echo "supabase start failed" >&2
   exit 1
 fi
@@ -54,7 +58,10 @@ if ! [[ "$api_url" =~ ^http://(127\.0\.0\.1|localhost):[0-9]+$ ]]; then
   echo "refusing to run: the API URL is not a local stack ($api_url)" >&2
   exit 1
 fi
-[ -n "$anon_key" ] && [ -n "$service_key" ] || { echo "local keys missing from supabase status" >&2; exit 1; }
+if [ -z "$anon_key" ] || [ -z "$service_key" ]; then
+  echo "local keys missing from supabase status" >&2
+  exit 1
+fi
 echo "local API at $api_url"
 
 cd "$repo/app"
