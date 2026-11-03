@@ -67,3 +67,7 @@ enable_confirmations = true
 [functions.accounts]
 # The accounts function checks every caller itself (sign-in token, then admin role).
 verify_jwt = false
+
+[functions.task-events]
+# The task-events function checks every caller itself (sign-in token, then admin role), like accounts.
+verify_jwt = false
