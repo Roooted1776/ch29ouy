@@ -13,23 +13,33 @@ sb="${SUPABASE_BIN:-supabase}"
 command -v "$sb" >/dev/null || { echo "Supabase CLI not found (set SUPABASE_BIN)" >&2; exit 1; }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/brain-local-stack.XXXXXX")"
+started=0
+# Cleanup is armed right after mktemp, so a failed sed/grep below still removes the scratch folder.
+# The stack is only stopped if this script started it (from the scratch copy's unique project_id).
+stop() {
+  if [ "$started" = 1 ]; then
+    (cd "$scratch" && "$sb" stop --no-backup >/dev/null 2>&1) || true
+  fi
+  rm -rf "$scratch"
+}
+trap stop EXIT
 cp -R "$repo/supabase" "$scratch/supabase"
 cfg="$scratch/supabase/config.toml"
 # Scratch-only edits: apply the migrations on start and let the local API see the tables.
 sed -i.bak -e '/^\[db\.migrations\]/,/^\[/ s/^enabled = false/enabled = true/' \
-  -e 's/^auto_expose_new_tables = false/auto_expose_new_tables = true/' "$cfg"
+  -e 's/^auto_expose_new_tables = false/auto_expose_new_tables = true/' \
+  -e "s/^project_id = .*/project_id = \"brain-local-check-$$\"/" "$cfg"
+grep -q "^project_id = \"brain-local-check-$$\"" "$cfg" || { echo "could not set a unique project_id in the scratch copy" >&2; exit 1; }
 grep -q '^enabled = true' <(sed -n '/^\[db\.migrations\]/,/^\[/p' "$cfg") || { echo "could not enable migrations in the scratch copy" >&2; exit 1; }
-
-stop() {
-  (cd "$scratch" && "$sb" stop --no-backup >/dev/null 2>&1) || true
-  rm -rf "$scratch"
-}
-trap stop EXIT
 
 cd "$scratch"
 echo "starting a local Supabase stack from $scratch (output hidden; it contains local keys)"
+started=1
 if ! "$sb" start >"$scratch/start.log" 2>&1; then
-  grep -viE 'key|secret|jwt|token' "$scratch/start.log" >&2 || true
+  tail -n 20 "$scratch/start.log" \
+    | sed -E -e 's/eyJ[A-Za-z0-9._-]*/[redacted]/g' \
+      -e 's/sb_secret_[A-Za-z0-9_-]*/[redacted]/g' \
+      -e 's/sb_publishable_[A-Za-z0-9_-]*/[redacted]/g' >&2 || true
   echo "supabase start failed" >&2
   exit 1
 fi
