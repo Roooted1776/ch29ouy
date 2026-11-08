@@ -8,13 +8,21 @@ const URL_ = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 
-// Brain's live pages only. No `null` origin (a page opened from disk) here. Localhost is allowed only
-// when the function runs locally (`supabase functions serve` with BRAIN_LOCAL_DEV=1 in its env file).
+// Only Brain's own pages may call this function from a browser: GitHub Pages, redeemed.live,
+// local dev (localhost:5173, 127.0.0.1:5173), and the built index.html opened from disk ('null').
 // The real gate is the admin check below.
-const LIVE_ORIGINS = ['https://roooted1776.github.io', 'https://redeemed.live', 'https://www.redeemed.live'];
-const LOCAL_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-export const allowedOrigins = () =>
-  new Set(Deno.env.get('BRAIN_LOCAL_DEV') === '1' ? [...LIVE_ORIGINS, ...LOCAL_ORIGINS] : LIVE_ORIGINS);
+const ORIGINS = new Set([
+  'https://roooted1776.github.io',
+  'http://roooted1776.github.io',
+  'https://redeemed.live',
+  'http://redeemed.live',
+  'https://www.redeemed.live',
+  'http://www.redeemed.live',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'null',
+]);
+export const allowedOrigins = () => ORIGINS;
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get('origin') || '';
   return {

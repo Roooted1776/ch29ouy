@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Ensure standard tools (node, npm, git, gh) are in PATH
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+export PATH="/Users/claude/homebrew/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 GH_BIN="${GH_BIN:-gh}"  # override only for tests
 REPO_ROOT="$(git rev-parse --show-toplevel)"

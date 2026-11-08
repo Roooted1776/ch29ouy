@@ -16,6 +16,51 @@ Records below are history. Any order in them to push to main, merge everything, 
 
 ---
 
+# Handoff from Gemini (via Claude) — Nov 8, 2026: Restore local dev and file origin CORS support
+
+## Overview & Request
+User: "on local will not connect" and "and git pages https://roooted1776.github.io/ch29ouy/"
+User reported that Brain failed to connect on local and asked about GitHub Pages, showing "Cannot reach Brain's server. Check the internet connection and try again." (with a Retry button).
+
+## What Changed & Why
+1. In PR #79 (commit e439094) and PR #78 (commit 1511b9e), `supabase/functions/accounts/index.ts` and `supabase/functions/task-events/index.ts` restricted `localhost` origins to `BRAIN_LOCAL_DEV === '1'` and dropped origin `null`. Because the deployed cloud Supabase environment does not set `BRAIN_LOCAL_DEV=1`, browser requests from `http://localhost:5173`, `http://127.0.0.1:5173`, and double-clicked desktop builds (`origin: null`) were rejected by CORS on `ACCOUNTS_URL` (`https://iihjcqiiavleyheqzotl.supabase.co/functions/v1/accounts`).
+2. Restored `http://localhost:5173`, `http://127.0.0.1:5173`, and `null` to `allowedOrigins` in `supabase/functions/accounts/index.ts` and `supabase/functions/task-events/index.ts`. Also added `http://roooted1776.github.io` and `http://redeemed.live` variants to guard against non-HTTPS browser origins.
+3. Updated unit tests in `app/test/accounts-fn.test.ts` and `app/test/task-events-fn.test.ts` to assert CORS allow-origin on `null`, `localhost`, `127.0.0.1`, and production origins.
+4. Added `/Users/claude/homebrew/bin` to `PATH` in `scripts/push-work.sh` so `node`, `npm`, and `gh` resolve reliably.
+5. Preserved RedMed isolation (RedMed remains completely untouched).
+
+## Files Touched
+- `supabase/functions/accounts/index.ts`
+- `supabase/functions/task-events/index.ts`
+- `app/test/accounts-fn.test.ts`
+- `app/test/task-events-fn.test.ts`
+- `scripts/push-work.sh`
+- `HANDOFF.md`
+
+## Checks & Real Results
+- `npm run format`: clean (124 files formatted)
+- `npm run lint`: 0 errors (39 warnings, 2 infos — baseline unchanged)
+- `npm run typecheck`: clean (0 errors)
+- `npm test`: 47 suites passed, 1 skipped (504 passed, 3 skipped in 16.48s)
+- `npm run build`: single-file `index.html` (1747 KB) with CSP script hash pinned
+- `npm run e2e`: 3 passed (smoke.spec.ts: 23.1s, keys.spec.ts: 7.2s, brain.spec.ts: 11.9s)
+
+## How the Next AI Should Check It
+```bash
+cd app
+npm run format
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run e2e
+```
+
+## Git State
+Branch `fix/allow-local-and-git-pages-origins` created. PR opened to `main` for Owner/Director review. RedMed untouched.
+
+---
+
 # Handoff from Cursor — Nov 2, 2026: Re-delete resurrected agent tsconfigs
 
 ## Overview & Request

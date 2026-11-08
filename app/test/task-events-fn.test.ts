@@ -37,7 +37,8 @@ const fake = vi.hoisted(() => {
     },
     async rpc(name: string) {
       state.calls.push(`rpc ${name}`);
-      if (name === 'prune_task_events' && state.pruneFails) return { data: null, error: { message: 'boom secret detail' } };
+      if (name === 'prune_task_events' && state.pruneFails)
+        return { data: null, error: { message: 'boom secret detail' } };
       if (name === 'prune_task_events') {
         const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
         state.events = state.events.filter(e => (e.created_at as number) >= cutoff);
@@ -185,18 +186,18 @@ describe('task-events function: browser origins', () => {
       'access-control-allow-origin',
     );
 
-  it('allows the live Brain pages and refuses null, other sites and (in production) localhost', async () => {
-    for (const o of ['https://roooted1776.github.io', 'https://redeemed.live', 'https://www.redeemed.live'])
+  it('allows the live Brain pages, local dev and null, refuses other sites', async () => {
+    for (const o of [
+      'https://roooted1776.github.io',
+      'http://roooted1776.github.io',
+      'https://redeemed.live',
+      'https://www.redeemed.live',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'null',
+    ])
       expect(await allow(o)).toBe(o);
-    for (const o of ['null', 'https://evil.example', 'http://localhost:5173', 'http://127.0.0.1:5173'])
-      expect(await allow(o)).toBeNull();
-  });
-
-  it('allows localhost only when running locally (BRAIN_LOCAL_DEV=1), never null', async () => {
-    fake.state.localDev = '1';
-    expect(await allow('http://localhost:5173')).toBe('http://localhost:5173');
-    expect(await allow('http://127.0.0.1:5173')).toBe('http://127.0.0.1:5173');
-    expect(await allow('null')).toBeNull();
+    for (const o of ['https://evil.example', 'https://other-site.com']) expect(await allow(o)).toBeNull();
   });
 });
 
@@ -223,7 +224,12 @@ describe('task-events function: Audits lows', () => {
 
   it('admin check matches private.is_admin(): only a profile whose role is exactly admin', async () => {
     fake.state.profiles.push({ id: 'u3', role: 'Admin' }, { id: 'u4', role: ' admin' }, { id: 'u5', role: null });
-    for (const [t, id] of [['t3', 'u3'], ['t4', 'u4'], ['t5', 'u5']]) fake.state.tokens.set(t, id);
+    for (const [t, id] of [
+      ['t3', 'u3'],
+      ['t4', 'u4'],
+      ['t5', 'u5'],
+    ])
+      fake.state.tokens.set(t, id);
     for (const t of ['t3', 't4', 't5']) expect((await call(GOOD, t)).status).toBe(403);
     expect((await call(GOOD, 'admin-token')).status).toBe(200);
     expect(fake.state.events.map(e => e.created_by)).toEqual(['u1']);
