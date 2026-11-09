@@ -186,18 +186,18 @@ describe('task-events function: browser origins', () => {
       'access-control-allow-origin',
     );
 
-  it('allows the live Brain pages and refuses null, other sites and (in production) localhost', async () => {
-    for (const o of ['https://roooted1776.github.io', 'https://redeemed.live', 'https://www.redeemed.live'])
+  it('allows the live Brain pages, local dev and null, refuses other sites', async () => {
+    for (const o of [
+      'https://roooted1776.github.io',
+      'http://roooted1776.github.io',
+      'https://redeemed.live',
+      'https://www.redeemed.live',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'null',
+    ])
       expect(await allow(o)).toBe(o);
-    for (const o of ['null', 'https://evil.example', 'http://localhost:5173', 'http://127.0.0.1:5173'])
-      expect(await allow(o)).toBeNull();
-  });
-
-  it('allows localhost only when running locally (BRAIN_LOCAL_DEV=1), never null', async () => {
-    fake.state.localDev = '1';
-    expect(await allow('http://localhost:5173')).toBe('http://localhost:5173');
-    expect(await allow('http://127.0.0.1:5173')).toBe('http://127.0.0.1:5173');
-    expect(await allow('null')).toBeNull();
+    for (const o of ['https://evil.example', 'https://other-site.com']) expect(await allow(o)).toBeNull();
   });
 });
 

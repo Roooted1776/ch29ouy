@@ -6,6 +6,7 @@ app/node_modules/
 app/test-results/
 app/playwright-report/
 .DS_Store
+Icon*
 
 # Agent scratch tsconfigs under .agents/ (often absolute /Users/claude paths) break Desktop TS.
 .agents/**/tsconfig*.json
